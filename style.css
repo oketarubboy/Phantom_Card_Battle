@@ -666,3 +666,109 @@ textarea {
   width: 58px;
   margin-top: 0;
 }
+
+.deck-filter-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 190px 110px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.deck-filter-row .search {
+  margin-bottom: 0;
+}
+
+.sort-select {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: rgba(0,0,0,0.22);
+  outline: none;
+  font-weight: 700;
+}
+
+.sort-select option {
+  color: #111827;
+}
+
+.opponent-open {
+  border-color: rgba(255, 107, 124, 0.65);
+  background:
+    linear-gradient(135deg, rgba(255,107,124,0.18), rgba(255,255,255,0.03)),
+    #2a243f;
+  cursor: default;
+}
+
+.opponent-open.used {
+  opacity: 0.55;
+}
+
+.coin-toss-box {
+  display: grid;
+  place-items: center;
+  gap: 16px;
+  min-height: 210px;
+  text-align: center;
+}
+
+.coin-toss-coin {
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  border: 8px solid rgba(255,255,255,0.22);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255,255,255,0.72), transparent 18%),
+    linear-gradient(135deg, #ffd66b, #ff9c45 52%, #a35d1b);
+  color: #291a09;
+  font-size: 28px;
+  font-weight: 1000;
+  letter-spacing: 0.08em;
+  box-shadow: 0 22px 50px rgba(0,0,0,0.34);
+  animation: coinFlip 0.42s linear infinite, coinBounce 0.84s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+
+.coin-toss-coin.coin-player,
+.coin-toss-coin.coin-npc {
+  animation: coinSettle 0.55s ease both;
+}
+
+.coin-toss-coin.coin-player {
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255,255,255,0.72), transparent 18%),
+    linear-gradient(135deg, #8fd4ff, #4aa3ff 52%, #24569f);
+  color: white;
+}
+
+.coin-toss-coin.coin-npc {
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255,255,255,0.72), transparent 18%),
+    linear-gradient(135deg, #ff9cab, #ff5872 52%, #97233b);
+  color: white;
+}
+
+@keyframes coinFlip {
+  from { transform: rotateY(0deg) rotateX(0deg); }
+  to { transform: rotateY(360deg) rotateX(24deg); }
+}
+
+@keyframes coinBounce {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -18px; }
+}
+
+@keyframes coinSettle {
+  from { transform: rotateY(270deg) scale(0.9); }
+  to { transform: rotateY(0deg) scale(1); }
+}
+
+@media (max-width: 720px) {
+  .deck-filter-row {
+    grid-template-columns: 1fr;
+  }
+}

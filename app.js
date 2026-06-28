@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 const SAVE_KEY = "phantom_card_battle_save_v1";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -11,6 +11,7 @@ const state = {
   save: null,
   selectedDeckIndex: 0,
   selectedHandIndex: null,
+  deckSort: { field: "rarity", order: "desc" },
   battle: null,
   pixi: {
     app: null,
@@ -33,6 +34,36 @@ const screens = {
   collection: $("screen-collection"),
   settings: $("screen-settings")
 };
+
+const DECK_SORT_FIELDS = new Set(["name", "rarity", "right", "up", "left", "down", "power"]);
+
+function normalizeDeckSort() {
+  if (!DECK_SORT_FIELDS.has(state.deckSort.field)) state.deckSort.field = "rarity";
+  if (!["asc", "desc"].includes(state.deckSort.order)) state.deckSort.order = "desc";
+}
+
+function compareOwnedCards(a, b) {
+  normalizeDeckSort();
+  const direction = state.deckSort.order === "asc" ? 1 : -1;
+  const field = state.deckSort.field;
+  let result = 0;
+
+  if (field === "name") {
+    result = String(a.name).localeCompare(String(b.name), "ja");
+  } else {
+    result = Number(a[field] ?? 0) - Number(b[field] ?? 0);
+  }
+
+  if (result !== 0) return result * direction;
+
+  const fallbackPower = b.power - a.power;
+  if (fallbackPower !== 0) return fallbackPower;
+  return String(a.no).localeCompare(String(b.no), "ja", { numeric: true });
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function rarityStars(rarity) {
   return "★".repeat(rarity);
@@ -272,6 +303,10 @@ function renderDeckScreen() {
     tabs.appendChild(button);
   }
 
+  normalizeDeckSort();
+  $("deckSortField").value = state.deckSort.field;
+  $("deckSortOrder").value = state.deckSort.order;
+
   renderCurrentDeck();
   renderOwnedCardList();
 }
@@ -320,7 +355,7 @@ function renderOwnedCardList() {
   const owned = CARDS
     .filter((card) => getOwnedCount(card.id) > 0)
     .filter((card) => !query || card.name.toLowerCase().includes(query))
-    .sort((a, b) => b.rarity - a.rarity || b.power - a.power || String(a.no).localeCompare(String(b.no), "ja"));
+    .sort(compareOwnedCards);
 
   for (const card of owned) {
     const row = document.createElement("div");
@@ -458,15 +493,6 @@ function renderBoard() {
     cell.on("pointertap", () => handleBoardClick(index));
     boardLayer.addChild(cell);
 
-    const marker = new PIXI.Text(String(index + 1), {
-      fontFamily: "Arial",
-      fontSize: 14,
-      fill: 0xffffff,
-      alpha: 0.24
-    });
-    marker.x = pos.x + 10;
-    marker.y = pos.y + 8;
-    boardLayer.addChild(marker);
 
     const placed = state.battle?.board[index];
     if (placed) {
@@ -578,11 +604,17 @@ function renderBattleHands() {
 
   const npcHand = $("npcHand");
   npcHand.innerHTML = "";
+  const revealNpcHand = battle.npc.difficulty === "よわい";
   battle.npcHand.forEach((entry) => {
     const div = document.createElement("div");
-    div.className = "card-back";
-    div.textContent = entry.used ? "済" : "PCB";
-    if (entry.used) div.style.opacity = "0.28";
+    if (revealNpcHand) {
+      div.className = `mini-card opponent-open ${entry.used ? "used" : ""}`;
+      div.innerHTML = cardMiniHtml(entry.card, entry.used ? "済" : "NPC");
+    } else {
+      div.className = "card-back";
+      div.textContent = entry.used ? "済" : "PCB";
+      if (entry.used) div.style.opacity = "0.28";
+    }
     npcHand.appendChild(div);
   });
 
@@ -590,7 +622,9 @@ function renderBattleHands() {
   $("scoreLabel").textContent = `自分 ${score.player} - ${score.npc} 相手`;
   $("turnLabel").textContent = battle.finished
     ? "対戦終了"
-    : `現在のターン：${battle.currentTurn === "player" ? "プレイヤー" : "相手"}`;
+    : battle.currentTurn === "coin"
+      ? "現在のターン：コイントス中"
+      : `現在のターン：${battle.currentTurn === "player" ? "プレイヤー" : "相手"}`;
 }
 
 function renderBattleAll() {
@@ -612,7 +646,7 @@ function calcScore(customBoard = null, playerRemaining = null, npcRemaining = nu
   };
 }
 
-function startBattle(npcId) {
+async function startBattle(npcId) {
   const npc = npcById.get(npcId);
   const deck = state.save.decks[state.save.activeDeckIndex];
   const error = validateDeck(deck);
@@ -631,16 +665,18 @@ function startBattle(npcId) {
     npcHand: npcDeck.map((card) => ({ card, used: false })),
     npcBattleCards: npcDeck,
     board: Array(9).fill(null),
-    currentTurn: "player",
-    locked: false,
+    currentTurn: "coin",
+    locked: true,
     finished: false
   };
+  const battleToken = state.battle;
   state.selectedHandIndex = null;
 
   showScreen("battle");
   $("battleNpcName").textContent = `${npc.name} / ${npc.difficulty}`;
   $("battleLog").innerHTML = "";
   addBattleLog(`${npc.name}との対戦を開始しました。`);
+  addBattleLog("コイントスで先攻・後攻を決定します。");
   initPixi();
   renderBattleAll();
 
@@ -648,6 +684,43 @@ function startBattle(npcId) {
     child.classList.add("animate-draw");
     child.style.animationDelay = `${index * 80}ms`;
   });
+
+  const firstTurn = await runCoinToss();
+  if (state.battle !== battleToken) return;
+
+  battleToken.currentTurn = firstTurn;
+  battleToken.locked = false;
+  addBattleLog(firstTurn === "player" ? "先攻はプレイヤーです。" : `先攻は${npc.name}です。`);
+  renderBattleAll();
+
+  if (firstTurn === "npc" && !battleToken.finished) {
+    setTimeout(() => npcTurn(), 550);
+  }
+}
+
+async function runCoinToss() {
+  const firstTurn = Math.random() < 0.5 ? "player" : "npc";
+  showModal(
+    "コイントス",
+    `
+      <div class="coin-toss-box">
+        <div class="coin-toss-coin">PCB</div>
+        <p id="coinTossText">コイントス中...</p>
+      </div>
+    `,
+    []
+  );
+
+  await delay(1600);
+
+  const coin = document.querySelector(".coin-toss-coin");
+  const text = $("coinTossText");
+  if (coin) coin.classList.add(firstTurn === "player" ? "coin-player" : "coin-npc");
+  if (text) text.textContent = firstTurn === "player" ? "表：プレイヤーが先攻です。" : "裏：相手が先攻です。";
+
+  await delay(900);
+  closeModal();
+  return firstTurn;
 }
 
 async function handleBoardClick(index) {
@@ -1065,6 +1138,14 @@ function bindEvents() {
   $("updateButton").addEventListener("click", forceUpdate);
 
   $("cardSearch").addEventListener("input", renderOwnedCardList);
+  $("deckSortField").addEventListener("change", (event) => {
+    state.deckSort.field = event.target.value;
+    renderOwnedCardList();
+  });
+  $("deckSortOrder").addEventListener("change", (event) => {
+    state.deckSort.order = event.target.value;
+    renderOwnedCardList();
+  });
   $("collectionSearch").addEventListener("input", renderCollectionScreen);
 
   $("setActiveDeck").addEventListener("click", () => {
