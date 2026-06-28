@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Phantom Card Battle</title>
+  <meta name="theme-color" content="#15182b" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div>
+        <h1>Phantom Card Battle</h1>
+        <p class="subtitle">3×3カードバトル / NPC対戦 / カード収集</p>
+      </div>
+      <button class="small-button ghost" id="backTitleBtn">タイトルへ</button>
+    </header>
+
+    <main>
+      <section id="screen-title" class="screen active">
+        <div class="title-card">
+          <div class="logo-mark">PCB</div>
+          <h2>Phantom Card Battle</h2>
+          <p>NPCに勝利してカードを奪い、デッキを強化していくカードバトルです。</p>
+          <div class="title-menu">
+            <button id="goBattle">対戦</button>
+            <button id="goDeck">デッキ</button>
+            <button id="goCollection">図鑑</button>
+            <button id="goSettings">設定</button>
+          </div>
+        </div>
+
+        <div class="version-box">
+          <span id="versionLabel">v0.1.0</span>
+          <button id="updateButton">最新版に更新</button>
+        </div>
+      </section>
+
+      <section id="screen-battle-menu" class="screen">
+        <div class="panel">
+          <h2>対戦相手を選択</h2>
+          <p class="muted">NPC名は仮名です。後から自由に変更できます。</p>
+          <div id="npcList" class="npc-list"></div>
+        </div>
+      </section>
+
+      <section id="screen-battle" class="screen battle-screen">
+        <div class="battle-layout">
+          <div class="battle-main">
+            <div class="battle-hud">
+              <div>
+                <div id="battleNpcName" class="battle-title">NPC</div>
+                <div id="turnLabel" class="turn-label">現在のターン：プレイヤー</div>
+              </div>
+              <div id="scoreLabel" class="score-label">自分 5 - 5 相手</div>
+            </div>
+
+            <div class="opponent-area">
+              <div class="area-label">相手の手札</div>
+              <div id="npcHand" class="hand opponent-hand"></div>
+            </div>
+
+            <div id="pixiContainer" class="pixi-container"></div>
+
+            <div class="player-area">
+              <div class="area-label">自分の手札</div>
+              <div id="playerHand" class="hand player-hand"></div>
+            </div>
+          </div>
+
+          <aside class="battle-side">
+            <h3>ログ</h3>
+            <div id="battleLog" class="battle-log"></div>
+            <button id="giveUpButton" class="danger">対戦をやめる</button>
+          </aside>
+        </div>
+      </section>
+
+      <section id="screen-deck" class="screen">
+        <div class="panel">
+          <h2>デッキ</h2>
+          <p class="muted">1つのデッキは5枚です。★5は1枚まで、★4は2枚まで、★3以下は無制限です。</p>
+          <div class="deck-tabs" id="deckTabs"></div>
+          <div class="deck-layout">
+            <div>
+              <h3>現在のデッキ</h3>
+              <div id="currentDeck" class="deck-list"></div>
+              <div class="deck-actions">
+                <button id="setActiveDeck">このデッキを使用</button>
+                <button id="clearDeck" class="ghost">クリア</button>
+              </div>
+              <div id="deckMessage" class="message"></div>
+            </div>
+            <div>
+              <h3>手持ちカード</h3>
+              <input id="cardSearch" class="search" placeholder="カード名で検索" />
+              <div id="ownedCardList" class="card-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-collection" class="screen">
+        <div class="panel">
+          <h2>図鑑</h2>
+          <p class="muted">取得したカードを確認できます。未取得カードは「???」で表示されます。</p>
+          <div id="collectionSummary" class="summary"></div>
+          <input id="collectionSearch" class="search" placeholder="カード名で検索" />
+          <div id="collectionGrid" class="collection-grid"></div>
+        </div>
+      </section>
+
+      <section id="screen-settings" class="screen">
+        <div class="panel settings-panel">
+          <h2>設定</h2>
+          <label class="toggle-row">
+            <span>
+              <strong>エフェクト</strong>
+              <small>カード配置・反転・勝利時の演出を表示します。</small>
+            </span>
+            <input id="effectToggle" type="checkbox" />
+          </label>
+          <div class="settings-buttons">
+            <button id="exportSave">セーブデータを書き出し</button>
+            <button id="importSave">セーブデータを読み込み</button>
+            <button id="resetSave" class="danger">初期化</button>
+          </div>
+          <textarea id="saveText" placeholder="エクスポート/インポート用データ" spellcheck="false"></textarea>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="modalTitle">報酬</h2>
+      <div id="modalBody"></div>
+      <div id="modalActions" class="modal-actions"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
