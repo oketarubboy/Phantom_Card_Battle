@@ -646,3 +646,23 @@ textarea {
     bottom: 8px;
   }
 }
+
+.deck-card-info {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
+}
+
+.deck-card-info strong,
+.deck-card-info small {
+  grid-column: 1;
+}
+
+.deck-card-info .card-values {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 58px;
+  margin-top: 0;
+}

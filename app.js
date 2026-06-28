@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 const SAVE_KEY = "phantom_card_battle_save_v1";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -40,6 +40,30 @@ function rarityStars(rarity) {
 
 function displayValue(value) {
   return value === 10 ? "A" : String(value);
+}
+
+function getNpcNumber(npc) {
+  return Number(String(npc.id).replace(/\D/g, "")) || 1;
+}
+
+function getRareChanceRate(npc) {
+  return Number.isFinite(npc.rareChanceRate) ? npc.rareChanceRate : getNpcNumber(npc);
+}
+
+function getRareChanceMaxRarity(npc) {
+  if (npc.difficulty === "よわい") return 3;
+  if (npc.difficulty === "ふつう") return 4;
+  return 5;
+}
+
+function getRewardWeights(npc) {
+  const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 100);
+  const remaining = 100 - rare;
+  return {
+    random_one: remaining * (70 / 95),
+    choose_one: remaining * (25 / 95),
+    rare_chance: rare
+  };
 }
 
 function shuffle(array) {
@@ -179,17 +203,23 @@ function canAddToDeck(deck, cardId) {
   return "";
 }
 
-function cardMiniHtml(card, extra = "") {
+function cardValuesHtml(card, center = "") {
   return `
-    <div class="card-stars">${rarityStars(card.rarity)}</div>
-    <div class="card-name">${escapeHtml(card.name)}</div>
     <div class="card-values">
       <span class="v-up">${displayValue(card.up)}</span>
       <span class="v-right">${displayValue(card.right)}</span>
       <span class="v-down">${displayValue(card.down)}</span>
       <span class="v-left">${displayValue(card.left)}</span>
-      <span class="v-center">${extra}</span>
+      <span class="v-center">${center}</span>
     </div>
+  `;
+}
+
+function cardMiniHtml(card, extra = "") {
+  return `
+    <div class="card-stars">${rarityStars(card.rarity)}</div>
+    <div class="card-name">${escapeHtml(card.name)}</div>
+    ${cardValuesHtml(card, extra)}
   `;
 }
 
@@ -218,7 +248,7 @@ function renderNpcList() {
     item.innerHTML = `
       <h3>${escapeHtml(npc.name)} <span class="badge ${difficultyClass}">${npc.difficulty}</span></h3>
       <p class="muted">所持カード：${poolCards.length}枚 / 最大${rarityStars(maxRarity)} / 平均力 ${avgPower.toFixed(1)}</p>
-      <p class="muted">報酬：ランダム70% / 指定25% / レア5%</p>
+      <p class="muted">レアチャンス率：${getRareChanceRate(npc)}% / 上限${rarityStars(getRareChanceMaxRarity(npc))}</p>
       <button data-npc-id="${npc.id}">対戦する</button>
     `;
     item.querySelector("button").addEventListener("click", () => startBattle(npc.id));
@@ -261,9 +291,10 @@ function renderCurrentDeck() {
     } else {
       const card = cardById.get(cardId);
       row.innerHTML = `
-        <div>
+        <div class="deck-card-info">
           <strong>${escapeHtml(card.name)}</strong><br>
-          <small>${rarityStars(card.rarity)} / 上${displayValue(card.up)} 右${displayValue(card.right)} 下${displayValue(card.down)} 左${displayValue(card.left)}</small>
+          <small>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)} / デッキ中 ${countInDeck(deck, card.id)}</small>
+          ${cardValuesHtml(card)}
         </div>
         <button class="small-button ghost">外す</button>
       `;
@@ -907,7 +938,8 @@ function checkBattleEnd() {
   return true;
 }
 
-function rollRewardRule(weights) {
+function rollRewardRule(npc) {
+  const weights = getRewardWeights(npc);
   const total = Object.values(weights).reduce((sum, value) => sum + value, 0);
   let roll = Math.random() * total;
 
@@ -921,13 +953,13 @@ function rollRewardRule(weights) {
 
 function handleReward() {
   const battle = state.battle;
-  const rule = rollRewardRule(battle.npc.rewardWeights);
+  const rule = rollRewardRule(battle.npc);
 
   if (rule === "choose_one") {
     const choices = battle.npcBattleCards;
     showModal(
       "報酬：好きなカードを1枚選択",
-      `<p>報酬抽選：指定選択 25%</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
+      `<p>報酬抽選：指定選択</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
       [{
         label: "ランダムで受け取る",
         className: "ghost",
@@ -953,22 +985,22 @@ function handleReward() {
   }
 
   if (rule === "rare_chance") {
-    const rareCards = CARDS
-      .filter((card) => card.rarity >= 4)
+    const maxRarity = getRareChanceMaxRarity(battle.npc);
+    const rareCards = shuffle(CARDS.filter((card) => card.rarity <= maxRarity))
       .sort((a, b) => {
         const ownedA = getOwnedCount(a.id) > 0 ? 1 : 0;
         const ownedB = getOwnedCount(b.id) > 0 ? 1 : 0;
-        return ownedA - ownedB || b.rarity - a.rarity || Math.random() - 0.5;
+        return ownedA - ownedB || b.rarity - a.rarity || b.power - a.power;
       });
     const card = rareCards[Math.floor(Math.random() * Math.min(rareCards.length, 30))];
     addOwnedCard(card.id);
-    showRewardResult(card, "レアチャンス 5% に当選しました。");
+    showRewardResult(card, `レアチャンス ${getRareChanceRate(battle.npc)}% に当選しました。${battle.npc.difficulty}の上限は${rarityStars(maxRarity)}です。`);
     return;
   }
 
   const card = battle.npcBattleCards[Math.floor(Math.random() * battle.npcBattleCards.length)];
   addOwnedCard(card.id);
-  showRewardResult(card, "ランダム報酬 70% で獲得しました。");
+  showRewardResult(card, "ランダム報酬で獲得しました。");
 }
 
 function rewardCardHtml(card) {

@@ -2,6 +2,7 @@ export const NPCS = [
   {
     "id": "npc_001",
     "name": "NPC1",
+    "rareChanceRate": 1,
     "difficulty": "よわい",
     "cardPool": [
       "card_141",
@@ -16,16 +17,12 @@ export const NPCS = [
       "card_006",
       "card_173",
       "card_236"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_002",
     "name": "NPC2",
+    "rareChanceRate": 2,
     "difficulty": "よわい",
     "cardPool": [
       "card_385",
@@ -42,16 +39,12 @@ export const NPCS = [
       "card_022",
       "card_023",
       "card_150"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_003",
     "name": "NPC3",
+    "rareChanceRate": 3,
     "difficulty": "よわい",
     "cardPool": [
       "card_006",
@@ -68,16 +61,12 @@ export const NPCS = [
       "card_132",
       "card_077",
       "card_078"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_004",
     "name": "NPC4",
+    "rareChanceRate": 4,
     "difficulty": "ふつう",
     "cardPool": [
       "card_068",
@@ -95,16 +84,12 @@ export const NPCS = [
       "card_161",
       "card_162",
       "card_163"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_005",
     "name": "NPC5",
+    "rareChanceRate": 5,
     "difficulty": "ふつう",
     "cardPool": [
       "card_245",
@@ -121,16 +106,12 @@ export const NPCS = [
       "card_410",
       "card_428",
       "card_255"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_006",
     "name": "NPC6",
+    "rareChanceRate": 6,
     "difficulty": "ふつう",
     "cardPool": [
       "card_433",
@@ -148,16 +129,12 @@ export const NPCS = [
       "card_229",
       "card_307",
       "card_326"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_007",
     "name": "NPC7",
+    "rareChanceRate": 7,
     "difficulty": "つよい",
     "cardPool": [
       "card_340",
@@ -174,16 +151,12 @@ export const NPCS = [
       "card_310",
       "card_311",
       "card_319"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_008",
     "name": "NPC8",
+    "rareChanceRate": 8,
     "difficulty": "つよい",
     "cardPool": [
       "card_438",
@@ -201,16 +174,12 @@ export const NPCS = [
       "card_375",
       "card_376",
       "card_377"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_009",
     "name": "NPC9",
+    "rareChanceRate": 9,
     "difficulty": "つよい",
     "cardPool": [
       "card_155",
@@ -228,16 +197,12 @@ export const NPCS = [
       "card_045",
       "card_096",
       "card_452"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   },
   {
     "id": "npc_010",
     "name": "NPC10",
+    "rareChanceRate": 10,
     "difficulty": "つよい",
     "cardPool": [
       "card_sp_015",
@@ -254,11 +219,6 @@ export const NPCS = [
       "card_327",
       "card_455",
       "card_456"
-    ],
-    "rewardWeights": {
-      "random_one": 70,
-      "choose_one": 25,
-      "rare_chance": 5
-    }
+    ]
   }
 ];
