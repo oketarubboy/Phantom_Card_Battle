@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>iPhone対応 画像→512×512 WebP変換</title>
+<style>
+  :root {
+    --bg:#f5f7fb; --card:#fff; --text:#111827; --muted:#6b7280;
+    --border:#d1d5db; --accent:#2563eb; --green:#059669; --danger:#dc2626;
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding-bottom:calc(90px + var(--safe-bottom));
+  }
+  header { padding:18px 14px 10px; text-align:center; }
+  h1 { margin:0 0 8px; font-size:22px; line-height:1.3; }
+  header p { margin:0; color:var(--muted); font-size:13px; line-height:1.55; }
+  main { max-width:760px; margin:0 auto; padding:0 10px 20px; }
+  .card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:14px;
+    box-shadow:0 10px 28px rgba(15,23,42,.08);
+  }
+  .section {
+    border:1px solid var(--border);
+    border-radius:16px;
+    background:#fff;
+    padding:12px;
+    margin-bottom:12px;
+  }
+  .section-title {
+    font-weight:900;
+    font-size:15px;
+    margin-bottom:8px;
+  }
+  .hint {
+    color:var(--muted);
+    font-size:12px;
+    line-height:1.6;
+    margin-top:7px;
+  }
+  input[type="file"] {
+    display:block;
+    width:100%;
+    border:2px solid var(--accent);
+    border-radius:14px;
+    background:#eff6ff;
+    color:var(--text);
+    padding:14px;
+    font-size:16px;
+    font-weight:800;
+  }
+  input[type="file"]::file-selector-button {
+    border:0;
+    border-radius:12px;
+    background:var(--accent);
+    color:white;
+    padding:11px 13px;
+    margin-right:10px;
+    font-size:15px;
+    font-weight:900;
+  }
+  select,input[type="number"],input[type="color"] {
+    width:100%;
+    min-height:46px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:white;
+    padding:9px 10px;
+    font-size:16px;
+  }
+  label {
+    display:block;
+    color:var(--muted);
+    font-weight:800;
+    font-size:13px;
+    margin-bottom:6px;
+  }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .field { margin-top:10px; }
+  .preview-box {
+    width:min(240px,70vw);
+    aspect-ratio:1/1;
+    margin:0 auto;
+    border-radius:16px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background:
+      linear-gradient(45deg,#eee 25%,transparent 25%),
+      linear-gradient(-45deg,#eee 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#eee 75%),
+      linear-gradient(-45deg,transparent 75%,#eee 75%);
+    background-size:20px 20px;
+    background-position:0 0,0 10px,10px -10px,-10px 0px;
+  }
+  #previewImg { width:100%; height:100%; object-fit:contain; display:none; }
+  #status {
+    border:1px solid var(--border);
+    border-radius:16px;
+    overflow:hidden;
+    background:white;
+  }
+  .row {
+    padding:12px;
+    border-bottom:1px solid var(--border);
+  }
+  .row:last-child { border-bottom:0; }
+  .name { font-size:14px; font-weight:900; word-break:break-all; }
+  .meta { color:var(--muted); font-size:12px; margin-top:4px; line-height:1.5; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .save,.share {
+    border:0;
+    border-radius:12px;
+    padding:12px 13px;
+    color:white;
+    font-size:15px;
+    font-weight:900;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:46px;
+  }
+  .save { background:var(--green); }
+  .share { background:#374151; }
+  .notice,.error {
+    border-radius:14px;
+    padding:11px 12px;
+    line-height:1.6;
+    font-size:13px;
+    margin-bottom:12px;
+  }
+  .notice { background:#eff6ff; color:#1e3a8a; }
+  .error { background:#fef2f2; color:var(--danger); font-weight:800; display:none; }
+  canvas { display:none; }
+  .bottom {
+    position:fixed;
+    left:0; right:0; bottom:0;
+    padding:10px 12px calc(10px + var(--safe-bottom));
+    background:rgba(255,255,255,.94);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border-top:1px solid var(--border);
+  }
+  .bottom-inner {
+    max-width:760px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:1.4fr .75fr;
+    gap:10px;
+  }
+  button.main,button.clear {
+    min-height:56px;
+    border:0;
+    border-radius:16px;
+    color:white;
+    font-weight:900;
+    font-size:16px;
+  }
+  button.main { background:var(--accent); }
+  button.clear { background:#374151; }
+  button:disabled { background:#9ca3af; }
+  @media(max-width:430px){ .grid2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>iPhone対応 画像→512×512 WebP変換</h1>
+  <p>写真を選択してWebPに変換します。画像は外部送信されず、この画面内だけで処理します。</p>
+</header>
+
+<main>
+  <section class="card">
+    <div class="notice">
+      iPhoneの「ファイル」アプリ内プレビューでは、通常のボタンから写真選択が開かない場合があります。<br>
+      この版では、iPhone標準の「ファイルを選択」欄を直接表示しています。
+    </div>
+    <div id="error" class="error"></div>
+
+    <div class="section">
+      <div class="section-title">1. 写真を選ぶ</div>
+      <input id="photoInput" type="file" accept="image/*" multiple>
+      <div class="hint">
+        「ファイルを選択」をタップして、写真ライブラリ・写真を撮る・ファイルを選択の中から選んでください。
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">2. 変換設定</div>
+      <div class="grid2">
+        <div>
+          <label for="size">出力サイズ</label>
+          <input id="size" type="number" value="512" min="16" max="4096" inputmode="numeric">
+        </div>
+        <div>
+          <label for="quality">画質</label>
+          <select id="quality">
+            <option value="0.95">高画質 95%</option>
+            <option value="0.90" selected>標準 90%</option>
+            <option value="0.80">軽量 80%</option>
+            <option value="0.70">かなり軽量 70%</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fit">リサイズ方法</label>
+        <select id="fit">
+          <option value="cover" selected>正方形に切り抜く（アイコン向け）</option>
+          <option value="contain">全体を収める（余白あり）</option>
+          <option value="stretch">引き伸ばす</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="bgColor">余白の色</label>
+        <input id="bgColor" type="color" value="#ffffff">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">3. プレビュー</div>
+      <div class="preview-box">
+        <img id="previewImg" alt="変換後プレビュー">
+      </div>
+      <div class="hint">変換後の最後の画像を表示します。</div>
+    </div>
+
+    <div id="status">
+      <div class="row">
+        <div class="name">まだ画像が選択されていません。</div>
+        <div class="meta">上の「ファイルを選択」から画像を選んでください。</div>
+      </div>
+    </div>
+
+    <canvas id="canvas" width="512" height="512"></canvas>
+  </section>
+</main>
+
+<div class="bottom">
+  <div class="bottom-inner">
+    <button id="convertBtn" class="main" type="button" disabled>WebPに変換</button>
+    <button id="clearBtn" class="clear" type="button" disabled>クリア</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const photoInput = document.getElementById("photoInput");
+  const convertBtn = document.getElementById("convertBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const statusBox = document.getElementById("status");
+  const errorBox = document.getElementById("error");
+  const canvas = document.getElementById("canvas");
+  const ctx = canvas.getContext("2d");
+  const previewImg = document.getElementById("previewImg");
+
+  let selectedFiles = [];
+  let objectUrls = [];
+
+  function showError(message) {
+    if (!message) {
+      errorBox.style.display = "none";
+      errorBox.textContent = "";
+      return;
+    }
+    errorBox.textContent = message;
+    errorBox.style.display = "block";
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    }[m]));
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    const kb = bytes / 1024;
+    if (kb < 1024) return kb.toFixed(1) + " KB";
+    return (kb / 1024).toFixed(2) + " MB";
+  }
+
+  function cleanupUrls() {
+    objectUrls.forEach(url => URL.revokeObjectURL(url));
+    objectUrls = [];
+  }
+
+  function setSelected(files) {
+    selectedFiles = Array.from(files || []).filter(f => f.type && f.type.startsWith("image/"));
+    convertBtn.disabled = selectedFiles.length === 0;
+    clearBtn.disabled = selectedFiles.length === 0;
+    showError("");
+
+    if (selectedFiles.length === 0) {
+      statusBox.innerHTML = `
+        <div class="row">
+          <div class="name">画像ファイルが選択されていません。</div>
+          <div class="meta">JPG / PNG / HEIC / WebP などを選択してください。</div>
+        </div>`;
+      return;
+    }
+
+    statusBox.innerHTML = selectedFiles.map(file => `
+      <div class="row">
+        <div class="name">${escapeHtml(file.name || "iPhone画像")}</div>
+        <div class="meta">${formatBytes(file.size)} / 変換待ち</div>
+      </div>`).join("");
+  }
+
+  function loadImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      objectUrls.push(url);
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("画像を読み込めませんでした。別の画像で試してください。"));
+      img.src = url;
+    });
+  }
+
+  function drawToCanvas(img, size, fit, bgColor) {
+    canvas.width = size;
+    canvas.height = size;
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, size, size);
+
+    let sx = 0, sy = 0;
+    let sw = img.naturalWidth || img.width;
+    let sh = img.naturalHeight || img.height;
+    let dx = 0, dy = 0, dw = size, dh = size;
+
+    if (fit === "contain") {
+      const scale = Math.min(size / sw, size / sh);
+      dw = sw * scale;
+      dh = sh * scale;
+      dx = (size - dw) / 2;
+      dy = (size - dh) / 2;
+    } else if (fit === "cover") {
+      if (sw > sh) {
+        sx = (sw - sh) / 2;
+        sw = sh;
+      } else if (sh > sw) {
+        sy = (sh - sw) / 2;
+        sh = sw;
+      }
+    }
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+
+  function canvasToWebpBlob(quality) {
+    return new Promise((resolve, reject) => {
+      if (!canvas.toBlob) {
+        reject(new Error("このブラウザは画像変換に対応していません。Safari / Chrome / Edge の最新版で開いてください。"));
+        return;
+      }
+      canvas.toBlob(blob => {
+        if (!blob) {
+          reject(new Error("WebP変換に失敗しました。このブラウザがWebP保存に対応していない可能性があります。"));
+          return;
+        }
+        if (blob.type !== "image/webp") {
+          reject(new Error("WebP形式で保存できませんでした。Safari / Chrome / Edge の最新版で試してください。"));
+          return;
+        }
+        resolve(blob);
+      }, "image/webp", quality);
+    });
+  }
+
+  function baseName(name) {
+    return (name || "image").replace(/\.[^.]+$/, "");
+  }
+
+  async function shareWebp(blob, fileName) {
+    const file = new File([blob], fileName, { type: "image/webp" });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({ files: [file], title: fileName });
+      return true;
+    }
+    return false;
+  }
+
+  function createResultRow(fileName, blob, url, size) {
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const canShare = !!(navigator.canShare && navigator.share);
+    row.innerHTML = `
+      <div class="name">${escapeHtml(fileName)}</div>
+      <div class="meta">${size}×${size}px / ${formatBytes(blob.size)} / WebP</div>
+      <div class="actions">
+        <a class="save" href="${url}" download="${escapeHtml(fileName)}">保存</a>
+        ${canShare ? '<button class="share" type="button">共有</button>' : ''}
+      </div>
+      <div class="meta">iPhoneで保存できない場合は「共有」から“ファイルに保存”を選んでください。</div>
+    `;
+
+    const shareBtn = row.querySelector("button.share");
+    if (shareBtn) {
+      shareBtn.addEventListener("click", async () => {
+        try {
+          const ok = await shareWebp(blob, fileName);
+          if (!ok) showError("このブラウザでは共有保存に対応していません。保存ボタンを試してください。");
+        } catch {
+          showError("共有がキャンセルされたか、保存に失敗しました。");
+        }
+      });
+    }
+
+    return row;
+  }
+
+  async function convertAll() {
+    if (selectedFiles.length === 0) return;
+
+    cleanupUrls();
+    showError("");
+    convertBtn.disabled = true;
+    statusBox.innerHTML = "";
+
+    const size = Math.max(16, Math.min(4096, Number(document.getElementById("size").value || 512)));
+    const fit = document.getElementById("fit").value;
+    const quality = Number(document.getElementById("quality").value);
+    const bgColor = document.getElementById("bgColor").value;
+
+    for (const file of selectedFiles) {
+      const working = document.createElement("div");
+      working.className = "row";
+      working.innerHTML = `<div class="name">${escapeHtml(file.name || "iPhone画像")}</div><div class="meta">変換中...</div>`;
+      statusBox.appendChild(working);
+
+      try {
+        const img = await loadImage(file);
+        drawToCanvas(img, size, fit, bgColor);
+        const blob = await canvasToWebpBlob(quality);
+        const url = URL.createObjectURL(blob);
+        objectUrls.push(url);
+
+        const fileName = `${baseName(file.name || "image")}_${size}x${size}.webp`;
+        previewImg.src = url;
+        previewImg.style.display = "block";
+
+        statusBox.replaceChild(createResultRow(fileName, blob, url, size), working);
+      } catch (err) {
+        working.innerHTML = `<div class="name">${escapeHtml(file.name || "iPhone画像")}</div><div class="meta">変換失敗</div>`;
+        showError(err.message || String(err));
+      }
+    }
+
+    convertBtn.disabled = selectedFiles.length === 0;
+  }
+
+  function clearAll() {
+    cleanupUrls();
+    selectedFiles = [];
+    photoInput.value = "";
+    previewImg.removeAttribute("src");
+    previewImg.style.display = "none";
+    convertBtn.disabled = true;
+    clearBtn.disabled = true;
+    showError("");
+    statusBox.innerHTML = `
+      <div class="row">
+        <div class="name">まだ画像が選択されていません。</div>
+        <div class="meta">上の「ファイルを選択」から画像を選んでください。</div>
+      </div>`;
+  }
+
+  photoInput.addEventListener("change", e => setSelected(e.target.files));
+  convertBtn.addEventListener("click", convertAll);
+  clearBtn.addEventListener("click", clearAll);
+})();
+</script>
+</body>
+</html>
