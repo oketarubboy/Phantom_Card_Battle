@@ -33,7 +33,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.4</span>
+          <span id="versionLabel">v0.1.5</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -111,7 +111,12 @@
                   <option value="desc">降順</option>
                 </select>
               </div>
-              <div id="ownedCardList" class="card-list"></div>
+              <div class="deck-view-row" aria-label="手持ちカード表示方法">
+                <span>表示方法</span>
+                <button id="ownedViewVertical" type="button" class="small-button">縦表示</button>
+                <button id="ownedViewHorizontal" type="button" class="small-button ghost">横表示</button>
+              </div>
+              <div id="ownedCardList" class="card-list owned-card-list view-vertical"></div>
             </div>
           </div>
         </div>

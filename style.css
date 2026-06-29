@@ -435,10 +435,10 @@ main {
 .battle-screen .mini-card,
 .battle-screen .card-back {
   width: var(--battle-card-width);
-  height: var(--battle-card-min-height);
   min-height: var(--battle-card-min-height);
+  height: auto;
   padding: var(--battle-card-padding);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .battle-screen .card-art-wrap {
@@ -960,5 +960,109 @@ textarea {
     margin-top: 4px;
     margin-bottom: 4px;
     border-radius: 14px;
+  }
+}
+
+
+/* v0.1.5: deck owned-card display switch. */
+.deck-view-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.deck-view-row button.active {
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+}
+
+.owned-card-list.view-horizontal {
+  grid-template-columns: 1fr;
+}
+
+.owned-card-list.view-horizontal .owned-row-layout {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 64px;
+  gap: 10px;
+  align-items: center;
+}
+
+.owned-card-list.view-horizontal .owned-row-art .card-art-wrap {
+  width: 56px;
+  height: 56px;
+  margin: 0;
+}
+
+.owned-card-list.view-horizontal .owned-row-values .card-values {
+  width: 64px;
+  margin: 0;
+}
+
+.owned-card-list.view-vertical {
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+}
+
+.owned-card-list.view-vertical .owned-row {
+  padding: 10px;
+}
+
+.owned-card-list.view-vertical .owned-row-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  align-items: start;
+  text-align: center;
+}
+
+.owned-card-list.view-vertical .owned-row-art .card-art-wrap {
+  width: 100%;
+  height: 86px;
+  margin: 0;
+}
+
+.owned-card-list.view-vertical .owned-row-info strong {
+  display: block;
+  line-height: 1.2;
+  min-height: 2.4em;
+  word-break: break-word;
+}
+
+.owned-card-list.view-vertical .owned-row-info small {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.owned-card-list.view-vertical .owned-row-values {
+  display: grid;
+  place-items: center;
+}
+
+.owned-card-list.view-vertical .owned-row-values .card-values {
+  width: 78px;
+  margin: 0 auto;
+}
+
+@media (max-width: 520px) {
+  .owned-card-list.view-vertical {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .owned-card-list.view-horizontal .owned-row-layout {
+    grid-template-columns: 52px minmax(0, 1fr) 58px;
+    gap: 8px;
+  }
+
+  .owned-card-list.view-horizontal .owned-row-art .card-art-wrap {
+    width: 52px;
+    height: 52px;
+  }
+
+  .owned-card-list.view-horizontal .owned-row-values .card-values {
+    width: 58px;
   }
 }

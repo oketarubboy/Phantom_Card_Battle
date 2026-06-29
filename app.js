@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.4";
+const VERSION = "0.1.5";
 const SAVE_KEY = "phantom_card_battle_save_v1";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -12,6 +12,7 @@ const state = {
   selectedDeckIndex: 0,
   selectedHandIndex: null,
   deckSort: { field: "rarity", order: "desc" },
+  ownedCardView: "vertical",
   battle: null,
   pixi: {
     app: null,
@@ -40,6 +41,34 @@ const DECK_SORT_FIELDS = new Set(["name", "rarity", "right", "up", "left", "down
 function normalizeDeckSort() {
   if (!DECK_SORT_FIELDS.has(state.deckSort.field)) state.deckSort.field = "rarity";
   if (!["asc", "desc"].includes(state.deckSort.order)) state.deckSort.order = "desc";
+}
+
+function normalizeOwnedCardView(view) {
+  return view === "horizontal" ? "horizontal" : "vertical";
+}
+
+function getOwnedCardView() {
+  return normalizeOwnedCardView(state.save?.settings?.ownedCardView ?? state.ownedCardView);
+}
+
+function setOwnedCardView(view) {
+  state.ownedCardView = normalizeOwnedCardView(view);
+  state.save.settings.ownedCardView = state.ownedCardView;
+  save();
+  updateOwnedCardViewButtons();
+  renderOwnedCardList();
+}
+
+function updateOwnedCardViewButtons() {
+  const view = getOwnedCardView();
+  const vertical = $("ownedViewVertical");
+  const horizontal = $("ownedViewHorizontal");
+  if (!vertical || !horizontal) return;
+
+  vertical.classList.toggle("active", view === "vertical");
+  vertical.classList.toggle("ghost", view !== "vertical");
+  horizontal.classList.toggle("active", view === "horizontal");
+  horizontal.classList.toggle("ghost", view !== "horizontal");
 }
 
 function compareOwnedCards(a, b) {
@@ -177,7 +206,8 @@ function createInitialSave() {
     decks: [firstDeck, [], [], [], []],
     npcWins: {},
     settings: {
-      effects: true
+      effects: true,
+      ownedCardView: "vertical"
     }
   };
 }
@@ -216,6 +246,8 @@ function loadSave() {
     state.save = createInitialSave();
   }
   state.selectedDeckIndex = state.save.selectedDeckIndex ?? 0;
+  state.ownedCardView = normalizeOwnedCardView(state.save.settings.ownedCardView);
+  state.save.settings.ownedCardView = state.ownedCardView;
   save();
 }
 
@@ -341,6 +373,7 @@ function renderDeckScreen() {
   normalizeDeckSort();
   $("deckSortField").value = state.deckSort.field;
   $("deckSortOrder").value = state.deckSort.order;
+  updateOwnedCardViewButtons();
 
   renderCurrentDeck();
   renderOwnedCardList();
@@ -388,6 +421,8 @@ function renderCurrentDeck() {
 function renderOwnedCardList() {
   const query = $("cardSearch").value.trim().toLowerCase();
   const list = $("ownedCardList");
+  const view = getOwnedCardView();
+  list.className = `card-list owned-card-list view-${view}`;
   list.innerHTML = "";
 
   const owned = CARDS
@@ -487,55 +522,31 @@ function fitBattleLayout() {
   if (!battleScreen?.classList.contains("active") || !battleMain || !pixiContainer) return;
 
   const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 360;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 640;
-  const header = document.querySelector(".app-header");
-  const headerHeight = header?.offsetHeight ?? 0;
   const compact = viewportWidth <= 720;
 
   const mainStyle = getComputedStyle(battleMain);
   const mainPaddingX = parseFloat(mainStyle.paddingLeft || "0") + parseFloat(mainStyle.paddingRight || "0");
   const availableWidth = Math.max(280, battleMain.clientWidth - mainPaddingX);
   const handGap = compact ? 4 : 8;
-  const cardWidthLimit = compact ? 76 : 92;
+  const cardWidthLimit = compact ? 78 : 92;
   let cardWidth = Math.floor((availableWidth - handGap * 4) / 5);
-  cardWidth = clamp(cardWidth, compact ? 52 : 76, cardWidthLimit);
+  cardWidth = clamp(cardWidth, compact ? 50 : 76, cardWidthLimit);
 
-  let cardHeight = Math.round(cardWidth * 1.52);
   const cardPadding = clamp(Math.round(cardWidth / 13), 4, 8);
-  const artHeight = clamp(Math.round(cardWidth * 0.42), compact ? 20 : 30, compact ? 34 : 42);
+  const artHeight = clamp(Math.round(cardWidth * 0.38), compact ? 18 : 30, compact ? 32 : 42);
   const nameFont = clamp(Math.round(cardWidth / 8.5), 8, 11);
   const valueFont = clamp(Math.round(cardWidth / 6.5), 10, 12);
   const valueBox = clamp(Math.round(cardWidth / 4.4), 13, 16);
-  const nameHeight = clamp(Math.round(nameFont * 2.35), 17, 26);
+  const nameHeight = clamp(Math.round(nameFont * 2.35), 18, 26);
+  const valuesHeight = valueBox * 3 + 4;
+  const contentHeight = cardPadding * 2 + artHeight + nameHeight + valuesHeight + 16;
+  const cardHeight = Math.max(Math.round(cardWidth * 1.62), contentHeight);
 
-  cardHeight = compact
-    ? Math.max(cardHeight, artHeight + 58)
-    : Math.max(cardHeight, 142);
+  // スクロール時にブラウザのアドレスバー表示/非表示で高さが変わっても盤面サイズが揺れないよう、
+  // 3×3のバトル場は横幅だけを基準に固定する。
+  const boardSize = Math.floor(Math.min(460, availableWidth));
 
-  const hud = battleScreen.querySelector(".battle-hud");
-  const hudHeight = hud?.offsetHeight ?? 48;
-  const labelHeight = compact ? 16 : 18;
-  const verticalMargin = compact ? 28 : 50;
-  const desiredMainHeight = compact
-    ? Math.max(480, viewportHeight - headerHeight - 14)
-    : null;
-
-  let boardSize = Math.min(460, availableWidth);
-  if (compact) {
-    const boardByHeight = desiredMainHeight - hudHeight - labelHeight * 2 - cardHeight * 2 - verticalMargin;
-    boardSize = clamp(Math.floor(boardByHeight), 218, Math.min(460, availableWidth));
-
-    if (boardByHeight < 218) {
-      const shortage = 218 - boardByHeight;
-      const reducedCardHeight = Math.max(72, cardHeight - Math.ceil(shortage / 2));
-      const scale = reducedCardHeight / cardHeight;
-      cardHeight = reducedCardHeight;
-      cardWidth = clamp(Math.floor(cardWidth * scale), 48, cardWidth);
-      boardSize = 218;
-    }
-  }
-
-  battleScreen.style.setProperty("--battle-board-size", `${Math.floor(boardSize)}px`);
+  battleScreen.style.setProperty("--battle-board-size", `${boardSize}px`);
   battleScreen.style.setProperty("--battle-card-width", `${Math.floor(cardWidth)}px`);
   battleScreen.style.setProperty("--battle-card-min-height", `${Math.floor(cardHeight)}px`);
   battleScreen.style.setProperty("--battle-card-art-height", `${Math.floor(artHeight)}px`);
@@ -545,15 +556,10 @@ function fitBattleLayout() {
   battleScreen.style.setProperty("--battle-card-value-size", `${Math.floor(valueBox)}px`);
   battleScreen.style.setProperty("--battle-card-name-height", `${Math.floor(nameHeight)}px`);
   battleScreen.style.setProperty("--battle-hand-gap", `${Math.floor(handGap)}px`);
-  battleScreen.style.setProperty("--battle-hand-min-height", `${Math.floor(cardHeight + (compact ? 6 : 8))}px`);
+  battleScreen.style.setProperty("--battle-hand-min-height", `${Math.floor(cardHeight + (compact ? 8 : 10))}px`);
 
-  if (compact) {
-    battleMain.style.minHeight = `${Math.floor(desiredMainHeight)}px`;
-  } else {
-    battleMain.style.minHeight = "";
-  }
+  battleMain.style.minHeight = "";
 }
-
 function initPixi() {
   if (state.pixi.app) {
     state.pixi.app.destroy(true, { children: true });
@@ -1262,6 +1268,8 @@ function bindEvents() {
   $("updateButton").addEventListener("click", forceUpdate);
 
   $("cardSearch").addEventListener("input", renderOwnedCardList);
+  $("ownedViewVertical").addEventListener("click", () => setOwnedCardView("vertical"));
+  $("ownedViewHorizontal").addEventListener("click", () => setOwnedCardView("horizontal"));
   $("deckSortField").addEventListener("change", (event) => {
     state.deckSort.field = event.target.value;
     renderOwnedCardList();
