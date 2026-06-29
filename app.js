@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.2";
+const VERSION = "0.1.4";
 const SAVE_KEY = "phantom_card_battle_save_v1";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -65,12 +65,44 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+let battleFitRaf = null;
+
+function scheduleBattleAutoFit() {
+  if (battleFitRaf !== null) cancelAnimationFrame(battleFitRaf);
+  battleFitRaf = requestAnimationFrame(() => {
+    battleFitRaf = null;
+    fitBattleLayout();
+  });
+}
+
 function rarityStars(rarity) {
   return "★".repeat(rarity);
 }
 
 function displayValue(value) {
   return value === 10 ? "A" : String(value);
+}
+
+function getCardImagePath(card) {
+  return `assets/cards/${card.id}.webp`;
+}
+
+function cardArtHtml(card) {
+  return `
+    <div class="card-art-wrap">
+      <img
+        class="card-art"
+        src="${getCardImagePath(card)}"
+        alt="${escapeHtml(card.name)}"
+        loading="lazy"
+        onerror="this.closest('.card-art-wrap')?.classList.add('missing'); this.remove();"
+      >
+    </div>
+  `;
 }
 
 function getNpcNumber(npc) {
@@ -113,7 +145,9 @@ function sample(array, count) {
 function showScreen(name) {
   Object.values(screens).forEach((screen) => screen.classList.remove("active"));
   screens[name].classList.add("active");
+  document.body.classList.toggle("is-battle-screen", name === "battle");
   $("backTitleBtn").style.visibility = name === "title" ? "hidden" : "visible";
+  if (name === "battle") scheduleBattleAutoFit();
 
   if (name === "deck") renderDeckScreen();
   if (name === "collection") renderCollectionScreen();
@@ -249,6 +283,7 @@ function cardValuesHtml(card, center = "") {
 function cardMiniHtml(card, extra = "") {
   return `
     <div class="card-stars">${rarityStars(card.rarity)}</div>
+    ${cardArtHtml(card)}
     <div class="card-name">${escapeHtml(card.name)}</div>
     ${cardValuesHtml(card, extra)}
   `;
@@ -327,8 +362,11 @@ function renderCurrentDeck() {
       const card = cardById.get(cardId);
       row.innerHTML = `
         <div class="deck-card-info">
-          <strong>${escapeHtml(card.name)}</strong><br>
-          <small>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)} / デッキ中 ${countInDeck(deck, card.id)}</small>
+          <div class="deck-card-art">${cardArtHtml(card)}</div>
+          <div class="deck-card-text">
+            <strong>${escapeHtml(card.name)}</strong><br>
+            <small>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)} / デッキ中 ${countInDeck(deck, card.id)}</small>
+          </div>
           ${cardValuesHtml(card)}
         </div>
         <button class="small-button ghost">外す</button>
@@ -361,14 +399,15 @@ function renderOwnedCardList() {
     const row = document.createElement("div");
     row.className = "owned-row";
     row.innerHTML = `
-      <strong>${escapeHtml(card.name)}</strong><br>
-      <small>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)} / デッキ中 ${countInDeck(state.save.decks[state.selectedDeckIndex], card.id)}</small>
-      <div class="card-values">
-        <span class="v-up">${displayValue(card.up)}</span>
-        <span class="v-right">${displayValue(card.right)}</span>
-        <span class="v-down">${displayValue(card.down)}</span>
-        <span class="v-left">${displayValue(card.left)}</span>
-        <span class="v-center">+</span>
+      <div class="owned-row-layout">
+        <div class="owned-row-art">${cardArtHtml(card)}</div>
+        <div class="owned-row-info">
+          <strong>${escapeHtml(card.name)}</strong><br>
+          <small>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)} / デッキ中 ${countInDeck(state.save.decks[state.selectedDeckIndex], card.id)}</small>
+        </div>
+        <div class="owned-row-values">
+          ${cardValuesHtml(card, "+")}
+        </div>
       </div>
     `;
     row.addEventListener("click", () => {
@@ -441,6 +480,80 @@ function closeModal() {
   $("modal").classList.add("hidden");
 }
 
+function fitBattleLayout() {
+  const battleScreen = screens.battle;
+  const battleMain = battleScreen?.querySelector(".battle-main");
+  const pixiContainer = $("pixiContainer");
+  if (!battleScreen?.classList.contains("active") || !battleMain || !pixiContainer) return;
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 360;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 640;
+  const header = document.querySelector(".app-header");
+  const headerHeight = header?.offsetHeight ?? 0;
+  const compact = viewportWidth <= 720;
+
+  const mainStyle = getComputedStyle(battleMain);
+  const mainPaddingX = parseFloat(mainStyle.paddingLeft || "0") + parseFloat(mainStyle.paddingRight || "0");
+  const availableWidth = Math.max(280, battleMain.clientWidth - mainPaddingX);
+  const handGap = compact ? 4 : 8;
+  const cardWidthLimit = compact ? 76 : 92;
+  let cardWidth = Math.floor((availableWidth - handGap * 4) / 5);
+  cardWidth = clamp(cardWidth, compact ? 52 : 76, cardWidthLimit);
+
+  let cardHeight = Math.round(cardWidth * 1.52);
+  const cardPadding = clamp(Math.round(cardWidth / 13), 4, 8);
+  const artHeight = clamp(Math.round(cardWidth * 0.42), compact ? 20 : 30, compact ? 34 : 42);
+  const nameFont = clamp(Math.round(cardWidth / 8.5), 8, 11);
+  const valueFont = clamp(Math.round(cardWidth / 6.5), 10, 12);
+  const valueBox = clamp(Math.round(cardWidth / 4.4), 13, 16);
+  const nameHeight = clamp(Math.round(nameFont * 2.35), 17, 26);
+
+  cardHeight = compact
+    ? Math.max(cardHeight, artHeight + 58)
+    : Math.max(cardHeight, 142);
+
+  const hud = battleScreen.querySelector(".battle-hud");
+  const hudHeight = hud?.offsetHeight ?? 48;
+  const labelHeight = compact ? 16 : 18;
+  const verticalMargin = compact ? 28 : 50;
+  const desiredMainHeight = compact
+    ? Math.max(480, viewportHeight - headerHeight - 14)
+    : null;
+
+  let boardSize = Math.min(460, availableWidth);
+  if (compact) {
+    const boardByHeight = desiredMainHeight - hudHeight - labelHeight * 2 - cardHeight * 2 - verticalMargin;
+    boardSize = clamp(Math.floor(boardByHeight), 218, Math.min(460, availableWidth));
+
+    if (boardByHeight < 218) {
+      const shortage = 218 - boardByHeight;
+      const reducedCardHeight = Math.max(72, cardHeight - Math.ceil(shortage / 2));
+      const scale = reducedCardHeight / cardHeight;
+      cardHeight = reducedCardHeight;
+      cardWidth = clamp(Math.floor(cardWidth * scale), 48, cardWidth);
+      boardSize = 218;
+    }
+  }
+
+  battleScreen.style.setProperty("--battle-board-size", `${Math.floor(boardSize)}px`);
+  battleScreen.style.setProperty("--battle-card-width", `${Math.floor(cardWidth)}px`);
+  battleScreen.style.setProperty("--battle-card-min-height", `${Math.floor(cardHeight)}px`);
+  battleScreen.style.setProperty("--battle-card-art-height", `${Math.floor(artHeight)}px`);
+  battleScreen.style.setProperty("--battle-card-padding", `${Math.floor(cardPadding)}px`);
+  battleScreen.style.setProperty("--battle-card-name-font", `${Math.floor(nameFont)}px`);
+  battleScreen.style.setProperty("--battle-card-value-font", `${Math.floor(valueFont)}px`);
+  battleScreen.style.setProperty("--battle-card-value-size", `${Math.floor(valueBox)}px`);
+  battleScreen.style.setProperty("--battle-card-name-height", `${Math.floor(nameHeight)}px`);
+  battleScreen.style.setProperty("--battle-hand-gap", `${Math.floor(handGap)}px`);
+  battleScreen.style.setProperty("--battle-hand-min-height", `${Math.floor(cardHeight + (compact ? 6 : 8))}px`);
+
+  if (compact) {
+    battleMain.style.minHeight = `${Math.floor(desiredMainHeight)}px`;
+  } else {
+    battleMain.style.minHeight = "";
+  }
+}
+
 function initPixi() {
   if (state.pixi.app) {
     state.pixi.app.destroy(true, { children: true });
@@ -463,6 +576,7 @@ function initPixi() {
 
   $("pixiContainer").innerHTML = "";
   $("pixiContainer").appendChild(app.view);
+  fitBattleLayout();
 }
 
 function boardPosition(index) {
@@ -523,6 +637,15 @@ function createPixiCard(card, owner, x, y) {
   shine.drawRoundedRect(8, 8, 100, 26, 12);
   shine.endFill();
   container.addChild(shine);
+
+  const art = PIXI.Sprite.from(getCardImagePath(card));
+  art.anchor.set(0.5);
+  art.x = 58;
+  art.y = 60;
+  art.width = 70;
+  art.height = 70;
+  art.alpha = 0.58;
+  container.addChild(art);
 
   const name = new PIXI.Text(card.name, {
     fontFamily: "Arial",
@@ -630,6 +753,7 @@ function renderBattleHands() {
 function renderBattleAll() {
   renderBoard();
   renderBattleHands();
+  scheduleBattleAutoFit();
 }
 
 function calcScore(customBoard = null, playerRemaining = null, npcRemaining = null) {
@@ -1207,6 +1331,9 @@ function bindEvents() {
     state.battle = null;
     showScreen("battleMenu");
   });
+
+  window.addEventListener("resize", scheduleBattleAutoFit);
+  window.addEventListener("orientationchange", () => setTimeout(scheduleBattleAutoFit, 180));
 }
 
 function init() {
