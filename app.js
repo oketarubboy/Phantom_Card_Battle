@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.6";
+const VERSION = "0.1.7";
 const SAVE_KEY = "phantom_card_battle_save_v1";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -13,6 +13,7 @@ const state = {
   selectedHandIndex: null,
   deckSort: { field: "rarity", order: "desc" },
   ownedCardView: "vertical",
+  selectedRuleIds: [],
   battle: null,
   pixi: {
     app: null,
@@ -37,6 +38,22 @@ const screens = {
 };
 
 const DECK_SORT_FIELDS = new Set(["name", "rarity", "right", "up", "left", "down", "power"]);
+
+const RULES = [
+  { id: "order", name: "オーダー", short: "デッキ左から順番に出すカードが固定されます。" },
+  { id: "chaos", name: "カオス", short: "自分と相手の出すカードが毎ターンランダム指定されます。" },
+  { id: "all_open", name: "オールオープン", short: "お互いの手札がすべて見える状態で開始します。" },
+  { id: "swap", name: "スワップ", short: "開始前に手札1枚をランダム交換します。対戦後は戻ります。" },
+  { id: "reverse", name: "リバース", short: "数字の強さが逆になります。Aが最弱、1が最強です。" },
+  { id: "ace_killer", name: "エースキラー", short: "1だけがAに勝てます。1は2〜9には勝てません。" },
+  { id: "type_ascend", name: "タイプアセンド", short: "同じタイプのカードが場に出るたび、そのタイプが+1されます。" },
+  { id: "plus", name: "プラス", short: "接する辺の合計値が2辺以上同じなら対象カードを奪います。" },
+  { id: "same", name: "セイム", short: "接する2辺以上の数字が同じなら対象カードを奪います。" },
+  { id: "combo", name: "コンボ", short: "奪ったカードからさらに通常比較で連鎖します。" }
+];
+
+const RULE_NAME_BY_ID = Object.fromEntries(RULES.map((rule) => [rule.id, rule.name]));
+const CARD_TYPES = ["もなタイプ", "美雨タイプ", "凛花タイプ", "百花タイプ"];
 
 function normalizeDeckSort() {
   if (!DECK_SORT_FIELDS.has(state.deckSort.field)) state.deckSort.field = "rarity";
@@ -113,7 +130,54 @@ function rarityStars(rarity) {
 }
 
 function displayValue(value) {
-  return value === 10 ? "A" : String(value);
+  return value >= 10 ? "A" : String(value);
+}
+
+function getCardNumericId(card) {
+  const raw = String(card.id ?? card.no ?? "");
+  return Number(raw.replace(/\D/g, "")) || 0;
+}
+
+function getCardType(card) {
+  if (card?.type) return String(card.type);
+  const n = getCardNumericId(card);
+  if (!n || n % 5 === 0) return "";
+  return CARD_TYPES[(n - 1) % CARD_TYPES.length];
+}
+
+function hasRule(ruleId, battle = state.battle) {
+  return Boolean(battle?.rules?.includes(ruleId));
+}
+
+function getEffectiveCardValue(card, side, battle = state.battle, typeBoosts = null) {
+  let value = Number(card?.[side] ?? 0);
+  if (battle?.rules?.includes("type_ascend")) {
+    const type = getCardType(card);
+    if (type) value += Number((typeBoosts ?? battle.typeBoosts ?? {})[type] ?? 0);
+  }
+  return clamp(value, 1, 10);
+}
+
+function getCardValueSet(card, battle = state.battle, typeBoosts = null) {
+  return {
+    up: getEffectiveCardValue(card, "up", battle, typeBoosts),
+    right: getEffectiveCardValue(card, "right", battle, typeBoosts),
+    down: getEffectiveCardValue(card, "down", battle, typeBoosts),
+    left: getEffectiveCardValue(card, "left", battle, typeBoosts)
+  };
+}
+
+function sideBeats(attackerValue, defenderValue, battle = state.battle) {
+  if (hasRule("reverse", battle)) {
+    return attackerValue < defenderValue;
+  }
+
+  if (hasRule("ace_killer", battle)) {
+    if (attackerValue === 1 && defenderValue === 10) return true;
+    if (attackerValue === 10 && defenderValue === 1) return false;
+  }
+
+  return attackerValue > defenderValue;
 }
 
 function getCardImagePath(card) {
@@ -300,24 +364,28 @@ function canAddToDeck(deck, cardId) {
   return "";
 }
 
-function cardValuesHtml(card, center = "") {
+function cardValuesHtml(card, center = "", values = null) {
+  const displayValues = values ?? { up: card.up, right: card.right, down: card.down, left: card.left };
   return `
     <div class="card-values">
-      <span class="v-up">${displayValue(card.up)}</span>
-      <span class="v-right">${displayValue(card.right)}</span>
-      <span class="v-down">${displayValue(card.down)}</span>
-      <span class="v-left">${displayValue(card.left)}</span>
+      <span class="v-up">${displayValue(displayValues.up)}</span>
+      <span class="v-right">${displayValue(displayValues.right)}</span>
+      <span class="v-down">${displayValue(displayValues.down)}</span>
+      <span class="v-left">${displayValue(displayValues.left)}</span>
       <span class="v-center">${center}</span>
     </div>
   `;
 }
 
-function cardMiniHtml(card, extra = "") {
+function cardMiniHtml(card, extra = "", options = {}) {
+  const values = options.effective ? getCardValueSet(card) : null;
+  const type = getCardType(card);
   return `
     <div class="card-stars">${rarityStars(card.rarity)}</div>
+    ${type ? `<div class="card-type">${escapeHtml(type.replace("タイプ", ""))}</div>` : ""}
     ${cardArtHtml(card)}
     <div class="card-name">${escapeHtml(card.name)}</div>
-    ${cardValuesHtml(card, extra)}
+    ${cardValuesHtml(card, extra, values)}
   `;
 }
 
@@ -331,7 +399,53 @@ function escapeHtml(value) {
   }[char]));
 }
 
+function getSelectedRuleIds() {
+  const checked = [...document.querySelectorAll("[data-rule-id]:checked")].map((input) => input.value);
+  if (checked.includes("reverse") && checked.includes("ace_killer")) {
+    return checked.filter((id) => id !== "ace_killer");
+  }
+  return checked;
+}
+
+function setSelectedRuleIds(ruleIds) {
+  const sanitized = [...new Set(ruleIds)];
+  if (sanitized.includes("reverse") && sanitized.includes("ace_killer")) {
+    sanitized.splice(sanitized.indexOf("ace_killer"), 1);
+  }
+  state.selectedRuleIds = sanitized;
+  document.querySelectorAll("[data-rule-id]").forEach((input) => {
+    input.checked = sanitized.includes(input.value);
+  });
+}
+
+function renderRuleSelector() {
+  const box = $("battleRuleList");
+  if (!box) return;
+  box.innerHTML = RULES.map((rule) => `
+    <label class="rule-toggle ${state.selectedRuleIds.includes(rule.id) ? "selected" : ""}">
+      <input type="checkbox" value="${rule.id}" data-rule-id="${rule.id}" ${state.selectedRuleIds.includes(rule.id) ? "checked" : ""}>
+      <span><strong>${rule.name}</strong><small>${rule.short}</small></span>
+    </label>
+  `).join("");
+
+  box.querySelectorAll("[data-rule-id]").forEach((input) => {
+    input.addEventListener("change", () => {
+      let selected = getSelectedRuleIds();
+      if (input.checked && input.value === "reverse") selected = selected.filter((id) => id !== "ace_killer");
+      if (input.checked && input.value === "ace_killer") selected = selected.filter((id) => id !== "reverse");
+      setSelectedRuleIds(selected);
+      renderRuleSelector();
+    });
+  });
+}
+
+function getRuleSummary(ruleIds = state.selectedRuleIds) {
+  if (!ruleIds.length) return "追加ルールなし";
+  return ruleIds.map((id) => RULE_NAME_BY_ID[id] ?? id).join(" / ");
+}
+
 function renderNpcList() {
+  renderRuleSelector();
   const list = $("npcList");
   list.innerHTML = "";
 
@@ -681,10 +795,11 @@ function createPixiCard(card, owner, x, y) {
   star.y = 10;
   container.addChild(star);
 
-  addValueText(container, displayValue(card.up), 58, 24);
-  addValueText(container, displayValue(card.right), 92, 58);
-  addValueText(container, displayValue(card.down), 58, 92);
-  addValueText(container, displayValue(card.left), 24, 58);
+  const values = getCardValueSet(card);
+  addValueText(container, displayValue(values.up), 58, 24);
+  addValueText(container, displayValue(values.right), 92, 58);
+  addValueText(container, displayValue(values.down), 58, 92);
+  addValueText(container, displayValue(values.left), 24, 58);
 
   return container;
 }
@@ -720,13 +835,15 @@ function renderBattleHands() {
   const battle = state.battle;
   if (!battle) return;
 
+  const forcedPlayerIndex = getForcedHandIndex("player");
   const playerHand = $("playerHand");
   playerHand.innerHTML = "";
   battle.playerHand.forEach((entry, index) => {
     const div = document.createElement("div");
-    div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index ? "selected" : ""}`;
-    div.innerHTML = cardMiniHtml(entry.card);
-    if (!entry.used && battle.currentTurn === "player" && !battle.locked) {
+    const isForced = forcedPlayerIndex === index && battle.currentTurn === "player" && !entry.used;
+    div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index || isForced ? "selected" : ""} ${isForced ? "forced" : ""}`;
+    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { effective: true });
+    if (!entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null) {
       div.addEventListener("click", () => {
         state.selectedHandIndex = state.selectedHandIndex === index ? null : index;
         renderBattleHands();
@@ -737,14 +854,15 @@ function renderBattleHands() {
 
   const npcHand = $("npcHand");
   npcHand.innerHTML = "";
-  const revealNpcHand = battle.npc.difficulty === "よわい";
-  battle.npcHand.forEach((entry) => {
+  const revealNpcHand = battle.npc.difficulty === "よわい" || hasRule("all_open", battle);
+  battle.npcHand.forEach((entry, index) => {
     const div = document.createElement("div");
+    const isForced = getForcedHandIndex("npc") === index && battle.currentTurn === "npc" && !entry.used;
     if (revealNpcHand) {
-      div.className = `mini-card opponent-open ${entry.used ? "used" : ""}`;
-      div.innerHTML = cardMiniHtml(entry.card, entry.used ? "済" : "NPC");
+      div.className = `mini-card opponent-open ${entry.used ? "used" : ""} ${isForced ? "forced" : ""}`;
+      div.innerHTML = cardMiniHtml(entry.card, entry.used ? "済" : isForced ? "指定" : "NPC", { effective: true });
     } else {
-      div.className = "card-back";
+      div.className = `card-back ${isForced ? "forced" : ""}`;
       div.textContent = entry.used ? "済" : "PCB";
       if (entry.used) div.style.opacity = "0.28";
     }
@@ -792,16 +910,44 @@ async function startBattle(npcId) {
     return;
   }
 
+  const selectedRules = getSelectedRuleIds();
+  if (selectedRules.includes("reverse") && selectedRules.includes("ace_killer")) {
+    showModal("ルール確認", "<p>リバースとエースキラーは同時に選択できません。</p>", [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+
+  const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
   const npcDeck = sample(npc.cardPool, 5).map((id) => cardById.get(id)).filter(Boolean);
+  const playerHandCards = [...playerBattleDeck];
+  const npcHandCards = [...npcDeck];
+  let swapInfo = null;
+
+  if (selectedRules.includes("swap") && playerHandCards.length && npcHandCards.length) {
+    const playerIndex = Math.floor(Math.random() * playerHandCards.length);
+    const npcIndex = Math.floor(Math.random() * npcHandCards.length);
+    swapInfo = {
+      playerIndex,
+      npcIndex,
+      playerCard: playerHandCards[playerIndex],
+      npcCard: npcHandCards[npcIndex]
+    };
+    [playerHandCards[playerIndex], npcHandCards[npcIndex]] = [npcHandCards[npcIndex], playerHandCards[playerIndex]];
+  }
+
   state.battle = {
     npc,
-    playerHand: deck.map((id) => ({ card: cardById.get(id), used: false })),
-    npcHand: npcDeck.map((card) => ({ card, used: false })),
+    rules: selectedRules,
+    playerHand: playerHandCards.map((card) => ({ card, used: false })),
+    npcHand: npcHandCards.map((card) => ({ card, used: false })),
     npcBattleCards: npcDeck,
     board: Array(9).fill(null),
     currentTurn: "coin",
     locked: true,
-    finished: false
+    finished: false,
+    forcedPlayerHandIndex: null,
+    forcedNpcHandIndex: null,
+    typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
+    swapInfo
   };
   const battleToken = state.battle;
   state.selectedHandIndex = null;
@@ -810,6 +956,8 @@ async function startBattle(npcId) {
   $("battleNpcName").textContent = `${npc.name} / ${npc.difficulty}`;
   $("battleLog").innerHTML = "";
   addBattleLog(`${npc.name}との対戦を開始しました。`);
+  addBattleLog(`追加ルール：${getRuleSummary(selectedRules)}`);
+  if (swapInfo) addBattleLog(`スワップ：お互いの手札から1枚を交換しました。対戦後に戻ります。`);
   addBattleLog("コイントスで先攻・後攻を決定します。");
   initPixi();
   renderBattleAll();
@@ -823,6 +971,7 @@ async function startBattle(npcId) {
   if (state.battle !== battleToken) return;
 
   battleToken.currentTurn = firstTurn;
+  prepareTurn(firstTurn);
   battleToken.locked = false;
   addBattleLog(firstTurn === "player" ? "先攻はプレイヤーです。" : `先攻は${npc.name}です。`);
   renderBattleAll();
@@ -857,25 +1006,71 @@ async function runCoinToss() {
   return firstTurn;
 }
 
+function getFirstUnusedHandIndex(hand) {
+  return hand.findIndex((entry) => !entry.used);
+}
+
+function getRandomUnusedHandIndex(hand) {
+  const indexes = hand.map((entry, index) => entry.used ? null : index).filter((index) => index !== null);
+  if (!indexes.length) return -1;
+  return indexes[Math.floor(Math.random() * indexes.length)];
+}
+
+function prepareTurn(owner) {
+  const battle = state.battle;
+  if (!battle) return;
+  const hand = owner === "player" ? battle.playerHand : battle.npcHand;
+  const property = owner === "player" ? "forcedPlayerHandIndex" : "forcedNpcHandIndex";
+  battle[property] = null;
+
+  if (hasRule("chaos", battle)) {
+    battle[property] = getRandomUnusedHandIndex(hand);
+  } else if (hasRule("order", battle)) {
+    battle[property] = getFirstUnusedHandIndex(hand);
+  }
+
+  if (owner === "player") {
+    state.selectedHandIndex = battle[property] >= 0 ? battle[property] : null;
+  }
+
+  if (battle[property] >= 0) {
+    const card = hand[battle[property]]?.card;
+    const ruleName = hasRule("chaos", battle) ? "カオス" : "オーダー";
+    addBattleLog(`${ruleName}：${owner === "player" ? "プレイヤー" : battle.npc.name}の出すカードは「${card?.name ?? "不明"}」です。`);
+  }
+}
+
+function getForcedHandIndex(owner) {
+  const battle = state.battle;
+  if (!battle) return null;
+  const value = owner === "player" ? battle.forcedPlayerHandIndex : battle.forcedNpcHandIndex;
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
 async function handleBoardClick(index) {
   const battle = state.battle;
   if (!battle || battle.locked || battle.finished || battle.currentTurn !== "player") return;
   if (battle.board[index]) return;
-  if (state.selectedHandIndex === null) {
+
+  const forcedIndex = getForcedHandIndex("player");
+  const handIndex = forcedIndex !== null ? forcedIndex : state.selectedHandIndex;
+  if (handIndex === null) {
     addBattleLog("手札を1枚選択してください。");
     return;
   }
 
-  const hand = battle.playerHand[state.selectedHandIndex];
+  const hand = battle.playerHand[handIndex];
   if (!hand || hand.used) return;
 
   battle.locked = true;
-  await playCard("player", state.selectedHandIndex, index);
+  await playCard("player", handIndex, index);
   state.selectedHandIndex = null;
+  battle.forcedPlayerHandIndex = null;
   battle.locked = false;
 
   if (!checkBattleEnd()) {
     battle.currentTurn = "npc";
+    prepareTurn("npc");
     renderBattleHands();
     setTimeout(() => npcTurn(), 550);
   }
@@ -887,6 +1082,15 @@ async function playCard(owner, handIndex, boardIndex) {
   const entry = hand[handIndex];
   entry.used = true;
   battle.board[boardIndex] = { card: entry.card, owner };
+
+  if (hasRule("type_ascend", battle)) {
+    const type = getCardType(entry.card);
+    if (type) {
+      battle.typeBoosts[type] = Math.min(9, Number(battle.typeBoosts[type] ?? 0) + 1);
+      addBattleLog(`タイプアセンド：${type}が+${battle.typeBoosts[type]}になりました。`);
+    }
+  }
+
   renderBattleAll();
   addBattleLog(`${owner === "player" ? "プレイヤー" : battle.npc.name}：${entry.card.name}を配置。`);
 
@@ -900,21 +1104,147 @@ async function playCard(owner, handIndex, boardIndex) {
   renderBattleAll();
 }
 
+function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = battle?.typeBoosts ?? {}) {
+  const placed = board[boardIndex];
+  if (!placed) return { indexes: [], reasons: [] };
+  const owner = placed.owner;
+  const indexes = new Set();
+  const reasons = [];
+  const neighbors = getNeighbors(boardIndex)
+    .map((neighbor) => ({ ...neighbor, target: board[neighbor.index] }))
+    .filter((item) => item.target);
+
+  if (hasRule("plus", battle)) {
+    const sums = new Map();
+    for (const item of neighbors) {
+      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, typeBoosts);
+      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, typeBoosts);
+      const sum = placedValue + targetValue;
+      if (!sums.has(sum)) sums.set(sum, []);
+      sums.get(sum).push(item);
+    }
+    for (const group of sums.values()) {
+      if (group.length >= 2) {
+        let flipped = 0;
+        for (const item of group) {
+          if (item.target.owner !== owner) {
+            indexes.add(item.index);
+            flipped += 1;
+          }
+        }
+        if (flipped) reasons.push("プラス");
+      }
+    }
+  }
+
+  if (hasRule("same", battle)) {
+    const sameItems = [];
+    for (const item of neighbors) {
+      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, typeBoosts);
+      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, typeBoosts);
+      if (placedValue === targetValue) sameItems.push(item);
+    }
+    if (sameItems.length >= 2) {
+      let flipped = 0;
+      for (const item of sameItems) {
+        if (item.target.owner !== owner) {
+          indexes.add(item.index);
+          flipped += 1;
+        }
+      }
+      if (flipped) reasons.push("セイム");
+    }
+  }
+
+  for (const item of neighbors) {
+    if (item.target.owner === owner) continue;
+    const placedValue = getEffectiveCardValue(placed.card, item.side, battle, typeBoosts);
+    const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, typeBoosts);
+    if (sideBeats(placedValue, targetValue, battle)) {
+      indexes.add(item.index);
+    }
+  }
+
+  return { indexes: [...indexes], reasons: [...new Set(reasons)] };
+}
+
+function getComboCaptures(board, startIndexes, owner, battle = state.battle, typeBoosts = battle?.typeBoosts ?? {}) {
+  if (!hasRule("combo", battle)) return [];
+  const captured = [];
+  const queue = [...startIndexes];
+  const seen = new Set(queue);
+
+  while (queue.length) {
+    const sourceIndex = queue.shift();
+    const source = board[sourceIndex];
+    if (!source || source.owner !== owner) continue;
+
+    for (const neighbor of getNeighbors(sourceIndex)) {
+      const target = board[neighbor.index];
+      if (!target || target.owner === owner) continue;
+      const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, typeBoosts);
+      const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, typeBoosts);
+      if (sideBeats(sourceValue, targetValue, battle)) {
+        target.owner = owner;
+        if (!seen.has(neighbor.index)) {
+          seen.add(neighbor.index);
+          queue.push(neighbor.index);
+          captured.push(neighbor.index);
+        }
+      }
+    }
+  }
+
+  return captured;
+}
+
 async function resolveCaptures(boardIndex) {
   const battle = state.battle;
   const placed = battle.board[boardIndex];
+  const plan = getCapturePlan(battle.board, boardIndex, battle, battle.typeBoosts);
   const captured = [];
-  const neighbors = getNeighbors(boardIndex);
 
-  for (const neighbor of neighbors) {
-    const target = battle.board[neighbor.index];
+  if (plan.reasons.length) addBattleLog(`${plan.reasons.join("・")}発動！`);
+
+  for (const index of plan.indexes) {
+    const target = battle.board[index];
     if (!target || target.owner === placed.owner) continue;
-    if (placed.card[neighbor.side] > target.card[neighbor.opposite]) {
-      target.owner = placed.owner;
-      captured.push(neighbor.index);
-      renderBoard();
-      await animateFlip(neighbor.index, placed.owner);
+    target.owner = placed.owner;
+    captured.push(index);
+    renderBoard();
+    await animateFlip(index, placed.owner);
+  }
+
+  if (hasRule("combo", battle) && captured.length) {
+    const comboQueue = [...captured];
+    const seen = new Set(comboQueue);
+    let comboCount = 0;
+
+    while (comboQueue.length) {
+      const sourceIndex = comboQueue.shift();
+      const source = battle.board[sourceIndex];
+      if (!source || source.owner !== placed.owner) continue;
+
+      for (const neighbor of getNeighbors(sourceIndex)) {
+        const target = battle.board[neighbor.index];
+        if (!target || target.owner === placed.owner) continue;
+        const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, battle.typeBoosts);
+        const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, battle.typeBoosts);
+        if (sideBeats(sourceValue, targetValue, battle)) {
+          target.owner = placed.owner;
+          captured.push(neighbor.index);
+          comboCount += 1;
+          if (!seen.has(neighbor.index)) {
+            seen.add(neighbor.index);
+            comboQueue.push(neighbor.index);
+          }
+          renderBoard();
+          await animateFlip(neighbor.index, placed.owner);
+        }
+      }
     }
+
+    if (comboCount) addBattleLog(`コンボ発動：${comboCount}枚を追加で変更しました。`);
   }
 
   return captured;
@@ -1001,23 +1331,32 @@ async function npcTurn() {
   }
 
   await playCard("npc", move.handIndex, move.boardIndex);
+  battle.forcedNpcHandIndex = null;
   battle.locked = false;
 
   if (!checkBattleEnd()) {
     battle.currentTurn = "player";
+    prepareTurn("player");
     renderBattleHands();
     addBattleLog("プレイヤーのターンです。");
   }
 }
 
-function legalMovesFor(hand, board) {
+function legalMovesFor(hand, board, owner = null) {
   const emptyIndexes = board
     .map((cell, index) => cell ? null : index)
     .filter((index) => index !== null);
 
+  let allowedHandIndexes = null;
+  if (owner) {
+    const forcedIndex = getForcedHandIndex(owner);
+    if (forcedIndex !== null) allowedHandIndexes = new Set([forcedIndex]);
+  }
+
   const moves = [];
   hand.forEach((entry, handIndex) => {
     if (entry.used) return;
+    if (allowedHandIndexes && !allowedHandIndexes.has(handIndex)) return;
     for (const boardIndex of emptyIndexes) {
       moves.push({ handIndex, boardIndex, card: entry.card });
     }
@@ -1027,7 +1366,7 @@ function legalMovesFor(hand, board) {
 
 function chooseNpcMove() {
   const battle = state.battle;
-  const moves = legalMovesFor(battle.npcHand, battle.board);
+  let moves = legalMovesFor(battle.npcHand, battle.board, "npc");
   if (moves.length === 0) return null;
 
   if (battle.npc.difficulty === "よわい") {
@@ -1057,9 +1396,9 @@ function chooseStrongMove(moves) {
     const playerRemaining = battle.playerHand.filter((entry) => !entry.used).length;
 
     let worstCounter = 0;
-    const playerMoves = legalMovesFor(battle.playerHand, sim.board);
+    const playerMoves = legalMovesFor(battle.playerHand, sim.board, "player");
     for (const pMove of playerMoves) {
-      const counter = simulateMove(sim.board, pMove.card, "player", pMove.boardIndex);
+      const counter = simulateMove(sim.board, pMove.card, "player", pMove.boardIndex, sim.typeBoosts);
       const scoreAfterCounter = boardAdvantageForNpc(counter.board, playerRemaining - 1, npcRemaining);
       worstCounter = Math.max(worstCounter, -scoreAfterCounter + counter.captured * 18);
     }
@@ -1091,24 +1430,31 @@ function safetyScore(board, boardIndex, owner) {
   const exposedSides = getNeighbors(boardIndex).filter((neighbor) => !board[neighbor.index]);
   if (exposedSides.length === 0) return 8;
 
-  return exposedSides.reduce((sum, neighbor) => sum + placed.card[neighbor.side], 0) / exposedSides.length;
+  return exposedSides.reduce((sum, neighbor) => sum + getEffectiveCardValue(placed.card, neighbor.side, state.battle), 0) / exposedSides.length;
 }
 
-function simulateMove(board, card, owner, boardIndex) {
+function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null) {
+  const battle = state.battle;
+  const simBattle = { ...battle, typeBoosts: { ...(typeBoostsOverride ?? battle.typeBoosts ?? {}) } };
   const copy = board.map((cell) => cell ? { card: cell.card, owner: cell.owner } : null);
   copy[boardIndex] = { card, owner };
-  let captured = 0;
 
-  for (const neighbor of getNeighbors(boardIndex)) {
-    const target = copy[neighbor.index];
-    if (!target || target.owner === owner) continue;
-    if (card[neighbor.side] > target.card[neighbor.opposite]) {
-      target.owner = owner;
-      captured += 1;
-    }
+  if (hasRule("type_ascend", simBattle)) {
+    const type = getCardType(card);
+    if (type) simBattle.typeBoosts[type] = Math.min(9, Number(simBattle.typeBoosts[type] ?? 0) + 1);
   }
 
-  return { board: copy, captured };
+  const plan = getCapturePlan(copy, boardIndex, simBattle, simBattle.typeBoosts);
+  const capturedIndexes = [];
+  for (const index of plan.indexes) {
+    const target = copy[index];
+    if (!target || target.owner === owner) continue;
+    target.owner = owner;
+    capturedIndexes.push(index);
+  }
+
+  const comboCaptured = getComboCaptures(copy, capturedIndexes, owner, simBattle, simBattle.typeBoosts);
+  return { board: copy, captured: capturedIndexes.length + comboCaptured.length, typeBoosts: simBattle.typeBoosts };
 }
 
 function checkBattleEnd() {
