@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.5";
+const VERSION = "0.1.6";
 const SAVE_KEY = "phantom_card_battle_save_v1";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -522,15 +522,19 @@ function fitBattleLayout() {
   if (!battleScreen?.classList.contains("active") || !battleMain || !pixiContainer) return;
 
   const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 360;
+  const documentWidth = document.documentElement.clientWidth || viewportWidth;
   const compact = viewportWidth <= 720;
 
   const mainStyle = getComputedStyle(battleMain);
   const mainPaddingX = parseFloat(mainStyle.paddingLeft || "0") + parseFloat(mainStyle.paddingRight || "0");
-  const availableWidth = Math.max(280, battleMain.clientWidth - mainPaddingX);
-  const handGap = compact ? 4 : 8;
-  const cardWidthLimit = compact ? 78 : 92;
+  const battleRect = battleMain.getBoundingClientRect();
+  const viewportSafeWidth = Math.max(220, Math.min(viewportWidth, documentWidth) - (compact ? 10 : 24));
+  const measuredWidth = Math.min(battleMain.clientWidth || viewportSafeWidth, battleRect.width || viewportSafeWidth, viewportSafeWidth);
+  const availableWidth = Math.max(compact ? 220 : 280, measuredWidth - mainPaddingX);
+  const handGap = compact ? 3 : 8;
+  const cardWidthLimit = compact ? 76 : 92;
   let cardWidth = Math.floor((availableWidth - handGap * 4) / 5);
-  cardWidth = clamp(cardWidth, compact ? 50 : 76, cardWidthLimit);
+  cardWidth = clamp(cardWidth, compact ? 44 : 76, cardWidthLimit);
 
   const cardPadding = clamp(Math.round(cardWidth / 13), 4, 8);
   const artHeight = clamp(Math.round(cardWidth * 0.38), compact ? 18 : 30, compact ? 32 : 42);

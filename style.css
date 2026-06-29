@@ -29,6 +29,17 @@ body {
     linear-gradient(135deg, #0b0c18 0%, #17172d 55%, #10131f 100%);
 }
 
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#app {
+  width: 100%;
+  max-width: 100%;
+}
+
 button {
   border: 0;
   color: white;
@@ -235,6 +246,42 @@ main {
   --battle-card-name-height: 28px;
   --battle-hand-gap: 8px;
   --battle-hand-min-height: 150px;
+}
+
+
+body.is-battle-screen {
+  width: 100%;
+  max-width: 100dvw;
+  overflow-x: hidden;
+}
+
+body.is-battle-screen .app-header,
+body.is-battle-screen main {
+  width: 100%;
+  max-width: 100dvw;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+body.is-battle-screen .app-header {
+  background: rgba(32, 28, 68, 0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+body.is-battle-screen .app-header > div {
+  min-width: 0;
+}
+
+body.is-battle-screen #backTitleBtn {
+  flex: 0 0 auto;
+}
+
+body.is-battle-screen .battle-screen,
+body.is-battle-screen .battle-layout,
+body.is-battle-screen .battle-main {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .battle-layout {
@@ -722,12 +769,15 @@ textarea {
 
 @media (max-width: 920px) {
   body.is-battle-screen .app-header {
-    padding: 6px 10px 2px;
+    padding: 6px max(6px, env(safe-area-inset-left)) 3px max(6px, env(safe-area-inset-right));
   }
 
   body.is-battle-screen h1 {
-    font-size: 18px;
+    font-size: 15px;
     margin-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   body.is-battle-screen .subtitle {
@@ -735,12 +785,12 @@ textarea {
   }
 
   body.is-battle-screen main {
-    padding: 4px 8px 10px;
+    padding: 4px max(4px, env(safe-area-inset-left)) 10px max(4px, env(safe-area-inset-right));
   }
 
   .battle-screen .battle-main {
-    padding: 8px;
-    border-radius: 16px;
+    padding: 6px;
+    border-radius: 14px;
   }
 
   .battle-screen .battle-hud {
@@ -810,6 +860,21 @@ textarea {
     right: 8px;
     bottom: 8px;
   }
+
+  body.is-battle-screen .app-header {
+    align-items: center;
+    gap: 6px;
+  }
+
+  body.is-battle-screen #backTitleBtn {
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+
+  body.is-battle-screen main {
+    padding-bottom: 8px;
+  }
+
 }
 
 .deck-card-info {
@@ -964,7 +1029,7 @@ textarea {
 }
 
 
-/* v0.1.5: deck owned-card display switch. */
+/* v0.1.6: deck owned-card display switch. */
 .deck-view-row {
   display: flex;
   flex-wrap: wrap;
@@ -1066,3 +1131,5 @@ textarea {
     width: 58px;
   }
 }
+
+/* v0.1.6: battle screen viewport width fit for smartphone header and play area. */
