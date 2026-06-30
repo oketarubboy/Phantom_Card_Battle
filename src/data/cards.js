@@ -206,7 +206,8 @@ export const CARDS = [
     "right": 4,
     "down": 6,
     "left": 5,
-    "power": 20
+    "power": 20,
+    "type": "もなタイプ"
   },
   {
     "id": "card_020",
@@ -217,7 +218,8 @@ export const CARDS = [
     "right": 7,
     "down": 5,
     "left": 5,
-    "power": 20
+    "power": 20,
+    "type": "もなタイプ"
   },
   {
     "id": "card_021",
@@ -228,7 +230,8 @@ export const CARDS = [
     "right": 6,
     "down": 3,
     "left": 4,
-    "power": 19
+    "power": 19,
+    "type": "もなタイプ"
   },
   {
     "id": "card_022",
@@ -239,7 +242,8 @@ export const CARDS = [
     "right": 3,
     "down": 7,
     "left": 5,
-    "power": 20
+    "power": 20,
+    "type": "もなタイプ"
   },
   {
     "id": "card_023",
@@ -250,7 +254,8 @@ export const CARDS = [
     "right": 2,
     "down": 7,
     "left": 7,
-    "power": 18
+    "power": 18,
+    "type": "もなタイプ"
   },
   {
     "id": "card_024",
@@ -261,7 +266,8 @@ export const CARDS = [
     "right": 7,
     "down": 7,
     "left": 2,
-    "power": 18
+    "power": 18,
+    "type": "もなタイプ"
   },
   {
     "id": "card_025",
@@ -272,7 +278,8 @@ export const CARDS = [
     "right": 7,
     "down": 2,
     "left": 2,
-    "power": 18
+    "power": 18,
+    "type": "もなタイプ"
   },
   {
     "id": "card_026",
@@ -283,7 +290,8 @@ export const CARDS = [
     "right": 7,
     "down": 3,
     "left": 2,
-    "power": 19
+    "power": 19,
+    "type": "もなタイプ"
   },
   {
     "id": "card_027",
@@ -294,7 +302,8 @@ export const CARDS = [
     "right": 7,
     "down": 2,
     "left": 3,
-    "power": 18
+    "power": 18,
+    "type": "もなタイプ"
   },
   {
     "id": "card_028",
@@ -305,7 +314,8 @@ export const CARDS = [
     "right": 5,
     "down": 3,
     "left": 5,
-    "power": 19
+    "power": 19,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_029",
@@ -316,7 +326,8 @@ export const CARDS = [
     "right": 5,
     "down": 5,
     "left": 5,
-    "power": 20
+    "power": 20,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_030",
@@ -327,7 +338,8 @@ export const CARDS = [
     "right": 2,
     "down": 6,
     "left": 6,
-    "power": 20
+    "power": 20,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_031",
@@ -338,7 +350,8 @@ export const CARDS = [
     "right": 7,
     "down": 3,
     "left": 7,
-    "power": 18
+    "power": 18,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_032",
@@ -349,7 +362,8 @@ export const CARDS = [
     "right": 6,
     "down": 3,
     "left": 6,
-    "power": 17
+    "power": 17,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_033",
@@ -360,7 +374,8 @@ export const CARDS = [
     "right": 3,
     "down": 7,
     "left": 3,
-    "power": 19
+    "power": 19,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_034",
@@ -371,7 +386,8 @@ export const CARDS = [
     "right": 7,
     "down": 2,
     "left": 7,
-    "power": 18
+    "power": 18,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_035",
@@ -382,7 +398,8 @@ export const CARDS = [
     "right": 2,
     "down": 7,
     "left": 2,
-    "power": 18
+    "power": 18,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_036",
@@ -393,7 +410,8 @@ export const CARDS = [
     "right": 6,
     "down": 3,
     "left": 3,
-    "power": 19
+    "power": 19,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_037",
@@ -404,7 +422,8 @@ export const CARDS = [
     "right": 3,
     "down": 6,
     "left": 6,
-    "power": 19
+    "power": 19,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_038",
@@ -415,7 +434,8 @@ export const CARDS = [
     "right": 7,
     "down": 7,
     "left": 1,
-    "power": 18
+    "power": 18,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_039",
@@ -426,7 +446,8 @@ export const CARDS = [
     "right": 3,
     "down": 7,
     "left": 3,
-    "power": 17
+    "power": 17,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_040",
@@ -437,7 +458,8 @@ export const CARDS = [
     "right": 3,
     "down": 4,
     "left": 5,
-    "power": 19
+    "power": 19,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_041",
@@ -448,7 +470,8 @@ export const CARDS = [
     "right": 6,
     "down": 6,
     "left": 2,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_042",
@@ -459,7 +482,8 @@ export const CARDS = [
     "right": 5,
     "down": 5,
     "left": 3,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_043",
@@ -470,7 +494,8 @@ export const CARDS = [
     "right": 5,
     "down": 3,
     "left": 7,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_044",
@@ -481,7 +506,8 @@ export const CARDS = [
     "right": 6,
     "down": 6,
     "left": 6,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_045",
@@ -492,7 +518,8 @@ export const CARDS = [
     "right": 6,
     "down": 3,
     "left": 6,
-    "power": 19
+    "power": 19,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_046",
@@ -503,7 +530,8 @@ export const CARDS = [
     "right": 3,
     "down": 7,
     "left": 3,
-    "power": 19
+    "power": 19,
+    "type": "百花タイプ"
   },
   {
     "id": "card_047",
@@ -514,7 +542,8 @@ export const CARDS = [
     "right": 1,
     "down": 3,
     "left": 7,
-    "power": 18
+    "power": 18,
+    "type": "百花タイプ"
   },
   {
     "id": "card_048",
@@ -525,7 +554,8 @@ export const CARDS = [
     "right": 6,
     "down": 4,
     "left": 6,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_049",
@@ -536,7 +566,8 @@ export const CARDS = [
     "right": 6,
     "down": 2,
     "left": 6,
-    "power": 20
+    "power": 20,
+    "type": "百花タイプ"
   },
   {
     "id": "card_050",
@@ -547,7 +578,8 @@ export const CARDS = [
     "right": 6,
     "down": 7,
     "left": 2,
-    "power": 18
+    "power": 18,
+    "type": "百花タイプ"
   },
   {
     "id": "card_051",
@@ -558,7 +590,8 @@ export const CARDS = [
     "right": 3,
     "down": 2,
     "left": 6,
-    "power": 18
+    "power": 18,
+    "type": "百花タイプ"
   },
   {
     "id": "card_052",
@@ -569,7 +602,8 @@ export const CARDS = [
     "right": 3,
     "down": 6,
     "left": 7,
-    "power": 18
+    "power": 18,
+    "type": "百花タイプ"
   },
   {
     "id": "card_053",
@@ -580,7 +614,8 @@ export const CARDS = [
     "right": 6,
     "down": 4,
     "left": 7,
-    "power": 19
+    "power": 19,
+    "type": "百花タイプ"
   },
   {
     "id": "card_054",
@@ -591,7 +626,8 @@ export const CARDS = [
     "right": 7,
     "down": 1,
     "left": 3,
-    "power": 18
+    "power": 18,
+    "type": "百花タイプ"
   },
   {
     "id": "card_055",
@@ -734,7 +770,8 @@ export const CARDS = [
     "right": 8,
     "down": 3,
     "left": 8,
-    "power": 20
+    "power": 20,
+    "type": "もなタイプ"
   },
   {
     "id": "card_068",
@@ -745,7 +782,8 @@ export const CARDS = [
     "right": 6,
     "down": 4,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_069",
@@ -756,7 +794,8 @@ export const CARDS = [
     "right": 8,
     "down": 4,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_070",
@@ -767,7 +806,8 @@ export const CARDS = [
     "right": 4,
     "down": 7,
     "left": 4,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_071",
@@ -778,7 +818,8 @@ export const CARDS = [
     "right": 4,
     "down": 7,
     "left": 3,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_072",
@@ -789,7 +830,8 @@ export const CARDS = [
     "right": 8,
     "down": 2,
     "left": 3,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_073",
@@ -800,7 +842,8 @@ export const CARDS = [
     "right": 3,
     "down": 6,
     "left": 4,
-    "power": 20
+    "power": 20,
+    "type": "もなタイプ"
   },
   {
     "id": "card_074",
@@ -811,7 +854,8 @@ export const CARDS = [
     "right": 6,
     "down": 8,
     "left": 4,
-    "power": 22
+    "power": 22,
+    "type": "もなタイプ"
   },
   {
     "id": "card_075",
@@ -822,7 +866,8 @@ export const CARDS = [
     "right": 8,
     "down": 6,
     "left": 3,
-    "power": 22
+    "power": 22,
+    "type": "もなタイプ"
   },
   {
     "id": "card_076",
@@ -833,7 +878,8 @@ export const CARDS = [
     "right": 6,
     "down": 1,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_077",
@@ -844,7 +890,8 @@ export const CARDS = [
     "right": 7,
     "down": 1,
     "left": 7,
-    "power": 22
+    "power": 22,
+    "type": "もなタイプ"
   },
   {
     "id": "card_078",
@@ -855,7 +902,8 @@ export const CARDS = [
     "right": 3,
     "down": 7,
     "left": 3,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_079",
@@ -866,7 +914,8 @@ export const CARDS = [
     "right": 6,
     "down": 5,
     "left": 6,
-    "power": 23
+    "power": 23,
+    "type": "もなタイプ"
   },
   {
     "id": "card_080",
@@ -877,7 +926,8 @@ export const CARDS = [
     "right": 6,
     "down": 7,
     "left": 1,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_081",
@@ -888,7 +938,8 @@ export const CARDS = [
     "right": 1,
     "down": 7,
     "left": 8,
-    "power": 21
+    "power": 21,
+    "type": "もなタイプ"
   },
   {
     "id": "card_082",
@@ -899,7 +950,8 @@ export const CARDS = [
     "right": 4,
     "down": 7,
     "left": 4,
-    "power": 22
+    "power": 22,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_083",
@@ -910,7 +962,8 @@ export const CARDS = [
     "right": 1,
     "down": 5,
     "left": 8,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_084",
@@ -921,7 +974,8 @@ export const CARDS = [
     "right": 4,
     "down": 8,
     "left": 8,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_085",
@@ -932,7 +986,8 @@ export const CARDS = [
     "right": 7,
     "down": 6,
     "left": 7,
-    "power": 22
+    "power": 22,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_086",
@@ -943,7 +998,8 @@ export const CARDS = [
     "right": 1,
     "down": 6,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_087",
@@ -954,7 +1010,8 @@ export const CARDS = [
     "right": 6,
     "down": 5,
     "left": 7,
-    "power": 24
+    "power": 24,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_088",
@@ -965,7 +1022,8 @@ export const CARDS = [
     "right": 8,
     "down": 4,
     "left": 8,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_089",
@@ -976,7 +1034,8 @@ export const CARDS = [
     "right": 6,
     "down": 6,
     "left": 6,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_090",
@@ -987,7 +1046,8 @@ export const CARDS = [
     "right": 3,
     "down": 2,
     "left": 7,
-    "power": 20
+    "power": 20,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_091",
@@ -998,7 +1058,8 @@ export const CARDS = [
     "right": 7,
     "down": 7,
     "left": 5,
-    "power": 22
+    "power": 22,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_092",
@@ -1009,7 +1070,8 @@ export const CARDS = [
     "right": 8,
     "down": 5,
     "left": 5,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_093",
@@ -1020,7 +1082,8 @@ export const CARDS = [
     "right": 2,
     "down": 3,
     "left": 8,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_094",
@@ -1031,7 +1094,8 @@ export const CARDS = [
     "right": 7,
     "down": 4,
     "left": 5,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_095",
@@ -1042,7 +1106,8 @@ export const CARDS = [
     "right": 2,
     "down": 6,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_096",
@@ -1053,7 +1118,8 @@ export const CARDS = [
     "right": 7,
     "down": 4,
     "left": 4,
-    "power": 21
+    "power": 21,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_097",
@@ -1064,7 +1130,8 @@ export const CARDS = [
     "right": 3,
     "down": 8,
     "left": 3,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_098",
@@ -1075,7 +1142,8 @@ export const CARDS = [
     "right": 7,
     "down": 2,
     "left": 8,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_099",
@@ -1086,7 +1154,8 @@ export const CARDS = [
     "right": 3,
     "down": 8,
     "left": 1,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_100",
@@ -1097,7 +1166,8 @@ export const CARDS = [
     "right": 6,
     "down": 7,
     "left": 6,
-    "power": 24
+    "power": 24,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_101",
@@ -1108,7 +1178,8 @@ export const CARDS = [
     "right": 5,
     "down": 4,
     "left": 5,
-    "power": 22
+    "power": 22,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_102",
@@ -1119,7 +1190,8 @@ export const CARDS = [
     "right": 1,
     "down": 8,
     "left": 7,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_103",
@@ -1130,7 +1202,8 @@ export const CARDS = [
     "right": 7,
     "down": 8,
     "left": 2,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_104",
@@ -1141,7 +1214,8 @@ export const CARDS = [
     "right": 7,
     "down": 6,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_105",
@@ -1152,7 +1226,8 @@ export const CARDS = [
     "right": 8,
     "down": 3,
     "left": 1,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_106",
@@ -1163,7 +1238,8 @@ export const CARDS = [
     "right": 5,
     "down": 6,
     "left": 6,
-    "power": 23
+    "power": 23,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_107",
@@ -1174,7 +1250,8 @@ export const CARDS = [
     "right": 6,
     "down": 3,
     "left": 6,
-    "power": 21
+    "power": 21,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_108",
@@ -1185,7 +1262,8 @@ export const CARDS = [
     "right": 7,
     "down": 8,
     "left": 2,
-    "power": 21
+    "power": 21,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_109",
@@ -1196,7 +1274,8 @@ export const CARDS = [
     "right": 6,
     "down": 6,
     "left": 6,
-    "power": 23
+    "power": 23,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_110",
@@ -1207,7 +1286,8 @@ export const CARDS = [
     "right": 7,
     "down": 1,
     "left": 8,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_111",
@@ -1218,7 +1298,8 @@ export const CARDS = [
     "right": 7,
     "down": 8,
     "left": 3,
-    "power": 20
+    "power": 20,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_112",
@@ -1229,7 +1310,8 @@ export const CARDS = [
     "right": 2,
     "down": 8,
     "left": 8,
-    "power": 20
+    "power": 20,
+    "type": "百花タイプ"
   },
   {
     "id": "card_113",
@@ -1240,7 +1322,8 @@ export const CARDS = [
     "right": 6,
     "down": 7,
     "left": 4,
-    "power": 23
+    "power": 23,
+    "type": "百花タイプ"
   },
   {
     "id": "card_114",
@@ -1251,7 +1334,8 @@ export const CARDS = [
     "right": 7,
     "down": 1,
     "left": 7,
-    "power": 20
+    "power": 20,
+    "type": "百花タイプ"
   },
   {
     "id": "card_115",
@@ -1262,7 +1346,8 @@ export const CARDS = [
     "right": 8,
     "down": 3,
     "left": 8,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_116",
@@ -1273,7 +1358,8 @@ export const CARDS = [
     "right": 3,
     "down": 8,
     "left": 7,
-    "power": 20
+    "power": 20,
+    "type": "百花タイプ"
   },
   {
     "id": "card_117",
@@ -1284,7 +1370,8 @@ export const CARDS = [
     "right": 8,
     "down": 4,
     "left": 1,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_118",
@@ -1295,7 +1382,8 @@ export const CARDS = [
     "right": 5,
     "down": 8,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_119",
@@ -1306,7 +1394,8 @@ export const CARDS = [
     "right": 7,
     "down": 7,
     "left": 6,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_120",
@@ -1317,7 +1406,8 @@ export const CARDS = [
     "right": 6,
     "down": 6,
     "left": 2,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_121",
@@ -1328,7 +1418,8 @@ export const CARDS = [
     "right": 1,
     "down": 4,
     "left": 7,
-    "power": 20
+    "power": 20,
+    "type": "百花タイプ"
   },
   {
     "id": "card_122",
@@ -1339,7 +1430,8 @@ export const CARDS = [
     "right": 2,
     "down": 7,
     "left": 4,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_123",
@@ -1350,7 +1442,8 @@ export const CARDS = [
     "right": 1,
     "down": 7,
     "left": 5,
-    "power": 20
+    "power": 20,
+    "type": "百花タイプ"
   },
   {
     "id": "card_124",
@@ -1361,7 +1454,8 @@ export const CARDS = [
     "right": 6,
     "down": 7,
     "left": 7,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_125",
@@ -1372,7 +1466,8 @@ export const CARDS = [
     "right": 8,
     "down": 8,
     "left": 1,
-    "power": 21
+    "power": 21,
+    "type": "百花タイプ"
   },
   {
     "id": "card_126",
@@ -1383,7 +1478,8 @@ export const CARDS = [
     "right": 8,
     "down": 1,
     "left": 4,
-    "power": 20
+    "power": 20,
+    "type": "百花タイプ"
   },
   {
     "id": "card_127",
@@ -1394,7 +1490,8 @@ export const CARDS = [
     "right": 3,
     "down": 3,
     "left": 9,
-    "power": 24
+    "power": 24,
+    "type": "もなタイプ"
   },
   {
     "id": "card_128",
@@ -1405,7 +1502,8 @@ export const CARDS = [
     "right": 2,
     "down": 5,
     "left": 8,
-    "power": 24
+    "power": 24,
+    "type": "もなタイプ"
   },
   {
     "id": "card_129",
@@ -1416,7 +1514,8 @@ export const CARDS = [
     "right": 5,
     "down": 9,
     "left": 7,
-    "power": 24
+    "power": 24,
+    "type": "もなタイプ"
   },
   {
     "id": "card_130",
@@ -1427,7 +1526,8 @@ export const CARDS = [
     "right": 5,
     "down": 9,
     "left": 9,
-    "power": 24
+    "power": 24,
+    "type": "もなタイプ"
   },
   {
     "id": "card_131",
@@ -1438,7 +1538,8 @@ export const CARDS = [
     "right": 9,
     "down": 7,
     "left": 8,
-    "power": 25
+    "power": 25,
+    "type": "もなタイプ"
   },
   {
     "id": "card_132",
@@ -1449,7 +1550,8 @@ export const CARDS = [
     "right": 7,
     "down": 7,
     "left": 7,
-    "power": 28
+    "power": 28,
+    "type": "もなタイプ"
   },
   {
     "id": "card_133",
@@ -1460,7 +1562,8 @@ export const CARDS = [
     "right": 8,
     "down": 7,
     "left": 8,
-    "power": 28
+    "power": 28,
+    "type": "もなタイプ"
   },
   {
     "id": "card_134",
@@ -1471,7 +1574,8 @@ export const CARDS = [
     "right": 9,
     "down": 9,
     "left": 2,
-    "power": 25
+    "power": 25,
+    "type": "もなタイプ"
   },
   {
     "id": "card_135",
@@ -1482,7 +1586,8 @@ export const CARDS = [
     "right": 4,
     "down": 8,
     "left": 9,
-    "power": 25
+    "power": 25,
+    "type": "もなタイプ"
   },
   {
     "id": "card_136",
@@ -1493,7 +1598,8 @@ export const CARDS = [
     "right": 7,
     "down": 3,
     "left": 7,
-    "power": 26
+    "power": 26,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_137",
@@ -1504,7 +1610,8 @@ export const CARDS = [
     "right": 8,
     "down": 4,
     "left": 7,
-    "power": 25
+    "power": 25,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_138",
@@ -1515,7 +1622,8 @@ export const CARDS = [
     "right": 9,
     "down": 6,
     "left": 7,
-    "power": 28
+    "power": 28,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_139",
@@ -1526,7 +1634,8 @@ export const CARDS = [
     "right": 9,
     "down": 1,
     "left": 7,
-    "power": 25
+    "power": 25,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_140",
@@ -1537,7 +1646,8 @@ export const CARDS = [
     "right": 1,
     "down": 7,
     "left": 9,
-    "power": 25
+    "power": 25,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_141",
@@ -1548,7 +1658,8 @@ export const CARDS = [
     "right": 9,
     "down": 2,
     "left": 5,
-    "power": 25
+    "power": 25,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_142",
@@ -1559,7 +1670,8 @@ export const CARDS = [
     "right": 8,
     "down": 8,
     "left": 7,
-    "power": 25
+    "power": 25,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_143",
@@ -1570,7 +1682,8 @@ export const CARDS = [
     "right": 9,
     "down": 4,
     "left": 8,
-    "power": 25
+    "power": 25,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_144",
@@ -1581,7 +1694,8 @@ export const CARDS = [
     "right": 8,
     "down": 8,
     "left": 1,
-    "power": 25
+    "power": 25,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_145",
@@ -1592,7 +1706,8 @@ export const CARDS = [
     "right": 4,
     "down": 9,
     "left": 3,
-    "power": 25
+    "power": 25,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_146",
@@ -1603,7 +1718,8 @@ export const CARDS = [
     "right": 9,
     "down": 1,
     "left": 8,
-    "power": 24
+    "power": 24,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_147",
@@ -1614,7 +1730,8 @@ export const CARDS = [
     "right": 8,
     "down": 3,
     "left": 5,
-    "power": 25
+    "power": 25,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_148",
@@ -1625,7 +1742,8 @@ export const CARDS = [
     "right": 9,
     "down": 3,
     "left": 9,
-    "power": 24
+    "power": 24,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_149",
@@ -1636,7 +1754,8 @@ export const CARDS = [
     "right": 8,
     "down": 1,
     "left": 8,
-    "power": 25
+    "power": 25,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_150",
@@ -1647,7 +1766,8 @@ export const CARDS = [
     "right": 1,
     "down": 8,
     "left": 8,
-    "power": 25
+    "power": 25,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_151",
@@ -1658,7 +1778,8 @@ export const CARDS = [
     "right": 7,
     "down": 8,
     "left": 1,
-    "power": 25
+    "power": 25,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_152",
@@ -1669,7 +1790,8 @@ export const CARDS = [
     "right": 5,
     "down": 7,
     "left": 6,
-    "power": 27
+    "power": 27,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_153",
@@ -1680,7 +1802,8 @@ export const CARDS = [
     "right": 8,
     "down": 8,
     "left": 6,
-    "power": 28
+    "power": 28,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_154",
@@ -1691,7 +1814,8 @@ export const CARDS = [
     "right": 8,
     "down": 8,
     "left": 2,
-    "power": 25
+    "power": 25,
+    "type": "百花タイプ"
   },
   {
     "id": "card_155",
@@ -1702,7 +1826,8 @@ export const CARDS = [
     "right": 8,
     "down": 8,
     "left": 8,
-    "power": 25
+    "power": 25,
+    "type": "百花タイプ"
   },
   {
     "id": "card_156",
@@ -1713,7 +1838,8 @@ export const CARDS = [
     "right": 6,
     "down": 5,
     "left": 6,
-    "power": 26
+    "power": 26,
+    "type": "百花タイプ"
   },
   {
     "id": "card_157",
@@ -1724,7 +1850,8 @@ export const CARDS = [
     "right": 7,
     "down": 7,
     "left": 8,
-    "power": 24
+    "power": 24,
+    "type": "百花タイプ"
   },
   {
     "id": "card_158",
@@ -1735,7 +1862,8 @@ export const CARDS = [
     "right": 8,
     "down": 9,
     "left": 1,
-    "power": 25
+    "power": 25,
+    "type": "百花タイプ"
   },
   {
     "id": "card_159",
@@ -1746,7 +1874,8 @@ export const CARDS = [
     "right": 8,
     "down": 6,
     "left": 8,
-    "power": 28
+    "power": 28,
+    "type": "百花タイプ"
   },
   {
     "id": "card_160",
@@ -1757,7 +1886,8 @@ export const CARDS = [
     "right": 6,
     "down": 8,
     "left": 6,
-    "power": 28
+    "power": 28,
+    "type": "百花タイプ"
   },
   {
     "id": "card_161",
@@ -1768,7 +1898,8 @@ export const CARDS = [
     "right": 4,
     "down": 6,
     "left": 7,
-    "power": 26
+    "power": 26,
+    "type": "百花タイプ"
   },
   {
     "id": "card_162",
@@ -1779,7 +1910,8 @@ export const CARDS = [
     "right": 2,
     "down": 8,
     "left": 6,
-    "power": 25
+    "power": 25,
+    "type": "百花タイプ"
   },
   {
     "id": "card_163",
@@ -1790,7 +1922,8 @@ export const CARDS = [
     "right": 1,
     "down": 10,
     "left": 9,
-    "power": 27
+    "power": 27,
+    "type": "もなタイプ"
   },
   {
     "id": "card_164",
@@ -1801,7 +1934,8 @@ export const CARDS = [
     "right": 5,
     "down": 9,
     "left": 6,
-    "power": 29
+    "power": 29,
+    "type": "もなタイプ"
   },
   {
     "id": "card_165",
@@ -1812,7 +1946,8 @@ export const CARDS = [
     "right": 10,
     "down": 7,
     "left": 6,
-    "power": 30
+    "power": 30,
+    "type": "もなタイプ"
   },
   {
     "id": "card_166",
@@ -1823,7 +1958,8 @@ export const CARDS = [
     "right": 10,
     "down": 5,
     "left": 9,
-    "power": 28
+    "power": 28,
+    "type": "もなタイプ"
   },
   {
     "id": "card_167",
@@ -1834,7 +1970,8 @@ export const CARDS = [
     "right": 10,
     "down": 5,
     "left": 10,
-    "power": 27
+    "power": 27,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_168",
@@ -1845,7 +1982,8 @@ export const CARDS = [
     "right": 8,
     "down": 10,
     "left": 8,
-    "power": 27
+    "power": 27,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_169",
@@ -1856,7 +1994,8 @@ export const CARDS = [
     "right": 7,
     "down": 10,
     "left": 6,
-    "power": 30
+    "power": 30,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_170",
@@ -1867,7 +2006,8 @@ export const CARDS = [
     "right": 10,
     "down": 1,
     "left": 9,
-    "power": 29
+    "power": 29,
+    "type": "美雨タイプ"
   },
   {
     "id": "card_171",
@@ -1878,7 +2018,8 @@ export const CARDS = [
     "right": 9,
     "down": 10,
     "left": 3,
-    "power": 27
+    "power": 27,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_172",
@@ -1889,7 +2030,8 @@ export const CARDS = [
     "right": 8,
     "down": 10,
     "left": 7,
-    "power": 28
+    "power": 28,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_173",
@@ -1900,7 +2042,8 @@ export const CARDS = [
     "right": 6,
     "down": 4,
     "left": 8,
-    "power": 28
+    "power": 28,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_174",
@@ -1911,7 +2054,8 @@ export const CARDS = [
     "right": 8,
     "down": 2,
     "left": 8,
-    "power": 28
+    "power": 28,
+    "type": "凛花タイプ"
   },
   {
     "id": "card_175",
@@ -1922,7 +2066,8 @@ export const CARDS = [
     "right": 10,
     "down": 10,
     "left": 6,
-    "power": 27
+    "power": 27,
+    "type": "百花タイプ"
   },
   {
     "id": "card_176",
@@ -1933,7 +2078,8 @@ export const CARDS = [
     "right": 2,
     "down": 9,
     "left": 10,
-    "power": 27
+    "power": 27,
+    "type": "百花タイプ"
   },
   {
     "id": "card_177",
@@ -1944,7 +2090,8 @@ export const CARDS = [
     "right": 8,
     "down": 8,
     "left": 8,
-    "power": 32
+    "power": 32,
+    "type": "百花タイプ"
   },
   {
     "id": "card_178",
@@ -1955,7 +2102,8 @@ export const CARDS = [
     "right": 8,
     "down": 5,
     "left": 6,
-    "power": 29
+    "power": 29,
+    "type": "百花タイプ"
   },
   {
     "id": "card_179",
