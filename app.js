@@ -1,8 +1,8 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.8";
-const SAVE_KEY = "phantom_card_battle_save_v2_180";
+const VERSION = "0.1.9";
+const SAVE_KEY = "phantom_card_battle_save_v3_180_starter11";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));
@@ -249,14 +249,14 @@ function showScreen(name) {
 }
 
 function createInitialSave() {
-  const starterCards = CARDS
-    .filter((card) => card.rarity === 1 || card.rarity === 2)
-    .sort((a, b) => a.rarity - b.rarity || a.power - b.power || Number(String(a.no).replace(/\D/g, "")) - Number(String(b.no).replace(/\D/g, "")))
-    .slice(0, 30);
+  const starterNos = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "19", "21"];
+  const starterCards = starterNos
+    .map((no) => CARDS.find((card) => String(card.no) === no))
+    .filter(Boolean);
 
   const ownedCards = {};
   for (const card of starterCards) {
-    ownedCards[card.id] = card.rarity === 1 ? 2 : 1;
+    ownedCards[card.id] = 1;
   }
 
   const firstDeck = starterCards.slice(0, 5).map((card) => card.id);
