@@ -1,8 +1,8 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.9";
-const SAVE_KEY = "phantom_card_battle_save_v3_180_starter11";
+const VERSION = "0.1.10";
+const SAVE_KEY = "phantom_card_battle_save_v4_180_updated_starter18";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));
@@ -249,7 +249,7 @@ function showScreen(name) {
 }
 
 function createInitialSave() {
-  const starterNos = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "19", "21"];
+  const starterNos = Array.from({ length: 18 }, (_, i) => String(i + 1));
   const starterCards = starterNos
     .map((no) => CARDS.find((card) => String(card.no) === no))
     .filter(Boolean);
