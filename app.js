@@ -1,8 +1,8 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.7";
-const SAVE_KEY = "phantom_card_battle_save_v1";
+const VERSION = "0.1.8";
+const SAVE_KEY = "phantom_card_battle_save_v2_180";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));

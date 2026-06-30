@@ -1,0 +1,181 @@
+﻿カード番号,カード名,レアリティ（星の数）,上,右,下,左
+1,Dodo,1,4,2,3,4
+2,Tonberry,1,2,2,7,2
+3,Sabotender,1,4,3,3,3
+4,Spriggan,1,2,3,4,4
+5,Pudding,1,2,4,3,5
+6,Bomb,1,3,4,3,3
+7,Mandragora,1,4,2,5,3
+8,Coblyn,1,3,3,3,4
+9,Morbol,1,5,2,5,2
+10,Coeurl,1,2,5,2,5
+11,Ahriman,1,5,5,2,2
+12,Goobbue,1,2,5,5,2
+13,Chocobo,1,3,7,2,1
+14,Amalj'aa,1,1,4,7,1
+15,Ixal,1,6,1,3,4
+16,Sylph,1,2,4,5,4
+17,Kobold,1,2,2,4,6
+18,Sahagin,1,4,5,3,3
+19,Siren,2,3,6,7,2
+20,Ultros & Typhon,2,2,3,6,7
+21,Demon Wall,2,6,7,2,3
+22,Succubus,2,7,3,2,6
+23,Chimera,2,7,7,2,2
+24,Blue Dragon,2,2,2,7,7
+25,Scarface Bugaal Ja,2,6,6,2,6
+26,Momodi Modi,2,7,5,5,3
+27,Baderon Tenfingers,2,3,7,5,5
+28,Mother Miounne,2,5,5,3,7
+29,Livia sas Junius,2,3,7,7,1
+30,Rhitahtyn sas Arvina,2,7,1,3,7
+31,Biggs & Wedge,2,5,3,7,5
+32,Gerolt,2,1,7,3,7
+33,Frixio,2,6,2,6,6
+34,Mutamix Bubblypots,2,2,6,6,6
+35,Memeroon,2,6,6,6,2
+36,Behemoth,3,7,8,4,2
+37,Gilgamesh & Enkidu,3,8,3,7,3
+38,Ifrit,3,7,1,6,7
+39,Titan,3,1,7,7,6
+40,Garuda,3,7,6,1,7
+41,Good King Moggle Mog XII,3,7,6,7,1
+42,Raya-O-Senna & A-Ruhn-Senna,3,5,6,6,6
+43,Godbert Manderville,3,6,6,5,6
+44,Thancred,3,2,3,8,7
+45,Nero tol Scaeva,3,4,1,8,7
+46,Papalymo & Yda,3,3,7,8,2
+47,Y'shtola,3,7,8,1,4
+48,Urianger,3,8,1,4,7
+49,Ultima Weapon,4,7,8,9,1
+50,Odin,4,8,8,1,8
+51,Ramuh,4,8,1,8,8
+52,Leviathan,4,8,8,8,1
+53,Shiva,4,1,8,8,8
+54,Minfilia,4,9,8,3,5
+55,Lahabrea,4,4,9,4,8
+56,Cid Garlond,4,5,9,9,2
+57,Alphinaud & Alisaie,4,9,3,3,9
+58,Louisoix Leveilleur,4,9,4,9,3
+59,Bahamut,5,9,5,9,6
+60,Hildibrand & Nashu Mhakaracca,5,1,8,A,8
+61,Nanamo Ul Namo,5,A,6,4,8
+62,Gaius van Baelsar,5,4,A,5,9
+63,Merlwyb Bloefhiswyn,5,5,9,A,3
+64,Kan-E-Senna,5,9,A,1,7
+65,Raubahn Aldynn,5,6,2,9,A
+66,Vanu Vanu,2,2,6,4,7
+67,Gnath,2,6,3,7,3
+68,Yugiri Mistwalker,2,7,7,1,3
+69,Fat Chocobo,2,5,5,5,5
+70,Griffin,3,5,1,7,8
+71,Tioman,3,1,5,8,7
+72,Estinien,3,8,8,2,3
+73,Lucia goe Junius,3,8,2,3,8
+74,Ysayle,3,4,8,8,1
+75,Hilda,3,1,4,8,8
+76,Matoya,3,8,3,8,1
+77,Count Edmont de Fortemps,3,1,8,3,8
+78,Byblos,3,8,4,1,7
+79,Haurchefant,3,7,1,5,8
+80,Aymeric,4,1,5,9,9
+81,Ravana,4,9,7,8,1
+82,Bismarck,4,1,9,7,8
+83,Nidhogg,5,A,7,3,8
+84,Midgardsormr,5,3,8,A,7
+85,Archaeornis,2,5,4,6,5
+86,Paissa,2,4,6,3,6
+87,Dhalmel,2,6,5,3,5
+88,Bandersnatch,2,6,6,3,4
+89,Crawler,2,7,7,3,2
+90,Poroggo,2,6,3,7,3
+91,Vedrfolnir,3,8,2,7,4
+92,Coeurlregina,3,5,5,5,8
+93,Progenitrix,3,6,6,3,6
+94,Belladonna,3,3,7,3,7
+95,Echidna,3,6,4,7,4
+96,Pipin Tarupin,3,6,5,6,6
+97,Julyan Manderville,3,6,6,5,7
+98,Moglin,3,8,5,4,5
+99,Charibert,3,7,8,4,3
+100,Roundrox,3,2,2,8,8
+101,Senor Sabotender,4,9,5,7,6
+102,Regula van Hydrus,5,8,8,6,8
+103,Archbishop Thordan VII,5,7,1,A,9
+104,Honoroit,2,7,2,7,2
+105,Hoary Boulder & Coultenet,2,2,7,2,7
+106,Brachiosaur,3,8,4,5,4
+107,Darkscale,3,2,8,4,7
+108,Fenrir,3,7,3,6,4
+109,Kraken,3,3,6,6,6
+110,Vicegerent to the Warden,3,7,1,7,5
+111,Manxome Molaa Ja Ja,3,3,7,2,8
+112,Ferdiad,3,4,6,8,4
+113,Calcabrina,3,8,4,1,7
+114,Kuribu,3,8,3,2,7
+115,Phlegethon,3,1,7,6,7
+116,Artoirel de Fortemps,3,4,7,3,7
+117,Emmanellain de Fortemps,3,7,4,7,3
+118,Xande,4,9,4,6,7
+119,Brute Justice,4,7,7,7,7
+120,Sephirot,4,6,8,8,6
+121,F'lhaminn,4,9,7,3,7
+122,Vidofnir,4,8,6,8,6
+123,Cloud of Darkness,5,7,A,7,6
+124,Lolorito Nanarito,2,4,3,7,3
+125,Gibrillont,2,2,6,3,6
+126,Laniaitte de Haillenarte,2,7,6,3,3
+127,Rhoswen,2,5,6,4,6
+128,Carvallain de Gorgagne,2,2,7,7,2
+129,Kal Myhk,3,1,8,4,8
+130,Waukkeon,3,1,6,7,7
+131,Curator,3,4,6,4,7
+132,Mistbeard,3,5,6,7,6
+133,Unei & Doga,4,6,8,6,8
+134,Tiamat,4,9,6,5,6
+135,Calofisteri,4,5,8,7,8
+136,Hraesvelgr,5,7,7,A,6
+137,Liquid Flame,2,4,3,6,6
+138,Lost Lamb,2,7,3,4,5
+139,Strix,3,5,7,1,7
+140,Tozol Huatotl,3,7,6,6,2
+141,Alexander Prime,3,7,3,2,8
+142,"Brendt, Brennan, & Bremondt",3,4,7,6,5
+143,Heavensward Thancred,4,8,1,7,9
+144,Heavensward Y'shtola,4,9,9,2,5
+145,Nael van Darnus,4,3,9,3,9
+146,Sophia,5,A,8,5,6
+147,Lava Scorpion,3,3,8,5,5
+148,Magitek Predator,3,5,7,4,5
+149,Magitek Sky Armor,3,6,2,6,7
+150,The Griffin,3,8,8,4,1
+151,Diabolos Hollow,4,4,4,8,9
+152,Armored Weapon,4,3,5,9,7
+153,Zurvan,5,3,7,8,A
+154,Roland,3,2,7,8,3
+155,Gigi,4,6,8,4,7
+156,Mammoth,3,6,3,8,3
+157,Phoebad,3,8,8,3,1
+158,Susano,3,2,8,3,8
+159,Lakshmi,3,3,7,7,5
+160,Grynewaht,3,7,4,7,4
+161,Rasho,3,4,7,8,2
+162,Cirina,3,3,5,6,8
+163,Magnai,3,6,7,4,4
+164,Sadu,3,6,6,7,4
+165,Shinryu,4,7,8,8,2
+166,Yotsuyu,4,9,2,8,6
+167,Krile,4,2,8,8,7
+168,Lyse,4,6,9,1,8
+169,Zenos yae Galvus,5,6,6,7,A
+170,Hien,5,2,A,5,A
+171,Hrodric Poisontongue,3,2,7,6,7
+172,Fordola rem Lupis,3,5,8,6,3
+173,Rofocale,3,4,7,1,8
+174,Argath Thadalfus,4,9,2,5,8
+175,Raubahn & Pipin,5,1,A,A,6
+176,Genbu,3,7,7,1,7
+177,Byakko,3,7,1,7,7
+178,Hancock,4,8,9,1,7
+179,Tsukuyomi,4,2,7,7,8
+180,Great Gold Whisker,4,6,9,6,7
