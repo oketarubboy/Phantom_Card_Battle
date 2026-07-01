@@ -524,7 +524,7 @@ export const CARDS = [
   {
     "id": "card_046",
     "no": "46",
-    "name": "[お揃いのしるし]百花",
+    "name": "[おいでください]百花",
     "rarity": 2,
     "up": 6,
     "right": 3,
