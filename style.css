@@ -1222,3 +1222,180 @@ textarea {
     padding: 9px;
   }
 }
+
+
+/* v0.1.12: card art only image + app overlay metadata */
+.card-visual {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  height: 100%;
+}
+
+.card-visual .card-art-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: 124px;
+  margin: 0;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 25% 18%, rgba(255,255,255,0.14), transparent 22%),
+    rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.card-visual .card-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.04) 34%, rgba(0,0,0,0.1) 58%, rgba(0,0,0,0.52));
+  pointer-events: none;
+}
+
+.card-visual-top,
+.card-visual-name,
+.card-visual-values {
+  position: absolute;
+  z-index: 1;
+}
+
+.card-visual-top {
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.card-visual .card-stars,
+.card-type-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(11, 16, 32, 0.68);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.28);
+  backdrop-filter: blur(2px);
+}
+
+.card-visual .card-stars {
+  margin-bottom: 0;
+}
+
+.card-type-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: #f5f7ff;
+}
+
+.card-visual-name {
+  left: 8px;
+  right: 8px;
+  bottom: 28px;
+  padding: 4px 6px;
+  border-radius: 9px;
+  background: rgba(11, 16, 32, 0.72);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.28);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.card-visual-values {
+  inset: 0;
+  pointer-events: none;
+}
+
+.card-visual-values .cv {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(11, 16, 32, 0.78);
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.28);
+  font-size: 12px;
+  font-weight: 900;
+  color: white;
+}
+
+.card-visual-values .cv-up { top: 34px; left: 50%; transform: translateX(-50%); }
+.card-visual-values .cv-right { right: 6px; top: 50%; transform: translateY(-50%); }
+.card-visual-values .cv-down { bottom: 6px; left: 50%; transform: translateX(-50%); }
+.card-visual-values .cv-left { left: 6px; top: 50%; transform: translateY(-50%); }
+.card-visual-values .cv-center {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 30px;
+  background: rgba(43, 127, 233, 0.82);
+}
+
+.battle-screen .mini-card,
+.collection-card {
+  overflow: hidden;
+}
+
+.battle-screen .mini-card .card-visual .card-art-wrap,
+.battle-screen .opponent-open .card-visual .card-art-wrap,
+.collection-card .card-visual .card-art-wrap {
+  min-height: calc(var(--battle-card-min-height, 142px) - (var(--battle-card-padding, 8px) * 2));
+}
+
+.battle-screen .card-visual-top {
+  top: 4px;
+  left: 4px;
+  right: 4px;
+}
+
+.battle-screen .card-visual .card-stars,
+.battle-screen .card-type-badge {
+  min-height: auto;
+  padding: 1px 5px;
+  font-size: calc(var(--battle-card-name-font) - 1px);
+}
+
+.battle-screen .card-visual-name {
+  left: 5px;
+  right: 5px;
+  bottom: calc(var(--battle-card-value-size) + 6px);
+  padding: 2px 4px;
+  font-size: var(--battle-card-name-font);
+  line-height: 1.15;
+}
+
+.battle-screen .card-visual-values .cv {
+  min-width: var(--battle-card-value-size);
+  min-height: var(--battle-card-value-size);
+  font-size: var(--battle-card-value-font);
+  border-radius: 6px;
+  padding: 0 3px;
+}
+
+.battle-screen .card-visual-values .cv-up { top: 22px; }
+.battle-screen .card-visual-values .cv-right { right: 3px; }
+.battle-screen .card-visual-values .cv-left { left: 3px; }
+.battle-screen .card-visual-values .cv-down { bottom: 3px; }
+
+.collection-card small {
+  display: block;
+  margin-top: 5px;
+  text-align: center;
+  color: var(--muted);
+}

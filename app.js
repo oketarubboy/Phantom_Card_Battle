@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.11";
+const VERSION = "0.1.12";
 const SAVE_KEY = "phantom_card_battle_save_v4_180_updated_starter18";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -378,14 +378,27 @@ function cardValuesHtml(card, center = "", values = null) {
 }
 
 function cardMiniHtml(card, extra = "", options = {}) {
-  const values = options.effective ? getCardValueSet(card) : null;
+  const values = options.effective ? getCardValueSet(card) : { up: card.up, right: card.right, down: card.down, left: card.left };
   const type = getCardType(card);
+  const typeLabel = type ? escapeHtml(type.replace("タイプ", "")) : "";
+  const centerLabel = extra ? escapeHtml(extra) : "";
+
   return `
-    <div class="card-stars">${rarityStars(card.rarity)}</div>
-    ${type ? `<div class="card-type">${escapeHtml(type.replace("タイプ", ""))}</div>` : ""}
-    ${cardArtHtml(card)}
-    <div class="card-name">${escapeHtml(card.name)}</div>
-    ${cardValuesHtml(card, extra, values)}
+    <div class="card-visual">
+      ${cardArtHtml(card)}
+      <div class="card-visual-top">
+        <span class="card-stars">${rarityStars(card.rarity)}</span>
+        ${typeLabel ? `<span class="card-type-badge">${typeLabel}</span>` : ""}
+      </div>
+      <div class="card-visual-values">
+        <span class="cv cv-up">${displayValue(values.up)}</span>
+        <span class="cv cv-right">${displayValue(values.right)}</span>
+        <span class="cv cv-down">${displayValue(values.down)}</span>
+        <span class="cv cv-left">${displayValue(values.left)}</span>
+        ${centerLabel ? `<span class="cv cv-center">${centerLabel}</span>` : ""}
+      </div>
+      <div class="card-visual-name">${escapeHtml(card.name)}</div>
+    </div>
   `;
 }
 
@@ -756,64 +769,105 @@ function createPixiCard(card, owner, x, y) {
   frame.endFill();
   container.addChild(frame);
 
-  const shine = new PIXI.Graphics();
-  shine.beginFill(0xffffff, 0.08);
-  shine.drawRoundedRect(8, 8, 100, 26, 12);
-  shine.endFill();
-  container.addChild(shine);
+  const artMask = new PIXI.Graphics();
+  artMask.beginFill(0xffffff, 1);
+  artMask.drawRoundedRect(8, 8, 100, 100, 12);
+  artMask.endFill();
+  container.addChild(artMask);
 
   const art = PIXI.Sprite.from(getCardImagePath(card));
-  art.anchor.set(0.5);
-  art.x = 58;
-  art.y = 60;
-  art.width = 70;
-  art.height = 70;
-  art.alpha = 0.58;
+  art.x = 8;
+  art.y = 8;
+  art.width = 100;
+  art.height = 100;
+  art.alpha = 0.96;
+  art.mask = artMask;
   container.addChild(art);
 
-  const name = new PIXI.Text(card.name, {
-    fontFamily: "Arial",
-    fontSize: 12,
-    fontWeight: "bold",
-    fill: 0xffffff,
-    wordWrap: true,
-    wordWrapWidth: 98,
-    align: "center"
-  });
-  name.anchor.set(0.5, 0);
-  name.x = 58;
-  name.y = 42;
-  container.addChild(name);
+  const vignette = new PIXI.Graphics();
+  vignette.beginFill(0x000000, 0.18);
+  vignette.drawRoundedRect(8, 8, 100, 100, 12);
+  vignette.endFill();
+  container.addChild(vignette);
+
+  const titleBand = new PIXI.Graphics();
+  titleBand.beginFill(0x0b1020, 0.68);
+  titleBand.drawRoundedRect(10, 80, 96, 20, 8);
+  titleBand.endFill();
+  container.addChild(titleBand);
+
+  const starBand = new PIXI.Graphics();
+  starBand.beginFill(0x0b1020, 0.64);
+  starBand.drawRoundedRect(10, 10, 44, 16, 8);
+  starBand.endFill();
+  container.addChild(starBand);
 
   const star = new PIXI.Text(rarityStars(card.rarity), {
     fontFamily: "Arial",
-    fontSize: 12,
-    fill: 0xffd66b
+    fontSize: 11,
+    fill: 0xffd66b,
+    fontWeight: "bold"
   });
-  star.anchor.set(0.5, 0);
-  star.x = 58;
-  star.y = 10;
+  star.anchor.set(0.5, 0.5);
+  star.x = 32;
+  star.y = 18;
   container.addChild(star);
 
+  const typeName = getCardType(card).replace("タイプ", "");
+  if (typeName) {
+    const typeBand = new PIXI.Graphics();
+    typeBand.beginFill(0x0b1020, 0.64);
+    typeBand.drawRoundedRect(70, 10, 36, 16, 8);
+    typeBand.endFill();
+    container.addChild(typeBand);
+
+    const typeText = new PIXI.Text(typeName, {
+      fontFamily: "Arial",
+      fontSize: 10,
+      fill: 0xffffff,
+      fontWeight: "bold"
+    });
+    typeText.anchor.set(0.5, 0.5);
+    typeText.x = 88;
+    typeText.y = 18;
+    container.addChild(typeText);
+  }
+
+  const name = new PIXI.Text(card.name, {
+    fontFamily: "Arial",
+    fontSize: 10,
+    fontWeight: "bold",
+    fill: 0xffffff,
+    wordWrap: true,
+    wordWrapWidth: 92,
+    align: "center",
+    lineHeight: 10
+  });
+  name.anchor.set(0.5, 0.5);
+  name.x = 58;
+  name.y = 90;
+  container.addChild(name);
+
   const values = getCardValueSet(card);
-  addValueText(container, displayValue(values.up), 58, 24);
-  addValueText(container, displayValue(values.right), 92, 58);
-  addValueText(container, displayValue(values.down), 58, 92);
-  addValueText(container, displayValue(values.left), 24, 58);
+  addValueText(container, displayValue(values.up), 58, 18);
+  addValueText(container, displayValue(values.right), 98, 58);
+  addValueText(container, displayValue(values.down), 58, 98);
+  addValueText(container, displayValue(values.left), 18, 58);
 
   return container;
 }
 
 function addValueText(container, text, x, y) {
   const bg = new PIXI.Graphics();
-  bg.beginFill(0x000000, 0.26);
-  bg.drawRoundedRect(x - 13, y - 12, 26, 24, 8);
+  bg.beginFill(0x0b1020, 0.82);
+  bg.lineStyle(1, 0xffffff, 0.16);
+  bg.drawRoundedRect(x - 12, y - 10, 24, 20, 7);
   bg.endFill();
   container.addChild(bg);
 
   const label = new PIXI.Text(text, {
     fontFamily: "Arial",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
     fill: 0xffffff
   });
