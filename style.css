@@ -1399,3 +1399,94 @@ textarea {
   text-align: center;
   color: var(--muted);
 }
+
+
+/* v0.1.13: type-colored frames and battle popup */
+.mini-card, .deck-card, .collection-card, .owned-row {
+  border-color: var(--card-type-color, rgba(255,255,255,0.16));
+}
+
+.card-visual .card-art-wrap {
+  border: 2px solid var(--card-type-color, #a3adbd);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset, 0 0 16px rgba(0,0,0,0.18);
+}
+
+.card-type-badge {
+  color: #111827;
+  background: var(--card-type-color, #a3adbd);
+}
+
+.card-visual .card-stars {
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.owned-card-list.view-vertical .owned-row-art .card-art-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+}
+
+.owned-card-list.view-vertical .owned-row-art .card-art {
+  object-fit: contain;
+  background: rgba(10, 14, 28, 0.2);
+}
+
+.card-detail-popup {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.card-detail-preview {
+  width: min(260px, 100%);
+  min-height: 0;
+  padding: 10px;
+  cursor: default;
+}
+
+.card-detail-preview .card-visual.square-art .card-art-wrap {
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  height: auto;
+}
+
+.card-detail-preview .card-art {
+  object-fit: contain;
+  background: rgba(10, 14, 28, 0.18);
+}
+
+.card-detail-preview .card-visual {
+  min-height: 0;
+}
+
+.card-detail-meta {
+  text-align: center;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.battle-screen .card-visual-name {
+  display: none;
+}
+
+.battle-screen .card-visual .card-art-wrap {
+  min-height: calc(var(--battle-card-min-height, 142px) - (var(--battle-card-padding, 8px) * 2));
+}
+
+.battle-screen .card-visual-values .cv-down {
+  bottom: 6px;
+}
+
+.battle-screen .card-visual-values .cv-up {
+  top: 24px;
+}
+
+.battle-screen .mini-card .card-type-badge,
+.battle-screen .opponent-open .card-type-badge {
+  font-size: max(9px, calc(var(--battle-card-name-font) - 1px));
+}
+
+.battle-screen .mini-card,
+.battle-screen .opponent-open {
+  overflow: hidden;
+}

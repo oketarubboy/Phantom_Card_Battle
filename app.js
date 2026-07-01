@@ -13,6 +13,7 @@ const state = {
   selectedHandIndex: null,
   deckSort: { field: "rarity", order: "desc" },
   ownedCardView: "vertical",
+      battleCardPopup: true,
   selectedRuleIds: [],
   battle: null,
   pixi: {
@@ -145,6 +146,33 @@ function getCardType(card) {
   return match ? `${match[1]}タイプ` : "";
 }
 
+function getCardTypeMeta(card) {
+  const type = getCardType(card);
+  switch (type) {
+    case "もなタイプ":
+      return { key: "mona", label: "もな", longLabel: "もなタイプ", color: "#ff8fc4" };
+    case "美雨タイプ":
+      return { key: "miu", label: "美雨", longLabel: "美雨タイプ", color: "#f7f9ff" };
+    case "凛花タイプ":
+      return { key: "rinka", label: "凛花", longLabel: "凛花タイプ", color: "#b78cff" };
+    case "百花タイプ":
+      return { key: "momoka", label: "百花", longLabel: "百花タイプ", color: "#86dcff" };
+    default:
+      return { key: "none", label: "無", longLabel: "無属性", color: "#a3adbd" };
+  }
+}
+
+function applyCardTypeStyle(element, card) {
+  if (!element || !card) return;
+  const meta = getCardTypeMeta(card);
+  element.dataset.type = meta.key;
+  element.style.setProperty("--card-type-color", meta.color);
+}
+
+function isBattleCardPopupEnabled() {
+  return Boolean(state.save?.settings?.battleCardPopup);
+}
+
 function hasRule(ruleId, battle = state.battle) {
   return Boolean(battle?.rules?.includes(ruleId));
 }
@@ -271,7 +299,8 @@ function createInitialSave() {
     npcWins: {},
     settings: {
       effects: true,
-      ownedCardView: "vertical"
+      ownedCardView: "vertical",
+      battleCardPopup: true
     }
   };
 }
@@ -379,16 +408,19 @@ function cardValuesHtml(card, center = "", values = null) {
 
 function cardMiniHtml(card, extra = "", options = {}) {
   const values = options.effective ? getCardValueSet(card) : { up: card.up, right: card.right, down: card.down, left: card.left };
-  const type = getCardType(card);
-  const typeLabel = type ? escapeHtml(type.replace("タイプ", "")) : "";
+  const typeMeta = getCardTypeMeta(card);
   const centerLabel = extra ? escapeHtml(extra) : "";
+  const showName = options.showName !== false;
+  const visualClasses = ["card-visual"];
+  if (options.squareArt) visualClasses.push("square-art");
+  if (options.detail) visualClasses.push("card-detail-visual");
 
   return `
-    <div class="card-visual">
+    <div class="${visualClasses.join(" ")}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
       ${cardArtHtml(card)}
       <div class="card-visual-top">
         <span class="card-stars">${rarityStars(card.rarity)}</span>
-        ${typeLabel ? `<span class="card-type-badge">${typeLabel}</span>` : ""}
+        <span class="card-type-badge">${escapeHtml(typeMeta.label)}</span>
       </div>
       <div class="card-visual-values">
         <span class="cv cv-up">${displayValue(values.up)}</span>
@@ -397,7 +429,7 @@ function cardMiniHtml(card, extra = "", options = {}) {
         <span class="cv cv-left">${displayValue(values.left)}</span>
         ${centerLabel ? `<span class="cv cv-center">${centerLabel}</span>` : ""}
       </div>
-      <div class="card-visual-name">${escapeHtml(card.name)}</div>
+      ${showName ? `<div class="card-visual-name">${escapeHtml(card.name)}</div>` : ""}
     </div>
   `;
 }
@@ -531,6 +563,7 @@ function renderCurrentDeck() {
         </div>
         <button class="small-button ghost">外す</button>
       `;
+      applyCardTypeStyle(row, card);
       row.querySelector("button").addEventListener("click", () => {
         deck.splice(i, 1);
         save();
@@ -560,6 +593,7 @@ function renderOwnedCardList() {
   for (const card of owned) {
     const row = document.createElement("div");
     row.className = "owned-row";
+    applyCardTypeStyle(row, card);
     row.innerHTML = `
       <div class="owned-row-layout">
         <div class="owned-row-art">${cardArtHtml(card)}</div>
@@ -615,12 +649,14 @@ function renderCollectionScreen() {
         </div>
         <small>No.${escapeHtml(card.no)}</small>
       `;
+    if (unlocked) applyCardTypeStyle(div, card);
     grid.appendChild(div);
   }
 }
 
 function renderSettingsScreen() {
   $("effectToggle").checked = Boolean(state.save.settings.effects);
+  $("battleCardPopupToggle").checked = Boolean(state.save.settings.battleCardPopup);
 }
 
 function showModal(title, bodyHtml, actions = []) {
@@ -640,6 +676,37 @@ function showModal(title, bodyHtml, actions = []) {
 
 function closeModal() {
   $("modal").classList.add("hidden");
+}
+
+function getCardDetailHtml(card) {
+  return `
+    <div class="card-detail-popup">
+      <div class="card-detail-preview mini-card detail-card-card">
+        ${cardMiniHtml(card, "", { effective: true, squareArt: true, detail: true })}
+      </div>
+      <div class="card-detail-meta">
+        <div><strong>No.${escapeHtml(card.no)}</strong></div>
+        <div>${escapeHtml(getCardTypeMeta(card).longLabel)}</div>
+        <div>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)}</div>
+        <div>総合力 ${card.power}</div>
+      </div>
+    </div>
+  `;
+}
+
+function showCardDetailPopup(card, options = {}) {
+  const actions = [];
+  if (typeof options.onSelect === "function") {
+    actions.push({
+      label: options.selectLabel ?? "このカードを選択",
+      onClick: () => {
+        closeModal();
+        options.onSelect();
+      }
+    });
+  }
+  actions.push({ label: "閉じる", className: "ghost", onClick: closeModal });
+  showModal(options.title ?? "カード詳細", getCardDetailHtml(card), actions);
 }
 
 function fitBattleLayout() {
@@ -790,12 +857,6 @@ function createPixiCard(card, owner, x, y) {
   vignette.endFill();
   container.addChild(vignette);
 
-  const titleBand = new PIXI.Graphics();
-  titleBand.beginFill(0x0b1020, 0.68);
-  titleBand.drawRoundedRect(10, 80, 96, 20, 8);
-  titleBand.endFill();
-  container.addChild(titleBand);
-
   const starBand = new PIXI.Graphics();
   starBand.beginFill(0x0b1020, 0.64);
   starBand.drawRoundedRect(10, 10, 44, 16, 8);
@@ -813,46 +874,39 @@ function createPixiCard(card, owner, x, y) {
   star.y = 18;
   container.addChild(star);
 
-  const typeName = getCardType(card).replace("タイプ", "");
-  if (typeName) {
-    const typeBand = new PIXI.Graphics();
-    typeBand.beginFill(0x0b1020, 0.64);
-    typeBand.drawRoundedRect(70, 10, 36, 16, 8);
-    typeBand.endFill();
-    container.addChild(typeBand);
+  const typeMeta = getCardTypeMeta(card);
+  const typeBand = new PIXI.Graphics();
+  typeBand.beginFill(0x0b1020, 0.72);
+  typeBand.lineStyle(1, PIXI.utils.string2hex(typeMeta.color), 0.55);
+  typeBand.drawRoundedRect(68, 10, 38, 16, 8);
+  typeBand.endFill();
+  container.addChild(typeBand);
 
-    const typeText = new PIXI.Text(typeName, {
-      fontFamily: "Arial",
-      fontSize: 10,
-      fill: 0xffffff,
-      fontWeight: "bold"
-    });
-    typeText.anchor.set(0.5, 0.5);
-    typeText.x = 88;
-    typeText.y = 18;
-    container.addChild(typeText);
-  }
-
-  const name = new PIXI.Text(card.name, {
+  const typeText = new PIXI.Text(typeMeta.label, {
     fontFamily: "Arial",
     fontSize: 10,
-    fontWeight: "bold",
     fill: 0xffffff,
-    wordWrap: true,
-    wordWrapWidth: 92,
-    align: "center",
-    lineHeight: 10
+    fontWeight: "bold"
   });
-  name.anchor.set(0.5, 0.5);
-  name.x = 58;
-  name.y = 90;
-  container.addChild(name);
+  typeText.anchor.set(0.5, 0.5);
+  typeText.x = 87;
+  typeText.y = 18;
+  container.addChild(typeText);
 
   const values = getCardValueSet(card);
   addValueText(container, displayValue(values.up), 58, 18);
   addValueText(container, displayValue(values.right), 98, 58);
   addValueText(container, displayValue(values.down), 58, 98);
   addValueText(container, displayValue(values.left), 18, 58);
+
+  if (isBattleCardPopupEnabled()) {
+    container.eventMode = "static";
+    container.cursor = "pointer";
+    container.on("pointertap", (event) => {
+      event.stopPropagation();
+      showCardDetailPopup(card, { title: owner === "player" ? "場の自分カード" : "場の相手カード" });
+    });
+  }
 
   return container;
 }
@@ -896,8 +950,22 @@ function renderBattleHands() {
     const div = document.createElement("div");
     const isForced = forcedPlayerIndex === index && battle.currentTurn === "player" && !entry.used;
     div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index || isForced ? "selected" : ""} ${isForced ? "forced" : ""}`;
-    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { effective: true });
-    if (!entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null) {
+    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { effective: true, showName: false });
+    applyCardTypeStyle(div, entry.card);
+
+    const canSelect = !entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null;
+    if (isBattleCardPopupEnabled()) {
+      div.addEventListener("click", () => {
+        showCardDetailPopup(entry.card, canSelect ? {
+          title: "手札カード",
+          onSelect: () => {
+            state.selectedHandIndex = state.selectedHandIndex === index ? null : index;
+            renderBattleHands();
+          },
+          selectLabel: state.selectedHandIndex === index ? "選択を解除" : "このカードを選ぶ"
+        } : { title: "手札カード" });
+      });
+    } else if (canSelect) {
       div.addEventListener("click", () => {
         state.selectedHandIndex = state.selectedHandIndex === index ? null : index;
         renderBattleHands();
@@ -914,7 +982,11 @@ function renderBattleHands() {
     const isForced = getForcedHandIndex("npc") === index && battle.currentTurn === "npc" && !entry.used;
     if (revealNpcHand) {
       div.className = `mini-card opponent-open ${entry.used ? "used" : ""} ${isForced ? "forced" : ""}`;
-      div.innerHTML = cardMiniHtml(entry.card, entry.used ? "済" : isForced ? "指定" : "NPC", { effective: true });
+      div.innerHTML = cardMiniHtml(entry.card, entry.used ? "済" : isForced ? "指定" : "NPC", { effective: true, showName: false });
+      applyCardTypeStyle(div, entry.card);
+      if (isBattleCardPopupEnabled()) {
+        div.addEventListener("click", () => showCardDetailPopup(entry.card, { title: "相手の手札" }));
+      }
     } else {
       div.className = `card-back ${isForced ? "forced" : ""}`;
       div.textContent = entry.used ? "済" : "PCB";
@@ -1704,6 +1776,11 @@ function bindEvents() {
 
   $("effectToggle").addEventListener("change", (event) => {
     state.save.settings.effects = event.target.checked;
+    save();
+  });
+
+  $("battleCardPopupToggle").addEventListener("change", (event) => {
+    state.save.settings.battleCardPopup = event.target.checked;
     save();
   });
 
