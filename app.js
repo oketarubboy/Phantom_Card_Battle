@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.13";
+const VERSION = "0.1.14";
 const SAVE_KEY = "phantom_card_battle_save_v4_180_updated_starter18";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -13,8 +13,9 @@ const state = {
   selectedHandIndex: null,
   deckSort: { field: "rarity", order: "desc" },
   ownedCardView: "vertical",
-      battleCardPopup: true,
+  battleCardPopup: true,
   selectedRuleIds: [],
+  shopStock: [],
   battle: null,
   pixi: {
     app: null,
@@ -34,6 +35,7 @@ const screens = {
   battleMenu: $("screen-battle-menu"),
   battle: $("screen-battle"),
   deck: $("screen-deck"),
+  shop: $("screen-shop"),
   collection: $("screen-collection"),
   settings: $("screen-settings")
 };
@@ -55,6 +57,8 @@ const RULES = [
 
 const RULE_NAME_BY_ID = Object.fromEntries(RULES.map((rule) => [rule.id, rule.name]));
 const CARD_TYPES = ["もなタイプ", "美雨タイプ", "凛花タイプ", "百花タイプ"];
+const SHOP_PRICES = { 1: 100, 2: 500, 3: 5000 };
+const NPC_ENTRY_FEES = [0, 100, 300, 500, 1000, 2000, 5000, 10000, 50000, 100000];
 
 function normalizeDeckSort() {
   if (!DECK_SORT_FIELDS.has(state.deckSort.field)) state.deckSort.field = "rarity";
@@ -132,6 +136,30 @@ function rarityStars(rarity) {
 
 function displayValue(value) {
   return value >= 10 ? "A" : String(value);
+}
+
+function formatMoney(amount) {
+  return `${Number(amount ?? 0).toLocaleString("ja-JP")}銭`;
+}
+
+function updateMoneyDisplays() {
+  document.querySelectorAll("[data-money-display]").forEach((element) => {
+    element.textContent = formatMoney(state.save?.money ?? 0);
+  });
+}
+
+function getCardShopPrice(card) {
+  return SHOP_PRICES[Number(card?.rarity)] ?? null;
+}
+
+function getCardSellPrice(card) {
+  const price = getCardShopPrice(card);
+  if (!price) return null;
+  return Math.floor(price / 2);
+}
+
+function getTotalInAllDecks(cardId) {
+  return (state.save?.decks ?? []).reduce((sum, deck) => sum + countInDeck(deck, cardId), 0);
 }
 
 function getCardNumericId(card) {
@@ -240,6 +268,16 @@ function getRareChanceMaxRarity(npc) {
   return 5;
 }
 
+function getNpcEntryFee(npc) {
+  const index = Math.max(1, Math.min(10, getNpcNumber(npc)));
+  return NPC_ENTRY_FEES[index - 1] ?? 0;
+}
+
+function getNpcWinMoney(npc) {
+  const fee = getNpcEntryFee(npc);
+  return fee === 0 ? 100 : fee * 2;
+}
+
 function getRewardWeights(npc) {
   const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 100);
   const remaining = 100 - rare;
@@ -264,13 +302,15 @@ function sample(array, count) {
 }
 
 function showScreen(name) {
-  Object.values(screens).forEach((screen) => screen.classList.remove("active"));
+  Object.values(screens).forEach((screen) => screen?.classList.remove("active"));
   screens[name].classList.add("active");
   document.body.classList.toggle("is-battle-screen", name === "battle");
   $("backTitleBtn").style.visibility = name === "title" ? "hidden" : "visible";
+  updateMoneyDisplays();
   if (name === "battle") scheduleBattleAutoFit();
 
   if (name === "deck") renderDeckScreen();
+  if (name === "shop") enterShop();
   if (name === "collection") renderCollectionScreen();
   if (name === "settings") renderSettingsScreen();
   if (name === "battleMenu") renderNpcList();
@@ -297,6 +337,7 @@ function createInitialSave() {
     discoveredCards: Object.fromEntries(starterCards.map((card) => [card.id, true])),
     decks: [firstDeck, [], [], [], []],
     npcWins: {},
+    money: 100,
     settings: {
       effects: true,
       ownedCardView: "vertical",
@@ -341,13 +382,30 @@ function loadSave() {
   state.selectedDeckIndex = state.save.selectedDeckIndex ?? 0;
   state.ownedCardView = normalizeOwnedCardView(state.save.settings.ownedCardView);
   state.save.settings.ownedCardView = state.ownedCardView;
+  if (!Number.isFinite(Number(state.save.money))) state.save.money = 100;
   save();
+  updateMoneyDisplays();
 }
 
 function save() {
   state.save.version = VERSION;
   state.save.selectedDeckIndex = state.selectedDeckIndex;
   localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+}
+
+function addMoney(amount) {
+  state.save.money = Math.max(0, Number(state.save.money ?? 0) + Number(amount ?? 0));
+  save();
+  updateMoneyDisplays();
+}
+
+function spendMoney(amount) {
+  const cost = Number(amount ?? 0);
+  if (Number(state.save.money ?? 0) < cost) return false;
+  state.save.money = Number(state.save.money ?? 0) - cost;
+  save();
+  updateMoneyDisplays();
+  return true;
 }
 
 function addOwnedCard(cardId, count = 1) {
@@ -502,15 +560,140 @@ function renderNpcList() {
 
     const item = document.createElement("div");
     item.className = "npc-card";
+    const entryFee = getNpcEntryFee(npc);
+    const winMoney = getNpcWinMoney(npc);
+    const canChallenge = Number(state.save.money ?? 0) >= entryFee;
     item.innerHTML = `
       <h3>${escapeHtml(npc.name)} <span class="badge ${difficultyClass}">${npc.difficulty}</span></h3>
       <p class="muted">所持カード：${poolCards.length}枚 / 最大${rarityStars(maxRarity)} / 平均力 ${avgPower.toFixed(1)}</p>
+      <p class="muted">挑戦料：${formatMoney(entryFee)} / 勝利報酬：${formatMoney(winMoney)}</p>
       <p class="muted">レアチャンス率：${getRareChanceRate(npc)}% / 上限${rarityStars(getRareChanceMaxRarity(npc))}</p>
-      <button data-npc-id="${npc.id}">対戦する</button>
+      <button data-npc-id="${npc.id}" ${canChallenge ? "" : "disabled"}>${canChallenge ? "対戦する" : "所持金不足"}</button>
     `;
     item.querySelector("button").addEventListener("click", () => startBattle(npc.id));
     list.appendChild(item);
   }
+}
+
+function refreshShopStock() {
+  const pick = (rarity, count) => sample(CARDS.filter((card) => card.rarity === rarity), count);
+  state.shopStock = [
+    ...pick(1, 7),
+    ...pick(2, 2),
+    ...pick(3, 1)
+  ];
+}
+
+function enterShop() {
+  refreshShopStock();
+  renderShopScreen();
+}
+
+function renderShopScreen() {
+  updateMoneyDisplays();
+  const stockList = $("shopStockList");
+  const sellList = $("shopSellList");
+  const message = $("shopMessage");
+  if (!stockList || !sellList) return;
+  if (!message.dataset.keep) message.textContent = "ショップに入るたびに販売カードがランダムで変わります。";
+  message.dataset.keep = "";
+
+  stockList.innerHTML = state.shopStock.map((card, index) => {
+    const price = getCardShopPrice(card);
+    const canBuy = Number(state.save.money ?? 0) >= price;
+    return `
+      <div class="shop-card" data-shop-index="${index}">
+        <div class="shop-card-preview mini-card">${cardMiniHtml(card, "", { squareArt: true })}</div>
+        <div class="shop-card-info">
+          <strong>${escapeHtml(card.name)}</strong><br>
+          <small>${rarityStars(card.rarity)} / ${escapeHtml(getCardTypeMeta(card).longLabel)}</small><br>
+          <strong>${formatMoney(price)}</strong>
+        </div>
+        <button data-buy-index="${index}" ${canBuy ? "" : "disabled"}>${canBuy ? "購入" : "所持金不足"}</button>
+      </div>
+    `;
+  }).join("") || `<p class="muted">現在購入できるカードはありません。再入店すると品揃えが変わります。</p>`;
+
+  stockList.querySelectorAll("[data-shop-index]").forEach((element) => {
+    const index = Number(element.getAttribute("data-shop-index"));
+    applyCardTypeStyle(element, state.shopStock[index]);
+  });
+  stockList.querySelectorAll("[data-buy-index]").forEach((button) => {
+    button.addEventListener("click", () => buyShopCard(Number(button.getAttribute("data-buy-index"))));
+  });
+
+  const ownedCards = CARDS
+    .filter((card) => getOwnedCount(card.id) > 0)
+    .sort((a, b) => a.rarity - b.rarity || Number(a.no) - Number(b.no));
+
+  sellList.innerHTML = ownedCards.map((card) => {
+    const owned = getOwnedCount(card.id);
+    const inDeck = getTotalInAllDecks(card.id);
+    const available = Math.max(0, owned - inDeck);
+    const price = getCardSellPrice(card);
+    const canSell = price !== null && available > 0;
+    const reason = price === null ? "売却不可" : available <= 0 ? "デッキ使用中" : `${formatMoney(price)}で売却`;
+    return `
+      <div class="shop-card sell-card" data-sell-card-id="${card.id}">
+        <div class="shop-card-preview mini-card">${cardMiniHtml(card, `x${owned}`, { squareArt: true })}</div>
+        <div class="shop-card-info">
+          <strong>${escapeHtml(card.name)}</strong><br>
+          <small>${rarityStars(card.rarity)} / 所持 ${owned} / 売却可能 ${available}</small><br>
+          <span class="muted">${reason}</span>
+        </div>
+        <button data-sell-id="${card.id}" ${canSell ? "" : "disabled"}>売却</button>
+      </div>
+    `;
+  }).join("") || `<p class="muted">売却できるカードがありません。</p>`;
+
+  sellList.querySelectorAll("[data-sell-card-id]").forEach((element) => {
+    applyCardTypeStyle(element, cardById.get(element.getAttribute("data-sell-card-id")));
+  });
+  sellList.querySelectorAll("[data-sell-id]").forEach((button) => {
+    button.addEventListener("click", () => sellOwnedCard(button.getAttribute("data-sell-id")));
+  });
+}
+
+function buyShopCard(index) {
+  const card = state.shopStock[index];
+  if (!card) return;
+  const price = getCardShopPrice(card);
+  if (!price || !spendMoney(price)) {
+    showShopMessage("所持金が足りません。", true);
+    renderShopScreen();
+    return;
+  }
+  addOwnedCard(card.id);
+  state.shopStock.splice(index, 1);
+  showShopMessage(`「${card.name}」を${formatMoney(price)}で購入しました。`);
+  renderShopScreen();
+}
+
+function sellOwnedCard(cardId) {
+  const card = cardById.get(cardId);
+  if (!card) return;
+  const price = getCardSellPrice(card);
+  const available = getOwnedCount(card.id) - getTotalInAllDecks(card.id);
+  if (price === null) {
+    showShopMessage("★4以上のカードは現在売却できません。", true);
+    return;
+  }
+  if (available <= 0) {
+    showShopMessage("デッキで使用中のカードは売却できません。", true);
+    return;
+  }
+  state.save.ownedCards[card.id] = Math.max(0, getOwnedCount(card.id) - 1);
+  addMoney(price);
+  showShopMessage(`「${card.name}」を${formatMoney(price)}で売却しました。`);
+  renderShopScreen();
+}
+
+function showShopMessage(message, isError = false) {
+  const box = $("shopMessage");
+  if (!box) return;
+  box.textContent = message;
+  box.style.color = isError ? "var(--danger)" : "var(--good)";
+  box.dataset.keep = "1";
 }
 
 function renderDeckScreen() {
@@ -1042,6 +1225,16 @@ async function startBattle(npcId) {
     return;
   }
 
+  const entryFee = getNpcEntryFee(npc);
+  if (Number(state.save.money ?? 0) < entryFee) {
+    showModal("所持金不足", `<p>${escapeHtml(npc.name)}への挑戦料は${formatMoney(entryFee)}です。</p><p>現在の所持金：${formatMoney(state.save.money)}</p>`, [
+      { label: "ショップへ", onClick: () => { closeModal(); showScreen("shop"); } },
+      { label: "閉じる", className: "ghost", onClick: closeModal }
+    ]);
+    return;
+  }
+  spendMoney(entryFee);
+
   const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
   const npcDeck = sample(npc.cardPool, 5).map((id) => cardById.get(id)).filter(Boolean);
   const playerHandCards = [...playerBattleDeck];
@@ -1073,6 +1266,8 @@ async function startBattle(npcId) {
     forcedPlayerHandIndex: null,
     forcedNpcHandIndex: null,
     typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
+    entryFee,
+    winMoney: getNpcWinMoney(npc),
     swapInfo
   };
   const battleToken = state.battle;
@@ -1082,6 +1277,8 @@ async function startBattle(npcId) {
   $("battleNpcName").textContent = `${npc.name} / ${npc.difficulty}`;
   $("battleLog").innerHTML = "";
   addBattleLog(`${npc.name}との対戦を開始しました。`);
+  addBattleLog(`挑戦料として${formatMoney(entryFee)}を支払いました。敗北・棄権時は返金されません。`);
+  addBattleLog(`勝利報酬：${formatMoney(getNpcWinMoney(npc))}`);
   addBattleLog(`追加ルール：${getRuleSummary(selectedRules)}`);
   if (swapInfo) addBattleLog(`スワップ：お互いの手札から1枚を交換しました。対戦後に戻ります。`);
   addBattleLog("コイントスで先攻・後攻を決定します。");
@@ -1597,18 +1794,21 @@ function checkBattleEnd() {
   const score = calcScore();
   if (score.player > score.npc) {
     addBattleLog(`勝利！ ${score.player} - ${score.npc}`);
+    const winMoney = getNpcWinMoney(battle.npc);
+    addMoney(winMoney);
+    addBattleLog(`勝利報酬として${formatMoney(winMoney)}を獲得しました。`);
     state.save.npcWins[battle.npc.id] = (state.save.npcWins[battle.npc.id] ?? 0) + 1;
     save();
     handleReward();
   } else if (score.player < score.npc) {
     addBattleLog(`敗北... ${score.player} - ${score.npc}`);
-    showModal("敗北", `<p>今回はカードを獲得できませんでした。</p><p>スコア：自分 ${score.player} - ${score.npc} 相手</p>`, [
+    showModal("敗北", `<p>今回はカードを獲得できませんでした。</p><p>挑戦料${formatMoney(battle.entryFee)}は返金されません。</p><p>スコア：自分 ${score.player} - ${score.npc} 相手</p>`, [
       { label: "再戦", onClick: () => { closeModal(); startBattle(battle.npc.id); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } }
     ]);
   } else {
     addBattleLog(`引き分け ${score.player} - ${score.npc}`);
-    showModal("引き分け", `<p>引き分けのためカード獲得はありません。</p>`, [
+    showModal("引き分け", `<p>引き分けのためカード獲得はありません。</p><p>挑戦料${formatMoney(battle.entryFee)}は返金されません。</p>`, [
       { label: "再戦", onClick: () => { closeModal(); startBattle(battle.npc.id); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } }
     ]);
@@ -1638,7 +1838,7 @@ function handleReward() {
     const choices = battle.npcBattleCards;
     showModal(
       "報酬：好きなカードを1枚選択",
-      `<p>報酬抽選：指定選択</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
+      `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>報酬抽選：指定選択</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
       [{
         label: "ランダムで受け取る",
         className: "ghost",
@@ -1701,11 +1901,39 @@ function rewardCardHtml(card) {
 function showRewardResult(card, reason) {
   showModal(
     "カード獲得",
-    `<p>${escapeHtml(reason)}</p><div class="reward-grid">${rewardCardHtml(card)}</div>`,
+    `<p>勝利報酬として${formatMoney(getNpcWinMoney(state.battle.npc))}を獲得しました。</p><p>${escapeHtml(reason)}</p><div class="reward-grid">${rewardCardHtml(card)}</div>`,
     [
       { label: "再戦", onClick: () => { const npcId = state.battle.npc.id; closeModal(); startBattle(npcId); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
       { label: "図鑑を見る", className: "ghost", onClick: () => { closeModal(); showScreen("collection"); } }
+    ]
+  );
+}
+
+function confirmBattleExit(destination = "title") {
+  const battle = state.battle;
+  if (!battle || battle.finished) {
+    state.battle = null;
+    showScreen(destination === "battleMenu" ? "battleMenu" : "title");
+    return;
+  }
+
+  const destText = destination === "battleMenu" ? "対戦相手選択へ戻る" : "タイトルへ戻る";
+  showModal(
+    "棄権確認",
+    `<p>対戦中に${destText}と棄権になります。</p><p>挑戦料${formatMoney(battle.entryFee ?? 0)}は返ってきませんが、よろしいですか？</p>`,
+    [
+      {
+        label: "棄権する",
+        className: "danger",
+        onClick: () => {
+          closeModal();
+          addBattleLog("棄権しました。挑戦料は返金されません。");
+          state.battle = null;
+          showScreen(destination === "battleMenu" ? "battleMenu" : "title");
+        }
+      },
+      { label: "キャンセル", className: "ghost", onClick: closeModal }
     ]
   );
 }
@@ -1735,10 +1963,11 @@ function registerServiceWorker() {
 
 function bindEvents() {
   $("versionLabel").textContent = `v${VERSION}`;
-  $("backTitleBtn").addEventListener("click", () => showScreen("title"));
+  $("backTitleBtn").addEventListener("click", () => confirmBattleExit("title"));
 
   $("goBattle").addEventListener("click", () => showScreen("battleMenu"));
   $("goDeck").addEventListener("click", () => showScreen("deck"));
+  $("goShop").addEventListener("click", () => showScreen("shop"));
   $("goCollection").addEventListener("click", () => showScreen("collection"));
   $("goSettings").addEventListener("click", () => showScreen("settings"));
   $("updateButton").addEventListener("click", forceUpdate);
@@ -1816,9 +2045,12 @@ function bindEvents() {
     ]);
   });
 
-  $("giveUpButton").addEventListener("click", () => {
-    state.battle = null;
-    showScreen("battleMenu");
+  $("giveUpButton").addEventListener("click", () => confirmBattleExit("battleMenu"));
+
+  $("refreshShop").addEventListener("click", () => {
+    refreshShopStock();
+    showShopMessage("品揃えを更新しました。");
+    renderShopScreen();
   });
 
   window.addEventListener("resize", scheduleBattleAutoFit);

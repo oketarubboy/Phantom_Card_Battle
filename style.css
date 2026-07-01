@@ -1490,3 +1490,115 @@ textarea {
 .battle-screen .opponent-open {
   overflow: hidden;
 }
+
+
+/* v0.1.14: shop and money system */
+.wallet-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.07);
+  color: var(--text);
+}
+
+.wallet-line strong {
+  color: #ffd66b;
+}
+
+.shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.shop-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.shop-list {
+  display: grid;
+  gap: 10px;
+  max-height: 640px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.shop-card {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--card-type-color, var(--line));
+  background: rgba(255,255,255,0.065);
+}
+
+.shop-card-preview.mini-card {
+  width: 70px;
+  min-height: 70px;
+  padding: 5px;
+  cursor: default;
+}
+
+.shop-card-preview .card-visual .card-art-wrap {
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  height: auto;
+}
+
+.shop-card-preview .card-visual-name {
+  display: none;
+}
+
+.shop-card-preview .card-visual-values .cv {
+  min-width: 17px;
+  min-height: 17px;
+  font-size: 10px;
+  border-radius: 6px;
+}
+
+.shop-card-preview .card-visual-values .cv-up { top: 24px; }
+.shop-card-preview .card-visual-values .cv-down { bottom: 4px; }
+.shop-card-preview .card-visual-values .cv-left { left: 4px; }
+.shop-card-preview .card-visual-values .cv-right { right: 4px; }
+
+.shop-card-info {
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.shop-card-info strong {
+  word-break: break-word;
+}
+
+button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+@media (max-width: 920px) {
+  .shop-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .shop-card {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .shop-card button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}

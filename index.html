@@ -24,9 +24,11 @@
           <div class="logo-mark">PCB</div>
           <h2>Phantom Card Battle</h2>
           <p>NPCに勝利してカードを奪い、デッキを強化していくカードバトルです。</p>
+          <div class="wallet-line">所持金：<strong data-money-display>0銭</strong></div>
           <div class="title-menu">
             <button id="goBattle">対戦</button>
             <button id="goDeck">デッキ</button>
+            <button id="goShop">ショップ</button>
             <button id="goCollection">図鑑</button>
             <button id="goSettings">設定</button>
           </div>
@@ -42,6 +44,7 @@
         <div class="panel">
           <h2>対戦相手を選択</h2>
           <p class="muted">NPC名は仮名です。後から自由に変更できます。</p>
+          <div class="wallet-line">所持金：<strong data-money-display>0銭</strong></div>
           <div class="rule-panel">
             <h3>追加ルール</h3>
             <p class="muted">複数選択できます。リバースとエースキラーは同時選択できません。</p>
@@ -80,6 +83,31 @@
             <div id="battleLog" class="battle-log"></div>
             <button id="giveUpButton" class="danger">対戦をやめる</button>
           </aside>
+        </div>
+      </section>
+
+
+      <section id="screen-shop" class="screen">
+        <div class="panel">
+          <h2>ショップ</h2>
+          <p class="muted">お金の単位は「銭」です。ショップに入るたびに販売カードがランダムで変わります。</p>
+          <div class="shop-header">
+            <div class="wallet-line">所持金：<strong data-money-display>0銭</strong></div>
+            <button id="refreshShop" class="ghost">品揃えを更新</button>
+          </div>
+          <div id="shopMessage" class="message"></div>
+          <div class="shop-layout">
+            <section>
+              <h3>購入</h3>
+              <p class="muted">★1：7種、★2：2種、★3：1種を販売します。</p>
+              <div id="shopStockList" class="shop-list"></div>
+            </section>
+            <section>
+              <h3>売却</h3>
+              <p class="muted">買取金額は販売金額の半額です。★4以上とデッキ使用中のカードは売却できません。</p>
+              <div id="shopSellList" class="shop-list"></div>
+            </section>
+          </div>
         </div>
       </section>
 
