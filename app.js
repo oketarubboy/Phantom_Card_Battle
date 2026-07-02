@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.14";
+const VERSION = "0.1.15";
 const SAVE_KEY = "phantom_card_battle_save_v4_180_updated_starter18";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -16,6 +16,7 @@ const state = {
   battleCardPopup: true,
   selectedRuleIds: [],
   shopStock: [],
+  shopInitialized: false,
   battle: null,
   pixi: {
     app: null,
@@ -58,6 +59,7 @@ const RULES = [
 const RULE_NAME_BY_ID = Object.fromEntries(RULES.map((rule) => [rule.id, rule.name]));
 const CARD_TYPES = ["もなタイプ", "美雨タイプ", "凛花タイプ", "百花タイプ"];
 const SHOP_PRICES = { 1: 100, 2: 500, 3: 5000 };
+const SHOP_REFRESH_FEE = 100;
 const NPC_ENTRY_FEES = [0, 100, 300, 500, 1000, 2000, 5000, 10000, 50000, 100000];
 
 function normalizeDeckSort() {
@@ -469,6 +471,8 @@ function cardMiniHtml(card, extra = "", options = {}) {
   const typeMeta = getCardTypeMeta(card);
   const centerLabel = extra ? escapeHtml(extra) : "";
   const showName = options.showName !== false;
+  const showTop = options.showTop !== false;
+  const showValues = options.showValues !== false;
   const visualClasses = ["card-visual"];
   if (options.squareArt) visualClasses.push("square-art");
   if (options.detail) visualClasses.push("card-detail-visual");
@@ -476,20 +480,24 @@ function cardMiniHtml(card, extra = "", options = {}) {
   return `
     <div class="${visualClasses.join(" ")}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
       ${cardArtHtml(card)}
-      <div class="card-visual-top">
+      ${showTop ? `<div class="card-visual-top">
         <span class="card-stars">${rarityStars(card.rarity)}</span>
         <span class="card-type-badge">${escapeHtml(typeMeta.label)}</span>
-      </div>
-      <div class="card-visual-values">
+      </div>` : ""}
+      ${showValues ? `<div class="card-visual-values">
         <span class="cv cv-up">${displayValue(values.up)}</span>
         <span class="cv cv-right">${displayValue(values.right)}</span>
         <span class="cv cv-down">${displayValue(values.down)}</span>
         <span class="cv cv-left">${displayValue(values.left)}</span>
         ${centerLabel ? `<span class="cv cv-center">${centerLabel}</span>` : ""}
-      </div>
+      </div>` : ""}
       ${showName ? `<div class="card-visual-name">${escapeHtml(card.name)}</div>` : ""}
     </div>
   `;
+}
+
+function cardStatLine(card) {
+  return `上${displayValue(card.up)} / 右${displayValue(card.right)} / 下${displayValue(card.down)} / 左${displayValue(card.left)}`;
 }
 
 function escapeHtml(value) {
@@ -585,7 +593,10 @@ function refreshShopStock() {
 }
 
 function enterShop() {
-  refreshShopStock();
+  if (!state.shopInitialized) {
+    refreshShopStock();
+    state.shopInitialized = true;
+  }
   renderShopScreen();
 }
 
@@ -594,8 +605,14 @@ function renderShopScreen() {
   const stockList = $("shopStockList");
   const sellList = $("shopSellList");
   const message = $("shopMessage");
+  const refreshButton = $("refreshShop");
+  const money = Number(state.save.money ?? 0);
   if (!stockList || !sellList) return;
-  if (!message.dataset.keep) message.textContent = "ショップに入るたびに販売カードがランダムで変わります。";
+  if (refreshButton) {
+    refreshButton.textContent = `品揃えを更新（${formatMoney(SHOP_REFRESH_FEE)}）`;
+    refreshButton.disabled = money < SHOP_REFRESH_FEE;
+  }
+  if (!message.dataset.keep) message.textContent = `品揃えの更新には${formatMoney(SHOP_REFRESH_FEE)}かかります。`;
   message.dataset.keep = "";
 
   stockList.innerHTML = state.shopStock.map((card, index) => {
@@ -603,16 +620,17 @@ function renderShopScreen() {
     const canBuy = Number(state.save.money ?? 0) >= price;
     return `
       <div class="shop-card" data-shop-index="${index}">
-        <div class="shop-card-preview mini-card">${cardMiniHtml(card, "", { squareArt: true })}</div>
+        <div class="shop-card-preview mini-card">${cardMiniHtml(card, "", { squareArt: true, showName: false, showTop: false, showValues: false })}</div>
         <div class="shop-card-info">
           <strong>${escapeHtml(card.name)}</strong><br>
-          <small>${rarityStars(card.rarity)} / ${escapeHtml(getCardTypeMeta(card).longLabel)}</small><br>
+          <small>${rarityStars(card.rarity)}</small><br>
+          <small>${cardStatLine(card)}</small><br>
           <strong>${formatMoney(price)}</strong>
         </div>
         <button data-buy-index="${index}" ${canBuy ? "" : "disabled"}>${canBuy ? "購入" : "所持金不足"}</button>
       </div>
     `;
-  }).join("") || `<p class="muted">現在購入できるカードはありません。再入店すると品揃えが変わります。</p>`;
+  }).join("") || `<p class="muted">現在購入できるカードはありません。品揃え更新ボタンで補充できます。</p>`;
 
   stockList.querySelectorAll("[data-shop-index]").forEach((element) => {
     const index = Number(element.getAttribute("data-shop-index"));
@@ -635,10 +653,11 @@ function renderShopScreen() {
     const reason = price === null ? "売却不可" : available <= 0 ? "デッキ使用中" : `${formatMoney(price)}で売却`;
     return `
       <div class="shop-card sell-card" data-sell-card-id="${card.id}">
-        <div class="shop-card-preview mini-card">${cardMiniHtml(card, `x${owned}`, { squareArt: true })}</div>
+        <div class="shop-card-preview mini-card">${cardMiniHtml(card, "", { squareArt: true, showName: false, showTop: false, showValues: false })}</div>
         <div class="shop-card-info">
           <strong>${escapeHtml(card.name)}</strong><br>
           <small>${rarityStars(card.rarity)} / 所持 ${owned} / 売却可能 ${available}</small><br>
+          <small>${cardStatLine(card)}</small><br>
           <span class="muted">${reason}</span>
         </div>
         <button data-sell-id="${card.id}" ${canSell ? "" : "disabled"}>売却</button>
@@ -1883,16 +1902,15 @@ function handleReward() {
 }
 
 function rewardCardHtml(card) {
+  const typeMeta = getCardTypeMeta(card);
   return `
-    <div class="reward-card" data-reward-card-id="${card.id}">
-      <strong>${escapeHtml(card.name)}</strong><br>
-      <small>${rarityStars(card.rarity)}</small>
-      <div class="card-values">
-        <span class="v-up">${displayValue(card.up)}</span>
-        <span class="v-right">${displayValue(card.right)}</span>
-        <span class="v-down">${displayValue(card.down)}</span>
-        <span class="v-left">${displayValue(card.left)}</span>
-        <span class="v-center">GET</span>
+    <div class="reward-card" data-reward-card-id="${card.id}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
+      <div class="reward-card-preview mini-card">
+        ${cardMiniHtml(card, "GET", { squareArt: true, detail: true })}
+      </div>
+      <div class="reward-card-info">
+        <strong>${escapeHtml(card.name)}</strong><br>
+        <small>${rarityStars(card.rarity)} / ${cardStatLine(card)}</small>
       </div>
     </div>
   `;
@@ -2048,8 +2066,14 @@ function bindEvents() {
   $("giveUpButton").addEventListener("click", () => confirmBattleExit("battleMenu"));
 
   $("refreshShop").addEventListener("click", () => {
+    if (!spendMoney(SHOP_REFRESH_FEE)) {
+      showShopMessage(`品揃えの更新には${formatMoney(SHOP_REFRESH_FEE)}が必要です。`, true);
+      renderShopScreen();
+      return;
+    }
     refreshShopStock();
-    showShopMessage("品揃えを更新しました。");
+    state.shopInitialized = true;
+    showShopMessage(`品揃えを更新しました。${formatMoney(SHOP_REFRESH_FEE)}を支払いました。`);
     renderShopScreen();
   });
 

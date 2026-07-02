@@ -745,7 +745,7 @@ textarea {
 
 .reward-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
   margin-top: 12px;
 }
@@ -753,7 +753,7 @@ textarea {
 .reward-card {
   padding: 10px;
   border-radius: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--card-type-color, var(--line));
   background: rgba(255,255,255,0.07);
   cursor: pointer;
 }
@@ -1601,4 +1601,53 @@ button:disabled {
     grid-column: 1 / -1;
     width: 100%;
   }
+}
+
+
+/* v0.1.15: shop image-only previews and reward card images */
+.shop-card-preview .card-visual-top,
+.shop-card-preview .card-visual-values,
+.shop-card-preview .card-visual-name {
+  display: none;
+}
+
+.shop-card-preview .card-visual::after {
+  background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.08));
+}
+
+.shop-card-preview .card-art {
+  object-fit: contain;
+  background: rgba(10, 14, 28, 0.18);
+}
+
+.reward-card-preview.mini-card {
+  width: 100%;
+  min-height: 168px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.reward-card-preview .card-visual .card-art-wrap {
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  height: auto;
+}
+
+.reward-card-preview .card-art {
+  object-fit: contain;
+  background: rgba(10, 14, 28, 0.18);
+}
+
+.reward-card-info {
+  margin-top: 8px;
+  text-align: center;
+  line-height: 1.45;
+}
+
+.reward-card-info small {
+  color: var(--muted);
+}
+
+.shop-header button:disabled {
+  opacity: 0.48;
 }
