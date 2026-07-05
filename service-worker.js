@@ -1,4 +1,4 @@
-const CACHE_NAME = "phantom-card-battle-v0.1.20";
+const CACHE_NAME = "phantom-card-battle-v0.1.21";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,7 +8,9 @@ const ASSETS = [
   "./src/data/cards.js",
   "./src/data/npcs.js",
   "./assets/icons/icon-192.png",
-  "./assets/icons/icon-512.png"
+  "./assets/icons/icon-512.png",
+  "./assets/coins/coin-front.webp",
+  "./assets/coins/coin-back.webp"
 ];
 
 self.addEventListener("install", (event) => {

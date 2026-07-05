@@ -1822,3 +1822,69 @@ button:disabled {
   top: 50%;
   transform: translateY(-50%);
 }
+
+
+/* v0.1.21: coin toss image faces and title cleanup */
+.coin-toss-coin {
+  position: relative;
+  width: 146px;
+  height: 146px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  box-shadow: 0 22px 50px rgba(0,0,0,0.34);
+  transform-style: preserve-3d;
+  display: block;
+  color: transparent;
+}
+
+.coin-toss-coin.tossing {
+  animation: coinImageFlip 0.42s linear infinite, coinBounce 0.84s ease-in-out infinite;
+}
+
+.coin-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  backface-visibility: hidden;
+}
+
+.coin-front {
+  background-image: url("assets/coins/coin-front.webp");
+  transform: rotateY(0deg);
+}
+
+.coin-back {
+  background-image: url("assets/coins/coin-back.webp");
+  transform: rotateY(180deg);
+}
+
+.coin-toss-coin.coin-player {
+  animation: coinSettleFront 0.55s ease both;
+}
+
+.coin-toss-coin.coin-npc {
+  animation: coinSettleBack 0.55s ease both;
+}
+
+@keyframes coinImageFlip {
+  from { transform: rotateY(0deg) rotateX(0deg); }
+  to { transform: rotateY(360deg) rotateX(18deg); }
+}
+
+@keyframes coinSettleFront {
+  from { transform: rotateY(270deg) scale(0.92); }
+  to { transform: rotateY(0deg) scale(1); }
+}
+
+@keyframes coinSettleBack {
+  from { transform: rotateY(270deg) scale(0.92); }
+  to { transform: rotateY(180deg) scale(1); }
+}
+
+.title-card h2 {
+  margin-top: 0;
+}

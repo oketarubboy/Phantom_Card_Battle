@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.20";
+const VERSION = "0.1.21";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -284,6 +284,29 @@ function cardArtHtml(card) {
 
 function getNpcNumber(npc) {
   return Number(String(npc.id).replace(/\D/g, "")) || 1;
+}
+
+function hasDefeatedNpc(npcNumber) {
+  const id = `npc_${String(npcNumber).padStart(3, "0")}`;
+  return Number(state.save?.npcWins?.[id] ?? 0) > 0;
+}
+
+function isNpcUnlocked(npc) {
+  const number = getNpcNumber(npc);
+  if (number <= 2) return true;
+  if (number >= 3 && number <= 6) return hasDefeatedNpc(2);
+  if (number >= 7 && number <= 10) return [3, 4, 5, 6].every(hasDefeatedNpc);
+  if (number >= 11 && number <= 14) return [7, 8, 9, 10].every(hasDefeatedNpc);
+  if (number === 15) return [11, 12, 13, 14].every(hasDefeatedNpc);
+  return false;
+}
+
+function getNpcUnlockMessage() {
+  if (!hasDefeatedNpc(2)) return "NPC2に勝利するとNPC3〜6が解放されます。";
+  if (![3, 4, 5, 6].every(hasDefeatedNpc)) return "NPC3〜6全員に勝利するとNPC7〜10が解放されます。";
+  if (![7, 8, 9, 10].every(hasDefeatedNpc)) return "NPC7〜10全員に勝利するとNPC11〜14が解放されます。";
+  if (![11, 12, 13, 14].every(hasDefeatedNpc)) return "NPC11〜14全員に勝利するとNPC15が解放されます。";
+  return "すべての対戦相手が解放されています。";
 }
 
 function getRareChanceRate(npc) {
@@ -612,15 +635,20 @@ function renderNpcList() {
   if (panel) {
     panel.innerHTML = `
       <h3>追加ルール</h3>
-      <p class="muted">追加ルールは、対戦相手を選んだ後に設定または抽選されます。</p>
-      <p class="muted">よわい相手：自由設定 / ふつう：追加ルール①から1つ抽選 / つよい：追加ルール①・②から各1つ抽選</p>
+      <p class="muted">よわい：自由に設定可能</p>
+      <p class="muted">ふつう：ランダムで追加ルールが1つ適用される</p>
+      <p class="muted">つよい：ランダムで追加ルールが2つ適用される</p>
     `;
   }
 
   const list = $("npcList");
-  list.innerHTML = "";
+  const hiddenCount = NPCS.filter((npc) => !isNpcUnlocked(npc)).length;
+  list.innerHTML = hiddenCount > 0
+    ? `<div class="summary">${escapeHtml(getNpcUnlockMessage())}<br>未解放の対戦相手：${hiddenCount}人</div>`
+    : "";
 
   for (const npc of NPCS) {
+    if (!isNpcUnlocked(npc)) continue;
     const poolCards = getNpcCardPool(npc);
     const avgPower = poolCards.reduce((sum, card) => sum + card.power, 0) / Math.max(poolCards.length, 1);
     const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
@@ -629,11 +657,6 @@ function renderNpcList() {
     const entryFee = getNpcEntryFee(npc);
     const winMoney = getNpcWinMoney(npc);
     const canChallenge = Number(state.save.money ?? 0) >= entryFee;
-    const ruleText = npc.difficulty === "よわい"
-      ? "自由設定"
-      : npc.difficulty === "ふつう"
-        ? "追加ルール①から1つ抽選"
-        : "追加ルール①・②から各1つ抽選";
 
     const item = document.createElement("div");
     item.className = "npc-card";
@@ -641,9 +664,8 @@ function renderNpcList() {
       <h3>${escapeHtml(npc.name)} <span class="badge ${difficultyClass}">${npc.difficulty}</span></h3>
       <p class="muted">所持カード：${poolCards.length}枚 / 最大${rarityStars(maxRarity)} / 平均力 ${avgPower.toFixed(1)}</p>
       <p class="muted">挑戦料：${formatMoney(entryFee)} / 勝利報酬：${formatMoney(winMoney)}</p>
-      <p class="muted">レアチャンス率：${getRareChanceRate(npc)}% / 対象：${escapeHtml(getRareChanceLabel(npc))}</p>
+      <p class="muted">レアチャンス率：${getRareChanceRate(npc)}%</p>
       <p class="muted">初回勝利報酬：${firstReward ? `No.${escapeHtml(firstReward.no)} ${escapeHtml(firstReward.name)}` : "なし"}</p>
-      <p class="muted">追加ルール：${escapeHtml(ruleText)}</p>
       <button data-npc-id="${npc.id}" ${canChallenge ? "" : "disabled"}>${canChallenge ? "対戦する" : "所持金不足"}</button>
     `;
     item.querySelector("button").addEventListener("click", () => startBattle(npc.id));
@@ -1414,6 +1436,12 @@ function prepareBattleStart(npcId) {
 async function startBattle(npcId, selectedRules = null) {
   const npc = npcById.get(npcId);
   if (!npc) return;
+  if (!isNpcUnlocked(npc)) {
+    showModal("未解放", `<p>${escapeHtml(npc.name)}はまだ解放されていません。</p><p>${escapeHtml(getNpcUnlockMessage())}</p>`, [
+      { label: "閉じる", onClick: closeModal }
+    ]);
+    return;
+  }
   if (selectedRules === null) {
     prepareBattleStart(npcId);
     return;
@@ -1523,7 +1551,10 @@ async function runCoinToss() {
     "コイントス",
     `
       <div class="coin-toss-box">
-        <div class="coin-toss-coin">PCB</div>
+        <div class="coin-toss-coin tossing" aria-label="コイントス">
+          <div class="coin-face coin-front"></div>
+          <div class="coin-face coin-back"></div>
+        </div>
         <p id="coinTossText">コイントス中...</p>
       </div>
     `,
@@ -1534,7 +1565,10 @@ async function runCoinToss() {
 
   const coin = document.querySelector(".coin-toss-coin");
   const text = $("coinTossText");
-  if (coin) coin.classList.add(firstTurn === "player" ? "coin-player" : "coin-npc");
+  if (coin) {
+    coin.classList.remove("tossing");
+    coin.classList.add(firstTurn === "player" ? "coin-player" : "coin-npc");
+  }
   if (text) text.textContent = firstTurn === "player" ? "表：プレイヤーが先攻です。" : "裏：相手が先攻です。";
 
   await delay(900);
