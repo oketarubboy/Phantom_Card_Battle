@@ -30,6 +30,7 @@
             <button id="goDeck">デッキ</button>
             <button id="goShop">ショップ</button>
             <button id="goCollection">図鑑</button>
+            <button id="goRules">ルール説明</button>
             <button id="goSettings">設定</button>
           </div>
         </div>
@@ -89,16 +90,19 @@
       <section id="screen-shop" class="screen">
         <div class="panel">
           <h2>ショップ</h2>
-          <p class="muted">お金の単位は「銭」です。初回入店時に販売カードが並びます。品揃えの更新には100銭かかります。</p>
+          <p class="muted">お金の単位は「銭」です。累計購入金額でショップグレードが上がり、★3の販売比率と品揃え更新金額が変わります。</p>
           <div class="shop-header">
-            <div class="wallet-line">所持金：<strong data-money-display>0銭</strong></div>
-            <button id="refreshShop" class="ghost">品揃えを更新（100銭）</button>
+            <div>
+              <div class="wallet-line">所持金：<strong data-money-display>0銭</strong></div>
+              <div id="shopGradeInfo" class="shop-grade-info muted"></div>
+            </div>
+            <button id="refreshShop" class="ghost">品揃えを更新</button>
           </div>
           <div id="shopMessage" class="message"></div>
           <div class="shop-layout">
             <section>
               <h3>購入</h3>
-              <p class="muted">★1：7種、★2：2種、★3：1種を販売します。</p>
+              <p class="muted">販売カードはショップグレードに応じて10枚並びます。</p>
               <div id="shopStockList" class="shop-list"></div>
             </section>
             <section>
@@ -118,6 +122,10 @@
           <div class="deck-layout">
             <div>
               <h3>現在のデッキ</h3>
+              <label class="deck-name-row">
+                <span>デッキ名</span>
+                <input id="deckNameInput" class="deck-name-input" maxlength="20" placeholder="デッキ名" />
+              </label>
               <div id="currentDeck" class="deck-list"></div>
               <div class="deck-actions">
                 <button id="setActiveDeck">このデッキを使用</button>
@@ -161,6 +169,32 @@
           <div id="collectionSummary" class="summary"></div>
           <input id="collectionSearch" class="search" placeholder="カード名で検索" />
           <div id="collectionGrid" class="collection-grid"></div>
+        </div>
+      </section>
+
+
+
+      <section id="screen-rules" class="screen">
+        <div class="panel rules-panel">
+          <h2>ルール説明</h2>
+          <h3>基本ルール</h3>
+          <p>3×3の盤面に、自分と相手が交互にカードを置きます。カードには上・右・下・左の4つの数字があり、置いたカードと隣接する相手カードの数字を比べます。</p>
+          <p>通常ルールでは、置いたカード側の数字が相手カード側の数字より大きい場合、その相手カードを自分の色に変えられます。9枚すべて置き終わった時点で、自分の色のカードと残り手札を合計した点数が多い方の勝ちです。</p>
+          <p>勝利すると銭を獲得し、抽選結果に応じて相手カードやレアカードを獲得できます。★5カードはレアチャンスのみで入手できます。</p>
+
+          <h3>追加ルール</h3>
+          <div class="rules-grid">
+            <div><strong>オーダー</strong><p>デッキの左から順番にしかカードを出せません。</p></div>
+            <div><strong>カオス</strong><p>場に出すカードがランダムに指定されます。オーダーとは同時に選べません。</p></div>
+            <div><strong>オールオープン</strong><p>お互いの手札がすべて見えている状態で開始します。</p></div>
+            <div><strong>スワップ</strong><p>開始前にお互いの手札からランダムに1枚ずつ交換します。対戦後は元に戻ります。</p></div>
+            <div><strong>リバース</strong><p>数字の強さが逆になります。Aが最弱、1が最強になります。エースキラーとは同時に選べません。</p></div>
+            <div><strong>エースキラー</strong><p>1だけがAに勝てます。ただし1は2〜9には勝てません。</p></div>
+            <div><strong>タイプアセンド</strong><p>同じタイプのカードが場に出るたび、そのタイプのカードの上下左右の数字が+1されます。上限はAです。</p></div>
+            <div><strong>プラス</strong><p>隣接する辺の合計値が2辺以上同じになった場合、その対象カードをひっくり返します。</p></div>
+            <div><strong>セイム</strong><p>隣接する2辺以上の数字が同じ場合、その対象カードをひっくり返します。</p></div>
+            <div><strong>コンボ</strong><p>プラスやセイムなどでひっくり返したカードから、さらに通常比較で連鎖してひっくり返します。</p></div>
+          </div>
         </div>
       </section>
 

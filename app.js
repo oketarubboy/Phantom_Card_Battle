@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.18";
+const VERSION = "0.1.19";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -38,6 +38,7 @@ const screens = {
   deck: $("screen-deck"),
   shop: $("screen-shop"),
   collection: $("screen-collection"),
+  rules: $("screen-rules"),
   settings: $("screen-settings")
 };
 
@@ -59,7 +60,13 @@ const RULES = [
 const RULE_NAME_BY_ID = Object.fromEntries(RULES.map((rule) => [rule.id, rule.name]));
 const CARD_TYPES = ["もなタイプ", "美雨タイプ", "凛花タイプ", "百花タイプ"];
 const SHOP_PRICES = { 1: 100, 2: 500, 3: 5000 };
-const SHOP_REFRESH_FEE = 100;
+const SHOP_GRADE_SETTINGS = [
+  { grade: 1, required: 0, refreshFee: 100, stock: { 1: 7, 2: 2, 3: 1 } },
+  { grade: 2, required: 1000, refreshFee: 200, stock: { 1: 6, 2: 2, 3: 2 } },
+  { grade: 3, required: 5000, refreshFee: 500, stock: { 1: 5, 2: 2, 3: 3 } },
+  { grade: 4, required: 20000, refreshFee: 1000, stock: { 1: 4, 2: 2, 3: 4 } },
+  { grade: 5, required: 100000, refreshFee: 2000, stock: { 1: 3, 2: 2, 3: 5 } }
+];
 
 function normalizeDeckSort() {
   if (!DECK_SORT_FIELDS.has(state.deckSort.field)) state.deckSort.field = "rarity";
@@ -147,6 +154,26 @@ function updateMoneyDisplays() {
   document.querySelectorAll("[data-money-display]").forEach((element) => {
     element.textContent = formatMoney(state.save?.money ?? 0);
   });
+}
+
+function getShopGradeSetting(total = state.save?.shopPurchaseTotal ?? 0) {
+  const purchaseTotal = Number(total ?? 0);
+  return [...SHOP_GRADE_SETTINGS]
+    .reverse()
+    .find((setting) => purchaseTotal >= setting.required) ?? SHOP_GRADE_SETTINGS[0];
+}
+
+function getNextShopGradeSetting() {
+  const current = getShopGradeSetting();
+  return SHOP_GRADE_SETTINGS.find((setting) => setting.grade > current.grade) ?? null;
+}
+
+function getShopRefreshFee() {
+  return getShopGradeSetting().refreshFee;
+}
+
+function getShopStockPlan() {
+  return getShopGradeSetting().stock;
 }
 
 function getCardShopPrice(card) {
@@ -345,8 +372,10 @@ function createInitialSave() {
     ownedCards,
     discoveredCards: Object.fromEntries(starterCards.map((card) => [card.id, true])),
     decks: [firstDeck, [], [], [], []],
+    deckNames: ["デッキ1", "デッキ2", "デッキ3", "デッキ4", "デッキ5"],
     npcWins: {},
     money: 100,
+    shopPurchaseTotal: 0,
     settings: {
       effects: true,
       ownedCardView: "vertical",
@@ -374,6 +403,11 @@ function normalizeSave(save) {
   normalized.ownedCards = normalized.ownedCards ?? {};
   normalized.discoveredCards = normalized.discoveredCards ?? {};
   normalized.npcWins = normalized.npcWins ?? {};
+  normalized.deckNames = Array.from({ length: 5 }, (_, index) => {
+    const name = Array.isArray(save?.deckNames) ? String(save.deckNames[index] ?? "").trim() : "";
+    return name || `デッキ${index + 1}`;
+  });
+  normalized.shopPurchaseTotal = Number.isFinite(Number(normalized.shopPurchaseTotal)) ? Number(normalized.shopPurchaseTotal) : 0;
   normalized.activeDeckIndex = Number.isInteger(normalized.activeDeckIndex) ? Math.min(Math.max(normalized.activeDeckIndex, 0), 4) : 0;
   normalized.selectedDeckIndex = Number.isInteger(normalized.selectedDeckIndex) ? Math.min(Math.max(normalized.selectedDeckIndex, 0), 4) : 0;
 
@@ -487,9 +521,8 @@ function cardMiniHtml(card, extra = "", options = {}) {
   return `
     <div class="${visualClasses.join(" ")}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
       ${cardArtHtml(card)}
-      ${showTop ? `<div class="card-visual-top">
+      ${showTop ? `<div class="card-visual-top only-stars">
         <span class="card-stars">${rarityStars(card.rarity)}</span>
-        <span class="card-type-badge">${escapeHtml(typeMeta.label)}</span>
       </div>` : ""}
       ${showValues ? `<div class="card-visual-values">
         <span class="cv cv-up">${displayValue(values.up)}</span>
@@ -620,10 +653,11 @@ function renderNpcList() {
 
 function refreshShopStock() {
   const pick = (rarity, count) => sample(CARDS.filter((card) => card.rarity === rarity), count);
+  const plan = getShopStockPlan();
   state.shopStock = [
-    ...pick(1, 7),
-    ...pick(2, 2),
-    ...pick(3, 1)
+    ...pick(1, plan[1] ?? 0),
+    ...pick(2, plan[2] ?? 0),
+    ...pick(3, plan[3] ?? 0)
   ];
 }
 
@@ -643,11 +677,22 @@ function renderShopScreen() {
   const refreshButton = $("refreshShop");
   const money = Number(state.save.money ?? 0);
   if (!stockList || !sellList) return;
-  if (refreshButton) {
-    refreshButton.textContent = `品揃えを更新（${formatMoney(SHOP_REFRESH_FEE)}）`;
-    refreshButton.disabled = money < SHOP_REFRESH_FEE;
+  const gradeSetting = getShopGradeSetting();
+  const nextGrade = getNextShopGradeSetting();
+  const refreshFee = getShopRefreshFee();
+  const gradeInfo = $("shopGradeInfo");
+  if (gradeInfo) {
+    const plan = gradeSetting.stock;
+    const nextText = nextGrade
+      ? `次のグレードまであと${formatMoney(Math.max(0, nextGrade.required - Number(state.save.shopPurchaseTotal ?? 0)))}`
+      : "最高グレードです";
+    gradeInfo.innerHTML = `グレード${gradeSetting.grade} / 累計購入 ${formatMoney(state.save.shopPurchaseTotal ?? 0)} / 品揃え：★1 ${plan[1]}枚・★2 ${plan[2]}枚・★3 ${plan[3]}枚<br>${nextText}`;
   }
-  if (!message.dataset.keep) message.textContent = `品揃えの更新には${formatMoney(SHOP_REFRESH_FEE)}かかります。`;
+  if (refreshButton) {
+    refreshButton.textContent = `品揃えを更新（${formatMoney(refreshFee)}）`;
+    refreshButton.disabled = money < refreshFee;
+  }
+  if (!message.dataset.keep) message.textContent = `品揃えの更新には${formatMoney(refreshFee)}かかります。`;
   message.dataset.keep = "";
 
   stockList.innerHTML = state.shopStock.map((card, index) => {
@@ -658,8 +703,8 @@ function renderShopScreen() {
         <div class="shop-card-preview mini-card">${cardMiniHtml(card, "", { squareArt: true, showName: false, showTop: false, showValues: false })}</div>
         <div class="shop-card-info">
           <strong>${escapeHtml(card.name)}</strong><br>
-          <small>${rarityStars(card.rarity)}</small><br>
-          <small>${cardStatLine(card)}</small><br>
+          <small>${rarityStars(card.rarity)}</small>
+          <div class="shop-values-block">${cardValuesHtml(card)}</div>
           <strong>${formatMoney(price)}</strong>
         </div>
         <button data-buy-index="${index}" ${canBuy ? "" : "disabled"}>${canBuy ? "購入" : "所持金不足"}</button>
@@ -691,8 +736,8 @@ function renderShopScreen() {
         <div class="shop-card-preview mini-card">${cardMiniHtml(card, "", { squareArt: true, showName: false, showTop: false, showValues: false })}</div>
         <div class="shop-card-info">
           <strong>${escapeHtml(card.name)}</strong><br>
-          <small>${rarityStars(card.rarity)} / 所持 ${owned} / 売却可能 ${available}</small><br>
-          <small>${cardStatLine(card)}</small><br>
+          <small>${rarityStars(card.rarity)} / 所持 ${owned} / 売却可能 ${available}</small>
+          <div class="shop-values-block">${cardValuesHtml(card)}</div>
           <span class="muted">${reason}</span>
         </div>
         <button data-sell-id="${card.id}" ${canSell ? "" : "disabled"}>売却</button>
@@ -718,6 +763,8 @@ function buyShopCard(index) {
     return;
   }
   addOwnedCard(card.id);
+  state.save.shopPurchaseTotal = Number(state.save.shopPurchaseTotal ?? 0) + price;
+  save();
   state.shopStock.splice(index, 1);
   showShopMessage(`「${card.name}」を${formatMoney(price)}で購入しました。`);
   renderShopScreen();
@@ -750,13 +797,15 @@ function showShopMessage(message, isError = false) {
   box.dataset.keep = "1";
 }
 
-function renderDeckScreen() {
+function renderDeckTabsOnly() {
   const tabs = $("deckTabs");
+  if (!tabs) return;
   tabs.innerHTML = "";
 
   for (let i = 0; i < 5; i += 1) {
     const button = document.createElement("button");
-    button.textContent = `デッキ${i + 1}${state.save.activeDeckIndex === i ? " 使用中" : ""}`;
+    const deckName = state.save.deckNames?.[i] || `デッキ${i + 1}`;
+    button.textContent = `${deckName}${state.save.activeDeckIndex === i ? " 使用中" : ""}`;
     button.className = state.selectedDeckIndex === i ? "active" : "";
     button.addEventListener("click", () => {
       state.selectedDeckIndex = i;
@@ -765,6 +814,13 @@ function renderDeckScreen() {
     });
     tabs.appendChild(button);
   }
+}
+
+function renderDeckScreen() {
+  renderDeckTabsOnly();
+
+  const deckNameInput = $("deckNameInput");
+  if (deckNameInput) deckNameInput.value = state.save.deckNames?.[state.selectedDeckIndex] || `デッキ${state.selectedDeckIndex + 1}`;
 
   normalizeDeckSort();
   $("deckSortField").value = state.deckSort.field;
@@ -877,14 +933,26 @@ function renderCollectionScreen() {
     const div = document.createElement("div");
     div.className = `collection-card ${unlocked ? "" : "locked"}`;
     div.innerHTML = unlocked
-      ? `${cardMiniHtml(card, `x${owned}`)}<small>No.${escapeHtml(card.no)}</small>`
-      : `
-        <div class="card-stars">${rarityStars(card.rarity)}</div>
-        <div class="card-name">???</div>
-        <div class="card-values">
-          <span class="v-up">?</span><span class="v-right">?</span><span class="v-down">?</span><span class="v-left">?</span><span class="v-center">?</span>
+      ? `
+        <div class="collection-card-header">
+          <strong>${escapeHtml(card.name)}</strong>
+          <small>No.${escapeHtml(card.no)} / 所持 ${owned}</small>
         </div>
-        <small>No.${escapeHtml(card.no)}</small>
+        <div class="collection-card-image mini-card">
+          ${cardMiniHtml(card, "", { squareArt: true, showName: false, showTop: true, showValues: true })}
+        </div>
+      `
+      : `
+        <div class="collection-card-header">
+          <strong>???</strong>
+          <small>No.${escapeHtml(card.no)} / 未取得</small>
+        </div>
+        <div class="collection-card-image mini-card locked-card-image">
+          <div class="card-stars">${rarityStars(card.rarity)}</div>
+          <div class="card-values">
+            <span class="v-up">?</span><span class="v-right">?</span><span class="v-down">?</span><span class="v-left">?</span><span class="v-center">?</span>
+          </div>
+        </div>
       `;
     if (unlocked) applyCardTypeStyle(div, card);
     grid.appendChild(div);
@@ -923,7 +991,6 @@ function getCardDetailHtml(card) {
       </div>
       <div class="card-detail-meta">
         <div><strong>No.${escapeHtml(card.no)}</strong></div>
-        <div>${escapeHtml(getCardTypeMeta(card).longLabel)}</div>
         <div>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)}</div>
         <div>総合力 ${card.power}</div>
       </div>
@@ -1094,6 +1161,12 @@ function createPixiCard(card, owner, x, y) {
   vignette.endFill();
   container.addChild(vignette);
 
+  const typeMeta = getCardTypeMeta(card);
+  const typeFrame = new PIXI.Graphics();
+  typeFrame.lineStyle(3, PIXI.utils.string2hex(typeMeta.color), 0.95);
+  typeFrame.drawRoundedRect(8, 8, 100, 100, 12);
+  container.addChild(typeFrame);
+
   const starBand = new PIXI.Graphics();
   starBand.beginFill(0x0b1020, 0.64);
   starBand.drawRoundedRect(10, 10, 44, 16, 8);
@@ -1111,24 +1184,6 @@ function createPixiCard(card, owner, x, y) {
   star.y = 18;
   container.addChild(star);
 
-  const typeMeta = getCardTypeMeta(card);
-  const typeBand = new PIXI.Graphics();
-  typeBand.beginFill(0x0b1020, 0.72);
-  typeBand.lineStyle(1, PIXI.utils.string2hex(typeMeta.color), 0.55);
-  typeBand.drawRoundedRect(68, 10, 38, 16, 8);
-  typeBand.endFill();
-  container.addChild(typeBand);
-
-  const typeText = new PIXI.Text(typeMeta.label, {
-    fontFamily: "Arial",
-    fontSize: 10,
-    fill: 0xffffff,
-    fontWeight: "bold"
-  });
-  typeText.anchor.set(0.5, 0.5);
-  typeText.x = 87;
-  typeText.y = 18;
-  container.addChild(typeText);
 
   const values = getCardValueSet(card);
   addValueText(container, displayValue(values.up), 58, 18);
@@ -2049,7 +2104,8 @@ function handleReward() {
         showRewardResult(fallback, "選択可能な★3以下カードがなかったため、★4以下のカードからランダムで獲得しました。");
       } else {
         showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>獲得可能なカードがありませんでした。</p>`, [
-          { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
+          { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
+          { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
         ]);
       }
       return;
@@ -2093,7 +2149,8 @@ function handleReward() {
     const card = rareCards[Math.floor(Math.random() * Math.min(rareCards.length, 30))];
     if (!card) {
       showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>レアチャンス対象カードがありませんでした。</p>`, [
-        { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
+        { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
+        { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
       ]);
       return;
     }
@@ -2106,7 +2163,8 @@ function handleReward() {
   const card = randomCandidates[Math.floor(Math.random() * randomCandidates.length)] ?? getRewardFallbackCard(battle);
   if (!card) {
     showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>ランダム取得可能な★4以下カードがありませんでした。</p>`, [
-      { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
+      { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
+      { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
     ]);
     return;
   }
@@ -2151,7 +2209,8 @@ function showRewardResult(card, reason) {
     [
       { label: "再戦", onClick: () => { const npcId = state.battle.npc.id; closeModal(); startBattle(npcId); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
-      { label: "図鑑を見る", className: "ghost", onClick: () => { closeModal(); showScreen("collection"); } }
+      { label: "図鑑を見る", className: "ghost", onClick: () => { closeModal(); showScreen("collection"); } },
+      { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
     ]
   );
 }
@@ -2215,6 +2274,7 @@ function bindEvents() {
   $("goDeck").addEventListener("click", () => showScreen("deck"));
   $("goShop").addEventListener("click", () => showScreen("shop"));
   $("goCollection").addEventListener("click", () => showScreen("collection"));
+  $("goRules").addEventListener("click", () => showScreen("rules"));
   $("goSettings").addEventListener("click", () => showScreen("settings"));
   $("updateButton").addEventListener("click", forceUpdate);
 
@@ -2230,6 +2290,12 @@ function bindEvents() {
     renderOwnedCardList();
   });
   $("collectionSearch").addEventListener("input", renderCollectionScreen);
+  $("deckNameInput").addEventListener("input", (event) => {
+    const name = event.target.value.trim() || `デッキ${state.selectedDeckIndex + 1}`;
+    state.save.deckNames[state.selectedDeckIndex] = name;
+    save();
+    renderDeckTabsOnly();
+  });
 
   $("setActiveDeck").addEventListener("click", () => {
     const error = validateDeck(state.save.decks[state.selectedDeckIndex]);
@@ -2294,14 +2360,15 @@ function bindEvents() {
   $("giveUpButton").addEventListener("click", () => confirmBattleExit("battleMenu"));
 
   $("refreshShop").addEventListener("click", () => {
-    if (!spendMoney(SHOP_REFRESH_FEE)) {
-      showShopMessage(`品揃えの更新には${formatMoney(SHOP_REFRESH_FEE)}が必要です。`, true);
+    const fee = getShopRefreshFee();
+    if (!spendMoney(fee)) {
+      showShopMessage(`品揃えの更新には${formatMoney(fee)}が必要です。`, true);
       renderShopScreen();
       return;
     }
     refreshShopStock();
     state.shopInitialized = true;
-    showShopMessage(`品揃えを更新しました。${formatMoney(SHOP_REFRESH_FEE)}を支払いました。`);
+    showShopMessage(`品揃えを更新しました。${formatMoney(fee)}を支払いました。`);
     renderShopScreen();
   });
 

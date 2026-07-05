@@ -1671,3 +1671,128 @@ button:disabled {
 .reward-display-card {
   cursor: default;
 }
+
+
+/* v0.1.19: collection/shop/rules/deck-name updates */
+.card-type-badge { display: none !important; }
+.card-visual-top.only-stars { justify-content: flex-start; }
+
+.collection-card {
+  min-height: 0;
+  padding: 8px;
+}
+
+.collection-card-header {
+  min-height: 48px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.collection-card-header strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.collection-card-header small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.collection-card-image.mini-card {
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  padding: 6px;
+  cursor: default;
+}
+
+.collection-card-image .card-visual .card-art-wrap {
+  aspect-ratio: 1 / 1;
+  height: auto;
+  min-height: 0;
+}
+
+.collection-card-image .card-visual-name,
+.collection-card-image .cv-center {
+  display: none;
+}
+
+.collection-card-image .card-art {
+  object-fit: contain;
+  background: rgba(10, 14, 28, 0.18);
+}
+
+.locked-card-image {
+  display: grid;
+  place-items: center;
+}
+
+.shop-grade-info {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shop-values-block {
+  display: grid;
+  place-items: center;
+  margin: 6px 0;
+}
+
+.shop-values-block .card-values {
+  width: 62px;
+  margin: 0;
+}
+
+.shop-values-block .card-values span {
+  min-width: 18px;
+  min-height: 18px;
+}
+
+.deck-name-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.deck-name-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: rgba(0,0,0,0.22);
+  outline: none;
+  font-weight: 800;
+}
+
+.rules-panel p {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rules-grid > div {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.06);
+}
+
+.rules-grid p {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
