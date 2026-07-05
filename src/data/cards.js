@@ -24,7 +24,7 @@ export const CARDS = [
   {
     "id": "card_003",
     "no": "3",
-    "name": "魔性少女マショウショウジョ",
+    "name": "魔性少女",
     "rarity": 1,
     "up": 3,
     "right": 4,
@@ -35,7 +35,7 @@ export const CARDS = [
   {
     "id": "card_004",
     "no": "4",
-    "name": "花喰みハナバ",
+    "name": "花喰み",
     "rarity": 1,
     "up": 3,
     "right": 7,
@@ -46,7 +46,7 @@ export const CARDS = [
   {
     "id": "card_005",
     "no": "5",
-    "name": "乙女心中オトメシンジュウ",
+    "name": "乙女心中",
     "rarity": 1,
     "up": 3,
     "right": 3,
@@ -68,7 +68,7 @@ export const CARDS = [
   {
     "id": "card_007",
     "no": "7",
-    "name": "少女の日の思い出①ショウジョヒオモデ",
+    "name": "少女の日の思い出①",
     "rarity": 1,
     "up": 4,
     "right": 2,
@@ -79,7 +79,7 @@ export const CARDS = [
   {
     "id": "card_008",
     "no": "8",
-    "name": "少女の日の思い出②ショウジョヒオモデ",
+    "name": "少女の日の思い出②",
     "rarity": 1,
     "up": 2,
     "right": 5,
@@ -145,7 +145,7 @@ export const CARDS = [
   {
     "id": "card_014",
     "no": "14",
-    "name": "薔薇色の月バライロツキ",
+    "name": "薔薇色の月",
     "rarity": 1,
     "up": 4,
     "right": 3,
@@ -167,7 +167,7 @@ export const CARDS = [
   {
     "id": "card_016",
     "no": "16",
-    "name": "輪廻るリンネ",
+    "name": "輪廻る",
     "rarity": 1,
     "up": 2,
     "right": 3,
@@ -212,7 +212,7 @@ export const CARDS = [
   {
     "id": "card_020",
     "no": "20",
-    "name": "[スクショ撮って流すね]トナガ",
+    "name": "[スクショ撮って流すね]",
     "rarity": 2,
     "up": 3,
     "right": 7,
@@ -248,7 +248,7 @@ export const CARDS = [
   {
     "id": "card_023",
     "no": "23",
-    "name": "[水銀燈が揺れてゐる]スイギントウユ",
+    "name": "[水銀燈が揺れてゐる]",
     "rarity": 2,
     "up": 2,
     "right": 2,
@@ -308,7 +308,7 @@ export const CARDS = [
   {
     "id": "card_028",
     "no": "28",
-    "name": "[いつもの約束]ヤクソク",
+    "name": "[いつもの約束]",
     "rarity": 2,
     "up": 6,
     "right": 5,
@@ -416,7 +416,7 @@ export const CARDS = [
   {
     "id": "card_037",
     "no": "37",
-    "name": "[命懸けの指切り]イノチガユビキ",
+    "name": "[命懸けの指切り]",
     "rarity": 2,
     "up": 4,
     "right": 3,
@@ -452,7 +452,7 @@ export const CARDS = [
   {
     "id": "card_040",
     "no": "40",
-    "name": "[なんて嘘だから！]ウソ",
+    "name": "[なんて嘘だから！]",
     "rarity": 2,
     "up": 7,
     "right": 3,
@@ -476,7 +476,7 @@ export const CARDS = [
   {
     "id": "card_042",
     "no": "42",
-    "name": "[長い夢を見ていた]ナガユメミ",
+    "name": "[長い夢を見ていた]",
     "rarity": 2,
     "up": 7,
     "right": 5,
@@ -512,7 +512,7 @@ export const CARDS = [
   {
     "id": "card_045",
     "no": "45",
-    "name": "[ご都合主義の墓場じゃ]ツゴウシュギハカバ",
+    "name": "[ご都合主義の墓場じゃ]",
     "rarity": 2,
     "up": 4,
     "right": 6,
@@ -536,7 +536,7 @@ export const CARDS = [
   {
     "id": "card_047",
     "no": "47",
-    "name": "[裏垢行って叩きます]ウラアカイタタ",
+    "name": "[裏垢行って叩きます]",
     "rarity": 2,
     "up": 7,
     "right": 1,
@@ -584,7 +584,7 @@ export const CARDS = [
   {
     "id": "card_051",
     "no": "51",
-    "name": "[流れ落ちるしずく]ナガオ",
+    "name": "[流れ落ちるしずく]",
     "rarity": 2,
     "up": 7,
     "right": 3,
@@ -654,7 +654,7 @@ export const CARDS = [
   {
     "id": "card_057",
     "no": "57",
-    "name": "百鬼夜行ヒャッキヤコウ",
+    "name": "百鬼夜行",
     "rarity": 3,
     "up": 7,
     "right": 8,
@@ -731,7 +731,7 @@ export const CARDS = [
   {
     "id": "card_064",
     "no": "64",
-    "name": "怪忌蝶寫眞集 Maze EP.0カイキチョウシャシンシュウ",
+    "name": "怪忌蝶寫眞集 Maze EP.0",
     "rarity": 3,
     "up": 7,
     "right": 8,
@@ -812,7 +812,7 @@ export const CARDS = [
   {
     "id": "card_071",
     "no": "71",
-    "name": "[月花 陶酔 陶酔して]ツキハナトウスイトウスイ",
+    "name": "[月花 陶酔 陶酔して]",
     "rarity": 3,
     "up": 7,
     "right": 4,
@@ -824,7 +824,7 @@ export const CARDS = [
   {
     "id": "card_072",
     "no": "72",
-    "name": "[紛いもの]マガ",
+    "name": "[紛いもの]",
     "rarity": 3,
     "up": 8,
     "right": 8,
@@ -968,7 +968,7 @@ export const CARDS = [
   {
     "id": "card_084",
     "no": "84",
-    "name": "[病は灼熱]ヤマイシャクネツ",
+    "name": "[病は灼熱]",
     "rarity": 3,
     "up": 1,
     "right": 4,
@@ -1100,7 +1100,7 @@ export const CARDS = [
   {
     "id": "card_095",
     "no": "95",
-    "name": "[来世は会えませんように]ライセア",
+    "name": "[来世は会えませんように]",
     "rarity": 3,
     "up": 6,
     "right": 2,
@@ -1148,7 +1148,7 @@ export const CARDS = [
   {
     "id": "card_099",
     "no": "99",
-    "name": "[暴いて 暴いて]アバアバ",
+    "name": "[暴いて 暴いて]",
     "rarity": 3,
     "up": 8,
     "right": 3,
@@ -1280,7 +1280,7 @@ export const CARDS = [
   {
     "id": "card_110",
     "no": "110",
-    "name": "[情熱よはぐれないで]ジョウネツ",
+    "name": "[情熱よはぐれないで]",
     "rarity": 3,
     "up": 4,
     "right": 7,
@@ -1292,7 +1292,7 @@ export const CARDS = [
   {
     "id": "card_111",
     "no": "111",
-    "name": "[捕まえて]ツカ",
+    "name": "[捕まえて]",
     "rarity": 3,
     "up": 2,
     "right": 7,
@@ -1304,7 +1304,7 @@ export const CARDS = [
   {
     "id": "card_112",
     "no": "112",
-    "name": "[痛みは情熱]イタジョウネツ",
+    "name": "[痛みは情熱]",
     "rarity": 3,
     "up": 2,
     "right": 2,
@@ -1376,7 +1376,7 @@ export const CARDS = [
   {
     "id": "card_118",
     "no": "118",
-    "name": "[貴方の顔が霞む]アナタカオカス",
+    "name": "[貴方の顔が霞む]",
     "rarity": 3,
     "up": 1,
     "right": 5,
@@ -1388,7 +1388,7 @@ export const CARDS = [
   {
     "id": "card_119",
     "no": "119",
-    "name": "[ああ殺められたならば]アヤ",
+    "name": "[ああ殺められたならば]",
     "rarity": 3,
     "up": 1,
     "right": 7,
@@ -1484,7 +1484,7 @@ export const CARDS = [
   {
     "id": "card_127",
     "no": "127",
-    "name": "[隠しても無駄だよ]カクムダ",
+    "name": "[隠しても無駄だよ]",
     "rarity": 4,
     "up": 9,
     "right": 3,
@@ -1532,7 +1532,7 @@ export const CARDS = [
   {
     "id": "card_131",
     "no": "131",
-    "name": "[肉体は離ればなれ]ニクタイハナ",
+    "name": "[肉体は離ればなれ]",
     "rarity": 4,
     "up": 1,
     "right": 9,
@@ -1568,7 +1568,7 @@ export const CARDS = [
   {
     "id": "card_134",
     "no": "134",
-    "name": "[ちょっと痛かったね♡]イタ",
+    "name": "[ちょっと痛かったね♡]",
     "rarity": 4,
     "up": 5,
     "right": 9,
@@ -1700,7 +1700,7 @@ export const CARDS = [
   {
     "id": "card_145",
     "no": "145",
-    "name": "[隠しても無駄だよ]カクムダ",
+    "name": "[隠しても無駄だよ]",
     "rarity": 4,
     "up": 9,
     "right": 4,
@@ -1808,7 +1808,7 @@ export const CARDS = [
   {
     "id": "card_154",
     "no": "154",
-    "name": "[隠しても無駄だよ]カクムダ",
+    "name": "[隠しても無駄だよ]",
     "rarity": 4,
     "up": 7,
     "right": 8,
@@ -1832,7 +1832,7 @@ export const CARDS = [
   {
     "id": "card_156",
     "no": "156",
-    "name": "[私の今いる地獄にキミを落とすよ]ワタシイマジゴクオ",
+    "name": "[私の今いる地獄にキミを落とすよ]",
     "rarity": 4,
     "up": 9,
     "right": 6,
