@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.15";
+const VERSION = "0.1.16";
 const SAVE_KEY = "phantom_card_battle_save_v4_180_updated_starter18";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -281,11 +281,10 @@ function getNpcWinMoney(npc) {
 }
 
 function getRewardWeights(npc) {
-  const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 100);
-  const remaining = 100 - rare;
+  const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 20);
   return {
-    random_one: remaining * (70 / 95),
-    choose_one: remaining * (25 / 95),
+    choose_one: 80,
+    random_one: Math.max(0, 20 - rare),
     rare_chance: rare
   };
 }
@@ -1836,6 +1835,20 @@ function checkBattleEnd() {
   return true;
 }
 
+function getChooseRewardCards(battle) {
+  return battle.npcBattleCards.filter((card) => card.rarity <= 3);
+}
+
+function getRandomRewardCards(battle) {
+  return battle.npcBattleCards.filter((card) => card.rarity <= 4);
+}
+
+function getRewardFallbackCard(battle) {
+  return battle.npcBattleCards
+    .filter((card) => card.rarity <= 4)
+    .sort((a, b) => a.rarity - b.rarity || a.power - b.power)[0] ?? null;
+}
+
 function rollRewardRule(npc) {
   const weights = getRewardWeights(npc);
   const total = Object.values(weights).reduce((sum, value) => sum + value, 0);
@@ -1854,18 +1867,31 @@ function handleReward() {
   const rule = rollRewardRule(battle.npc);
 
   if (rule === "choose_one") {
-    const choices = battle.npcBattleCards;
+    const choices = getChooseRewardCards(battle);
+    if (!choices.length) {
+      const fallback = getRewardFallbackCard(battle);
+      if (fallback) {
+        addOwnedCard(fallback.id);
+        showRewardResult(fallback, "選択可能な★3以下カードがなかったため、★4以下のカードからランダムで獲得しました。");
+      } else {
+        showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>獲得可能なカードがありませんでした。</p>`, [
+          { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
+        ]);
+      }
+      return;
+    }
+
     showModal(
       "報酬：好きなカードを1枚選択",
-      `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>報酬抽選：指定選択</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
+      `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>報酬抽選：相手カードから選択取得（★3まで）</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
       [{
-        label: "ランダムで受け取る",
+        label: "表示カードからランダムで受け取る",
         className: "ghost",
         onClick: () => {
           const card = choices[Math.floor(Math.random() * choices.length)];
           addOwnedCard(card.id);
           closeModal();
-          showRewardResult(card, "指定選択をランダム受け取りにしました。");
+          showRewardResult(card, "選択取得の候補からランダム受け取りにしました。");
         }
       }]
     );
@@ -1874,9 +1900,10 @@ function handleReward() {
       element.addEventListener("click", () => {
         const cardId = element.getAttribute("data-reward-card-id");
         const card = cardById.get(cardId);
+        if (!card || card.rarity > 3) return;
         addOwnedCard(cardId);
         closeModal();
-        showRewardResult(card, "指定選択で獲得しました。");
+        showRewardResult(card, "選択取得で獲得しました。★3までが選択対象です。");
       });
     });
     return;
@@ -1896,9 +1923,16 @@ function handleReward() {
     return;
   }
 
-  const card = battle.npcBattleCards[Math.floor(Math.random() * battle.npcBattleCards.length)];
+  const randomCandidates = getRandomRewardCards(battle);
+  const card = randomCandidates[Math.floor(Math.random() * randomCandidates.length)] ?? getRewardFallbackCard(battle);
+  if (!card) {
+    showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>ランダム取得可能な★4以下カードがありませんでした。</p>`, [
+      { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
+    ]);
+    return;
+  }
   addOwnedCard(card.id);
-  showRewardResult(card, "ランダム報酬で獲得しました。");
+  showRewardResult(card, "相手カードからランダム取得しました。ランダム取得は★4までが対象です。");
 }
 
 function rewardCardHtml(card) {
