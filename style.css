@@ -1796,3 +1796,29 @@ button:disabled {
   margin: 6px 0 0;
   font-size: 13px;
 }
+
+
+/* v0.1.20: collection card stat position tuning */
+.collection-card-image .card-visual-values .cv-up {
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.collection-card-image .card-visual-values .cv-right {
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.collection-card-image .card-visual-values .cv-down {
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.collection-card-image .card-visual-values .cv-left {
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}

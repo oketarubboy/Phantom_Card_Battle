@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.19";
+const VERSION = "0.1.20";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -2008,8 +2008,10 @@ function checkBattleEnd() {
   if (score.player > score.npc) {
     addBattleLog(`勝利！ ${score.player} - ${score.npc}`);
     const winMoney = getNpcWinMoney(battle.npc);
-    addMoney(winMoney);
+    const refundMoney = Number(battle.entryFee ?? 0);
+    addMoney(winMoney + refundMoney);
     addBattleLog(`勝利報酬として${formatMoney(winMoney)}を獲得しました。`);
+    if (refundMoney > 0) addBattleLog(`勝利したため挑戦料${formatMoney(refundMoney)}が返金されました。`);
     const previousWins = state.save.npcWins[battle.npc.id] ?? 0;
     const firstWinCard = previousWins === 0 && battle.npc.firstWinRewardCardId ? cardById.get(battle.npc.firstWinRewardCardId) : null;
     if (firstWinCard) {
@@ -2078,6 +2080,15 @@ function getRewardFallbackCard(battle) {
     .sort((a, b) => a.rarity - b.rarity || a.power - b.power)[0] ?? null;
 }
 
+function getVictoryMoneyHtml(battle) {
+  const winMoney = getNpcWinMoney(battle.npc);
+  const entryFee = Number(battle.entryFee ?? 0);
+  if (entryFee > 0) {
+    return `<p>勝利報酬として${formatMoney(winMoney)}、挑戦料返金として${formatMoney(entryFee)}を獲得しました。</p>`;
+  }
+  return `<p>勝利報酬として${formatMoney(winMoney)}を獲得しました。</p>`;
+}
+
 function rollRewardRule(npc) {
   const weights = getRewardWeights(npc);
   const total = Object.values(weights).reduce((sum, value) => sum + value, 0);
@@ -2103,7 +2114,7 @@ function handleReward() {
         addOwnedCard(fallback.id);
         showRewardResult(fallback, "選択可能な★3以下カードがなかったため、★4以下のカードからランダムで獲得しました。");
       } else {
-        showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>獲得可能なカードがありませんでした。</p>`, [
+        showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>獲得可能なカードがありませんでした。</p>`, [
           { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
           { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
         ]);
@@ -2113,7 +2124,7 @@ function handleReward() {
 
     showModal(
       "報酬：好きなカードを1枚選択",
-      `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>報酬抽選：相手カードから選択取得（★3まで）</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
+      `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>報酬抽選：相手カードから選択取得（★3まで）</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
       [{
         label: "表示カードからランダムで受け取る",
         className: "ghost",
@@ -2148,7 +2159,7 @@ function handleReward() {
       });
     const card = rareCards[Math.floor(Math.random() * Math.min(rareCards.length, 30))];
     if (!card) {
-      showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>レアチャンス対象カードがありませんでした。</p>`, [
+      showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>レアチャンス対象カードがありませんでした。</p>`, [
         { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
         { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
       ]);
@@ -2162,7 +2173,7 @@ function handleReward() {
   const randomCandidates = getRandomRewardCards(battle);
   const card = randomCandidates[Math.floor(Math.random() * randomCandidates.length)] ?? getRewardFallbackCard(battle);
   if (!card) {
-    showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>ランダム取得可能な★4以下カードがありませんでした。</p>`, [
+    showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>ランダム取得可能な★4以下カードがありませんでした。</p>`, [
       { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
       { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
     ]);
@@ -2205,7 +2216,7 @@ function rewardCardHtml(card) {
 function showRewardResult(card, reason) {
   showModal(
     "カード獲得",
-    `<p>勝利報酬として${formatMoney(getNpcWinMoney(state.battle.npc))}を獲得しました。</p>${firstWinRewardHtml(state.battle)}<p>${escapeHtml(reason)}</p><div class="reward-grid">${rewardDisplayCardHtml(card)}</div>`,
+    `${getVictoryMoneyHtml(state.battle)}${firstWinRewardHtml(state.battle)}<p>${escapeHtml(reason)}</p><div class="reward-grid">${rewardDisplayCardHtml(card)}</div>`,
     [
       { label: "再戦", onClick: () => { const npcId = state.battle.npc.id; closeModal(); startBattle(npcId); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
