@@ -1,8 +1,8 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.16";
-const SAVE_KEY = "phantom_card_battle_save_v4_180_updated_starter18";
+const VERSION = "0.1.17";
+const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));
@@ -60,7 +60,6 @@ const RULE_NAME_BY_ID = Object.fromEntries(RULES.map((rule) => [rule.id, rule.na
 const CARD_TYPES = ["もなタイプ", "美雨タイプ", "凛花タイプ", "百花タイプ"];
 const SHOP_PRICES = { 1: 100, 2: 500, 3: 5000 };
 const SHOP_REFRESH_FEE = 100;
-const NPC_ENTRY_FEES = [0, 100, 300, 500, 1000, 2000, 5000, 10000, 50000, 100000];
 
 function normalizeDeckSort() {
   if (!DECK_SORT_FIELDS.has(state.deckSort.field)) state.deckSort.field = "rarity";
@@ -261,21 +260,30 @@ function getNpcNumber(npc) {
 }
 
 function getRareChanceRate(npc) {
-  return Number.isFinite(npc.rareChanceRate) ? npc.rareChanceRate : getNpcNumber(npc);
+  return Number.isFinite(npc?.rareChanceRate) ? npc.rareChanceRate : getNpcNumber(npc);
 }
 
 function getRareChanceMaxRarity(npc) {
+  if (Array.isArray(npc?.rareChanceRarities) && npc.rareChanceRarities.length) {
+    return Math.max(...npc.rareChanceRarities.map(Number));
+  }
+  if (Number.isFinite(npc?.rareChanceMaxRarity)) return npc.rareChanceMaxRarity;
   if (npc.difficulty === "よわい") return 3;
   if (npc.difficulty === "ふつう") return 4;
   return 5;
 }
 
+function getRareChanceLabel(npc) {
+  if (npc?.rareChanceLabel) return npc.rareChanceLabel;
+  return `上限${rarityStars(getRareChanceMaxRarity(npc))}`;
+}
+
 function getNpcEntryFee(npc) {
-  const index = Math.max(1, Math.min(10, getNpcNumber(npc)));
-  return NPC_ENTRY_FEES[index - 1] ?? 0;
+  return Number.isFinite(npc?.entryFee) ? Number(npc.entryFee) : 0;
 }
 
 function getNpcWinMoney(npc) {
+  if (Number.isFinite(npc?.winMoney)) return Number(npc.winMoney);
   const fee = getNpcEntryFee(npc);
   return fee === 0 ? 100 : fee * 2;
 }
@@ -509,72 +517,100 @@ function escapeHtml(value) {
   }[char]));
 }
 
-function getSelectedRuleIds() {
-  const checked = [...document.querySelectorAll("[data-rule-id]:checked")].map((input) => input.value);
-  if (checked.includes("reverse") && checked.includes("ace_killer")) {
-    return checked.filter((id) => id !== "ace_killer");
-  }
-  return checked;
+function sanitizeRuleIds(ruleIds, preferredId = null) {
+  const sanitized = [...new Set((ruleIds ?? []).filter((id) => RULE_NAME_BY_ID[id]))];
+  const removeConflict = (a, b) => {
+    if (sanitized.includes(a) && sanitized.includes(b)) {
+      const removeId = preferredId === a ? b : a;
+      const index = sanitized.indexOf(removeId);
+      if (index >= 0) sanitized.splice(index, 1);
+    }
+  };
+  removeConflict("order", "chaos");
+  removeConflict("reverse", "ace_killer");
+  return sanitized;
 }
 
-function setSelectedRuleIds(ruleIds) {
-  const sanitized = [...new Set(ruleIds)];
-  if (sanitized.includes("reverse") && sanitized.includes("ace_killer")) {
-    sanitized.splice(sanitized.indexOf("ace_killer"), 1);
-  }
+function getSelectedRuleIds(scope = document) {
+  const checked = [...scope.querySelectorAll("[data-rule-id]:checked")].map((input) => input.value);
+  return sanitizeRuleIds(checked);
+}
+
+function setSelectedRuleIds(ruleIds, scope = document) {
+  const sanitized = sanitizeRuleIds(ruleIds);
   state.selectedRuleIds = sanitized;
-  document.querySelectorAll("[data-rule-id]").forEach((input) => {
+  scope.querySelectorAll("[data-rule-id]").forEach((input) => {
     input.checked = sanitized.includes(input.value);
   });
+  return sanitized;
 }
 
-function renderRuleSelector() {
-  const box = $("battleRuleList");
+function renderRuleSelector(targetId = "battleRuleList", allowedRuleIds = RULES.map((rule) => rule.id), initialRuleIds = state.selectedRuleIds) {
+  const box = $(targetId);
   if (!box) return;
-  box.innerHTML = RULES.map((rule) => `
-    <label class="rule-toggle ${state.selectedRuleIds.includes(rule.id) ? "selected" : ""}">
-      <input type="checkbox" value="${rule.id}" data-rule-id="${rule.id}" ${state.selectedRuleIds.includes(rule.id) ? "checked" : ""}>
-      <span><strong>${rule.name}</strong><small>${rule.short}</small></span>
-    </label>
-  `).join("");
+  const allowedSet = new Set(allowedRuleIds.filter((id) => RULE_NAME_BY_ID[id]));
+  state.selectedRuleIds = sanitizeRuleIds(initialRuleIds.filter((id) => allowedSet.has(id)));
+  box.innerHTML = RULES
+    .filter((rule) => allowedSet.has(rule.id))
+    .map((rule) => `
+      <label class="rule-toggle ${state.selectedRuleIds.includes(rule.id) ? "selected" : ""}">
+        <input type="checkbox" value="${rule.id}" data-rule-id="${rule.id}" ${state.selectedRuleIds.includes(rule.id) ? "checked" : ""}>
+        <span><strong>${rule.name}</strong><small>${rule.short}</small></span>
+      </label>
+    `).join("");
 
   box.querySelectorAll("[data-rule-id]").forEach((input) => {
     input.addEventListener("change", () => {
-      let selected = getSelectedRuleIds();
-      if (input.checked && input.value === "reverse") selected = selected.filter((id) => id !== "ace_killer");
-      if (input.checked && input.value === "ace_killer") selected = selected.filter((id) => id !== "reverse");
-      setSelectedRuleIds(selected);
-      renderRuleSelector();
+      const selected = sanitizeRuleIds(getSelectedRuleIds(box), input.value);
+      setSelectedRuleIds(selected, box);
+      renderRuleSelector(targetId, allowedRuleIds, selected);
     });
   });
 }
 
 function getRuleSummary(ruleIds = state.selectedRuleIds) {
-  if (!ruleIds.length) return "追加ルールなし";
-  return ruleIds.map((id) => RULE_NAME_BY_ID[id] ?? id).join(" / ");
+  const rules = sanitizeRuleIds(ruleIds);
+  if (!rules.length) return "追加ルールなし";
+  return rules.map((id) => RULE_NAME_BY_ID[id] ?? id).join(" / ");
 }
 
 function renderNpcList() {
-  renderRuleSelector();
+  const panel = document.querySelector(".rule-panel");
+  if (panel) {
+    panel.innerHTML = `
+      <h3>追加ルール</h3>
+      <p class="muted">追加ルールは、対戦相手を選んだ後に設定または抽選されます。</p>
+      <p class="muted">よわい相手：自由設定 / ふつう：追加ルール①から1つ抽選 / つよい：追加ルール①・②から各1つ抽選</p>
+    `;
+  }
+
   const list = $("npcList");
   list.innerHTML = "";
 
   for (const npc of NPCS) {
-    const poolCards = npc.cardPool.map((id) => cardById.get(id)).filter(Boolean);
+    const poolCards = getNpcCardPool(npc);
     const avgPower = poolCards.reduce((sum, card) => sum + card.power, 0) / Math.max(poolCards.length, 1);
-    const maxRarity = Math.max(...poolCards.map((card) => card.rarity));
+    const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
     const difficultyClass = npc.difficulty === "よわい" ? "weak" : npc.difficulty === "ふつう" ? "normal" : "strong";
-
-    const item = document.createElement("div");
-    item.className = "npc-card";
+    const firstReward = npc.firstWinRewardCardId ? cardById.get(npc.firstWinRewardCardId) : null;
     const entryFee = getNpcEntryFee(npc);
     const winMoney = getNpcWinMoney(npc);
     const canChallenge = Number(state.save.money ?? 0) >= entryFee;
+    const ruleText = npc.difficulty === "よわい"
+      ? "自由設定"
+      : npc.difficulty === "ふつう"
+        ? "追加ルール①から1つ抽選"
+        : "追加ルール①・②から各1つ抽選";
+
+    const item = document.createElement("div");
+    item.className = "npc-card";
     item.innerHTML = `
       <h3>${escapeHtml(npc.name)} <span class="badge ${difficultyClass}">${npc.difficulty}</span></h3>
       <p class="muted">所持カード：${poolCards.length}枚 / 最大${rarityStars(maxRarity)} / 平均力 ${avgPower.toFixed(1)}</p>
       <p class="muted">挑戦料：${formatMoney(entryFee)} / 勝利報酬：${formatMoney(winMoney)}</p>
-      <p class="muted">レアチャンス率：${getRareChanceRate(npc)}% / 上限${rarityStars(getRareChanceMaxRarity(npc))}</p>
+      <p class="muted">レアチャンス率：${getRareChanceRate(npc)}% / 対象：${escapeHtml(getRareChanceLabel(npc))}</p>
+      <p class="muted">初回勝利報酬：${firstReward ? `No.${escapeHtml(firstReward.no)} ${escapeHtml(firstReward.name)}` : "なし"}</p>
+      <p class="muted">追加ルール：${escapeHtml(ruleText)}</p>
       <button data-npc-id="${npc.id}" ${canChallenge ? "" : "disabled"}>${canChallenge ? "対戦する" : "所持金不足"}</button>
     `;
     item.querySelector("button").addEventListener("click", () => startBattle(npc.id));
@@ -1225,8 +1261,109 @@ function calcScore(customBoard = null, playerRemaining = null, npcRemaining = nu
   };
 }
 
-async function startBattle(npcId) {
+function getNpcCardPool(npc) {
+  return (npc?.cardPool ?? []).map((id) => cardById.get(id)).filter(Boolean);
+}
+
+function buildNpcHand(npc) {
+  const pool = getNpcCardPool(npc);
+  const selected = [];
+  const selectedIds = new Set();
+  const addCard = (card) => {
+    if (!card || selectedIds.has(card.id) || selected.length >= 5) return false;
+    selected.push(card);
+    selectedIds.add(card.id);
+    return true;
+  };
+
+  for (const cardId of npc.requiredCards ?? []) {
+    addCard(cardById.get(cardId));
+  }
+
+  for (const pattern of npc.handPattern ?? []) {
+    const candidates = shuffle(pool.filter((card) => !selectedIds.has(card.id) && (!pattern.rarity || card.rarity === pattern.rarity)));
+    for (const card of candidates.slice(0, Math.max(0, Number(pattern.count ?? 0)))) {
+      addCard(card);
+    }
+  }
+
+  for (const card of shuffle(pool.filter((card) => !selectedIds.has(card.id)))) {
+    if (selected.length >= 5) break;
+    addCard(card);
+  }
+
+  return selected.slice(0, 5);
+}
+
+function getNpcRuleGroup(npc, groupName) {
+  return (npc?.[groupName] ?? []).filter((id) => RULE_NAME_BY_ID[id]);
+}
+
+function rollNpcAdditionalRules(npc) {
+  const group1 = getNpcRuleGroup(npc, "ruleGroup1");
+  const group2 = getNpcRuleGroup(npc, "ruleGroup2");
+  const rolled = [];
+  if (npc.difficulty === "ふつう" && group1.length) {
+    rolled.push(sample(group1, 1)[0]);
+  } else if (npc.difficulty === "つよい") {
+    if (group1.length) rolled.push(sample(group1, 1)[0]);
+    if (group2.length) rolled.push(sample(group2, 1)[0]);
+  }
+  return sanitizeRuleIds(rolled);
+}
+
+function showWeakRuleSelection(npc) {
+  state.selectedRuleIds = [];
+  showModal(
+    "追加ルール設定",
+    `
+      <p><strong>${escapeHtml(npc.name)}</strong>は難易度「よわい」のため、追加ルールを自由に設定できます。</p>
+      <p class="muted">オーダーとカオス、リバースとエースキラーは同時に付けられません。</p>
+      <div id="weakRuleList" class="rule-list"></div>
+      <p class="muted">挑戦料：${formatMoney(getNpcEntryFee(npc))} / 勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
+    `,
+    [
+      { label: "このルールで対戦開始", onClick: () => { const scope = $("weakRuleList"); const rules = getSelectedRuleIds(scope); closeModal(); startBattle(npc.id, rules); } },
+      { label: "キャンセル", className: "ghost", onClick: closeModal }
+    ]
+  );
+  renderRuleSelector("weakRuleList", RULES.map((rule) => rule.id), []);
+}
+
+function showRuleLottery(npc) {
+  const rules = rollNpcAdditionalRules(npc);
+  showModal(
+    "追加ルール抽選",
+    `
+      <p><strong>${escapeHtml(npc.name)}</strong>との対戦では、追加ルールが自動で決まります。</p>
+      <p class="rule-result-text">追加ルールは <strong>${escapeHtml(getRuleSummary(rules))}</strong> です。</p>
+      <p class="muted">挑戦料：${formatMoney(getNpcEntryFee(npc))} / 勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
+    `,
+    [
+      { label: "対戦開始", onClick: () => { closeModal(); startBattle(npc.id, rules); } },
+      { label: "キャンセル", className: "ghost", onClick: closeModal }
+    ]
+  );
+}
+
+function prepareBattleStart(npcId) {
   const npc = npcById.get(npcId);
+  if (!npc) return;
+  if (npc.difficulty === "よわい") {
+    showWeakRuleSelection(npc);
+  } else {
+    showRuleLottery(npc);
+  }
+}
+
+async function startBattle(npcId, selectedRules = null) {
+  const npc = npcById.get(npcId);
+  if (!npc) return;
+  if (selectedRules === null) {
+    prepareBattleStart(npcId);
+    return;
+  }
+  selectedRules = sanitizeRuleIds(selectedRules);
   const deck = state.save.decks[state.save.activeDeckIndex];
   const error = validateDeck(deck);
   if (error) {
@@ -1237,9 +1374,12 @@ async function startBattle(npcId) {
     return;
   }
 
-  const selectedRules = getSelectedRuleIds();
   if (selectedRules.includes("reverse") && selectedRules.includes("ace_killer")) {
     showModal("ルール確認", "<p>リバースとエースキラーは同時に選択できません。</p>", [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+  if (selectedRules.includes("order") && selectedRules.includes("chaos")) {
+    showModal("ルール確認", "<p>オーダーとカオスは同時に選択できません。</p>", [{ label: "閉じる", onClick: closeModal }]);
     return;
   }
 
@@ -1254,7 +1394,7 @@ async function startBattle(npcId) {
   spendMoney(entryFee);
 
   const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
-  const npcDeck = sample(npc.cardPool, 5).map((id) => cardById.get(id)).filter(Boolean);
+  const npcDeck = buildNpcHand(npc);
   const playerHandCards = [...playerBattleDeck];
   const npcHandCards = [...npcDeck];
   let swapInfo = null;
@@ -1815,7 +1955,14 @@ function checkBattleEnd() {
     const winMoney = getNpcWinMoney(battle.npc);
     addMoney(winMoney);
     addBattleLog(`勝利報酬として${formatMoney(winMoney)}を獲得しました。`);
-    state.save.npcWins[battle.npc.id] = (state.save.npcWins[battle.npc.id] ?? 0) + 1;
+    const previousWins = state.save.npcWins[battle.npc.id] ?? 0;
+    const firstWinCard = previousWins === 0 && battle.npc.firstWinRewardCardId ? cardById.get(battle.npc.firstWinRewardCardId) : null;
+    if (firstWinCard) {
+      addOwnedCard(firstWinCard.id);
+      battle.firstWinRewardCardId = firstWinCard.id;
+      addBattleLog(`初回勝利報酬として「${firstWinCard.name}」を獲得しました。`);
+    }
+    state.save.npcWins[battle.npc.id] = previousWins + 1;
     save();
     handleReward();
   } else if (score.player < score.npc) {
@@ -1833,6 +1980,33 @@ function checkBattleEnd() {
   }
 
   return true;
+}
+
+function getFirstWinRewardCard(battle) {
+  const cardId = battle?.firstWinRewardCardId;
+  return cardId ? cardById.get(cardId) : null;
+}
+
+function firstWinRewardHtml(battle) {
+  const card = getFirstWinRewardCard(battle);
+  if (!card) return "";
+  return `
+    <div class="first-win-reward">
+      <p><strong>初回勝利報酬</strong>として以下のカードも獲得しました。</p>
+      <div class="reward-grid">${rewardDisplayCardHtml(card)}</div>
+    </div>
+  `;
+}
+
+function getRareChanceCards(npc) {
+  const rarities = Array.isArray(npc?.rareChanceRarities) ? npc.rareChanceRarities.map(Number) : null;
+  const maxRarity = getRareChanceMaxRarity(npc);
+  return CARDS.filter((card) => {
+    if (npc?.rareChanceType && getCardType(card) !== npc.rareChanceType) return false;
+    if (rarities && !rarities.includes(card.rarity)) return false;
+    if (!rarities && card.rarity > maxRarity) return false;
+    return true;
+  });
 }
 
 function getChooseRewardCards(battle) {
@@ -1874,7 +2048,7 @@ function handleReward() {
         addOwnedCard(fallback.id);
         showRewardResult(fallback, "選択可能な★3以下カードがなかったため、★4以下のカードからランダムで獲得しました。");
       } else {
-        showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>獲得可能なカードがありませんでした。</p>`, [
+        showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>獲得可能なカードがありませんでした。</p>`, [
           { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
         ]);
       }
@@ -1883,7 +2057,7 @@ function handleReward() {
 
     showModal(
       "報酬：好きなカードを1枚選択",
-      `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>報酬抽選：相手カードから選択取得（★3まで）</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
+      `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>報酬抽選：相手カードから選択取得（★3まで）</p><div class="reward-grid">${choices.map((card) => rewardCardHtml(card)).join("")}</div>`,
       [{
         label: "表示カードからランダムで受け取る",
         className: "ghost",
@@ -1910,29 +2084,49 @@ function handleReward() {
   }
 
   if (rule === "rare_chance") {
-    const maxRarity = getRareChanceMaxRarity(battle.npc);
-    const rareCards = shuffle(CARDS.filter((card) => card.rarity <= maxRarity))
+    const rareCards = shuffle(getRareChanceCards(battle.npc))
       .sort((a, b) => {
         const ownedA = getOwnedCount(a.id) > 0 ? 1 : 0;
         const ownedB = getOwnedCount(b.id) > 0 ? 1 : 0;
         return ownedA - ownedB || b.rarity - a.rarity || b.power - a.power;
       });
     const card = rareCards[Math.floor(Math.random() * Math.min(rareCards.length, 30))];
+    if (!card) {
+      showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>レアチャンス対象カードがありませんでした。</p>`, [
+        { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
+      ]);
+      return;
+    }
     addOwnedCard(card.id);
-    showRewardResult(card, `レアチャンス ${getRareChanceRate(battle.npc)}% に当選しました。${battle.npc.difficulty}の上限は${rarityStars(maxRarity)}です。`);
+    showRewardResult(card, `レアチャンス ${getRareChanceRate(battle.npc)}% に当選しました。対象：${getRareChanceLabel(battle.npc)}`);
     return;
   }
 
   const randomCandidates = getRandomRewardCards(battle);
   const card = randomCandidates[Math.floor(Math.random() * randomCandidates.length)] ?? getRewardFallbackCard(battle);
   if (!card) {
-    showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p><p>ランダム取得可能な★4以下カードがありませんでした。</p>`, [
+    showModal("カード獲得なし", `<p>勝利報酬として${formatMoney(getNpcWinMoney(battle.npc))}を獲得しました。</p>${firstWinRewardHtml(battle)}<p>ランダム取得可能な★4以下カードがありませんでした。</p>`, [
       { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } }
     ]);
     return;
   }
   addOwnedCard(card.id);
   showRewardResult(card, "相手カードからランダム取得しました。ランダム取得は★4までが対象です。");
+}
+
+function rewardDisplayCardHtml(card) {
+  const typeMeta = getCardTypeMeta(card);
+  return `
+    <div class="reward-card reward-display-card" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
+      <div class="reward-card-preview mini-card">
+        ${cardMiniHtml(card, "GET", { squareArt: true, detail: true })}
+      </div>
+      <div class="reward-card-info">
+        <strong>${escapeHtml(card.name)}</strong><br>
+        <small>${rarityStars(card.rarity)} / ${cardStatLine(card)}</small>
+      </div>
+    </div>
+  `;
 }
 
 function rewardCardHtml(card) {
@@ -1953,7 +2147,7 @@ function rewardCardHtml(card) {
 function showRewardResult(card, reason) {
   showModal(
     "カード獲得",
-    `<p>勝利報酬として${formatMoney(getNpcWinMoney(state.battle.npc))}を獲得しました。</p><p>${escapeHtml(reason)}</p><div class="reward-grid">${rewardCardHtml(card)}</div>`,
+    `<p>勝利報酬として${formatMoney(getNpcWinMoney(state.battle.npc))}を獲得しました。</p>${firstWinRewardHtml(state.battle)}<p>${escapeHtml(reason)}</p><div class="reward-grid">${rewardDisplayCardHtml(card)}</div>`,
     [
       { label: "再戦", onClick: () => { const npcId = state.battle.npc.id; closeModal(); startBattle(npcId); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
