@@ -1942,3 +1942,18 @@ button:disabled {
 .reward-card-preview .cv-center {
   display: none;
 }
+
+
+/* v0.1.24: NPC win status display */
+.first-reward-status {
+  font-weight: 800;
+}
+.first-reward-status.obtained {
+  color: var(--good);
+}
+.first-reward-status.not-obtained {
+  color: #ffd66b;
+}
+.first-reward-status.none {
+  color: var(--muted);
+}

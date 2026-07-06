@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.23";
+const VERSION = "0.1.24";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -654,6 +654,12 @@ function renderNpcList() {
     const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
     const difficultyClass = npc.difficulty === "よわい" ? "weak" : npc.difficulty === "ふつう" ? "normal" : "strong";
     const firstReward = npc.firstWinRewardCardId ? cardById.get(npc.firstWinRewardCardId) : null;
+    const wins = Number(state.save.npcWins?.[npc.id] ?? 0);
+    const firstRewardStatus = firstReward ? (wins > 0 ? "獲得済み" : "未獲得") : "なし";
+    const firstRewardText = firstReward
+      ? `No.${escapeHtml(firstReward.no)} ${escapeHtml(firstReward.name)}（${firstRewardStatus}）`
+      : firstRewardStatus;
+    const firstRewardClass = firstReward ? (wins > 0 ? "obtained" : "not-obtained") : "none";
     const entryFee = getNpcEntryFee(npc);
     const winMoney = getNpcWinMoney(npc);
     const canChallenge = Number(state.save.money ?? 0) >= entryFee;
@@ -662,10 +668,10 @@ function renderNpcList() {
     item.className = "npc-card";
     item.innerHTML = `
       <h3>${escapeHtml(npc.name)} <span class="badge ${difficultyClass}">${npc.difficulty}</span></h3>
+      <p class="muted">勝利回数：<strong>${wins}回</strong> / 初回勝利報酬：<span class="first-reward-status ${firstRewardClass}">${firstRewardText}</span></p>
       <p class="muted">所持カード：${poolCards.length}枚 / 最大${rarityStars(maxRarity)} / 平均力 ${avgPower.toFixed(1)}</p>
       <p class="muted">挑戦料：${formatMoney(entryFee)} / 勝利報酬：${formatMoney(winMoney)}</p>
       <p class="muted">レアチャンス率：${getRareChanceRate(npc)}%</p>
-      <p class="muted">初回勝利報酬：${firstReward ? `No.${escapeHtml(firstReward.no)} ${escapeHtml(firstReward.name)}` : "なし"}</p>
       <button data-npc-id="${npc.id}" ${canChallenge ? "" : "disabled"}>${canChallenge ? "対戦する" : "所持金不足"}</button>
     `;
     item.querySelector("button").addEventListener("click", () => startBattle(npc.id));
@@ -1296,7 +1302,7 @@ function renderBattleHands() {
     const isForced = getForcedHandIndex("npc") === index && battle.currentTurn === "npc" && !entry.used;
     if (revealNpcHand) {
       div.className = `mini-card opponent-open ${entry.used ? "used" : ""} ${isForced ? "forced" : ""}`;
-      div.innerHTML = cardMiniHtml(entry.card, entry.used ? "済" : isForced ? "指定" : "NPC", { effective: true, showName: false });
+      div.innerHTML = cardMiniHtml(entry.card, "", { effective: true, showName: false });
       applyCardTypeStyle(div, entry.card);
       if (isBattleCardPopupEnabled()) {
         div.addEventListener("click", () => showCardDetailPopup(entry.card, { title: "相手の手札" }));
@@ -2154,10 +2160,7 @@ function handleReward() {
         addOwnedCard(fallback.id);
         showRewardResult(fallback, "選択可能な★3以下カードがなかったため、★4以下のカードからランダムで獲得しました。");
       } else {
-        showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>獲得可能なカードがありませんでした。</p>`, [
-          { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
-          { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
-        ]);
+        showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>獲得可能なカードがありませんでした。</p>`, postVictoryActions());
       }
       return;
     }
@@ -2199,10 +2202,7 @@ function handleReward() {
       });
     const card = rareCards[Math.floor(Math.random() * Math.min(rareCards.length, 30))];
     if (!card) {
-      showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>レアチャンス対象カードがありませんでした。</p>`, [
-        { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
-        { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
-      ]);
+      showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>レアチャンス対象カードがありませんでした。</p>`, postVictoryActions());
       return;
     }
     addOwnedCard(card.id);
@@ -2213,10 +2213,7 @@ function handleReward() {
   const randomCandidates = getRandomRewardCards(battle);
   const card = randomCandidates[Math.floor(Math.random() * randomCandidates.length)] ?? getRewardFallbackCard(battle);
   if (!card) {
-    showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>ランダム取得可能な★4以下カードがありませんでした。</p>`, [
-      { label: "対戦相手選択", onClick: () => { closeModal(); showScreen("battleMenu"); } },
-      { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
-    ]);
+    showModal("カード獲得なし", `${getVictoryMoneyHtml(battle)}${firstWinRewardHtml(battle)}<p>ランダム取得可能な★4以下カードがありませんでした。</p>`, postVictoryActions());
     return;
   }
   addOwnedCard(card.id);
@@ -2254,16 +2251,20 @@ function rewardCardHtml(card) {
   `;
 }
 
+function postVictoryActions() {
+  return [
+    { label: "再戦", onClick: () => { const npcId = state.battle?.npc?.id; closeModal(); if (npcId) startBattle(npcId); } },
+    { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
+    { label: "デッキ画面", className: "ghost", onClick: () => { closeModal(); showScreen("deck"); } },
+    { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
+  ];
+}
+
 function showRewardResult(card, reason) {
   showModal(
     "カード獲得",
     `${getVictoryMoneyHtml(state.battle)}${firstWinRewardHtml(state.battle)}<p>${escapeHtml(reason)}</p><div class="reward-grid">${rewardDisplayCardHtml(card)}</div>`,
-    [
-      { label: "再戦", onClick: () => { const npcId = state.battle.npc.id; closeModal(); startBattle(npcId); } },
-      { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
-      { label: "図鑑を見る", className: "ghost", onClick: () => { closeModal(); showScreen("collection"); } },
-      { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
-    ]
+    postVictoryActions()
   );
 }
 
