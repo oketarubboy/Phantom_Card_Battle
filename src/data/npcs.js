@@ -142,7 +142,7 @@ export const NPCS = [
     "rareChanceRate": 3,
     "difficulty": "よわい",
     "entryFee": 100,
-    "winMoney": 200,
+    "winMoney": 300,
     "cardPool": [
       "card_019",
       "card_020",
@@ -176,7 +176,17 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "もなタイプ",
-    "firstWinRewardCardId": "card_062"
+    "firstWinRewardCardId": "card_062",
+    "handPattern": [
+      {
+        "rarity": 2,
+        "count": 4
+      },
+      {
+        "rarity": 3,
+        "count": 1
+      }
+    ]
   },
   {
     "id": "npc_004",
@@ -184,7 +194,7 @@ export const NPCS = [
     "rareChanceRate": 3,
     "difficulty": "よわい",
     "entryFee": 100,
-    "winMoney": 200,
+    "winMoney": 300,
     "cardPool": [
       "card_028",
       "card_029",
@@ -218,7 +228,17 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "美雨タイプ",
-    "firstWinRewardCardId": "card_066"
+    "firstWinRewardCardId": "card_066",
+    "handPattern": [
+      {
+        "rarity": 2,
+        "count": 4
+      },
+      {
+        "rarity": 3,
+        "count": 1
+      }
+    ]
   },
   {
     "id": "npc_005",
@@ -226,7 +246,7 @@ export const NPCS = [
     "rareChanceRate": 3,
     "difficulty": "よわい",
     "entryFee": 100,
-    "winMoney": 200,
+    "winMoney": 300,
     "cardPool": [
       "card_037",
       "card_038",
@@ -260,7 +280,17 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "凛花タイプ",
-    "firstWinRewardCardId": "card_181"
+    "firstWinRewardCardId": "card_181",
+    "handPattern": [
+      {
+        "rarity": 2,
+        "count": 4
+      },
+      {
+        "rarity": 3,
+        "count": 1
+      }
+    ]
   },
   {
     "id": "npc_006",
@@ -268,7 +298,7 @@ export const NPCS = [
     "rareChanceRate": 3,
     "difficulty": "よわい",
     "entryFee": 100,
-    "winMoney": 200,
+    "winMoney": 300,
     "cardPool": [
       "card_046",
       "card_047",
@@ -302,7 +332,17 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "百花タイプ",
-    "firstWinRewardCardId": "card_182"
+    "firstWinRewardCardId": "card_182",
+    "handPattern": [
+      {
+        "rarity": 2,
+        "count": 4
+      },
+      {
+        "rarity": 3,
+        "count": 1
+      }
+    ]
   },
   {
     "id": "npc_007",
