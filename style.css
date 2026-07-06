@@ -1888,3 +1888,57 @@ button:disabled {
 .title-card h2 {
   margin-top: 0;
 }
+
+/* v0.1.23: thicker type frames, reward button layout, collection number edge tuning */
+.mini-card,
+.deck-card,
+.collection-card,
+.owned-row,
+.shop-card,
+.reward-card {
+  border-width: 3px;
+}
+
+.card-visual .card-art-wrap {
+  border-width: 4px;
+}
+
+.battle-screen .card-visual .card-art-wrap,
+.shop-card-preview .card-visual .card-art-wrap,
+.reward-card-preview .card-visual .card-art-wrap,
+.collection-card-image .card-visual .card-art-wrap {
+  border-width: 3px;
+}
+
+.collection-card-image .card-visual-values .cv-up {
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.collection-card-image .card-visual-values .cv-right {
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.collection-card-image .card-visual-values .cv-down {
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.collection-card-image .card-visual-values .cv-left {
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.reward-get-button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.reward-card-preview .cv-center {
+  display: none;
+}

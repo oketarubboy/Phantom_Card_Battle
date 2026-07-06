@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.22";
+const VERSION = "0.1.23";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -191,7 +191,7 @@ function getTotalInAllDecks(cardId) {
 }
 
 function getCardNumericId(card) {
-  const raw = String(card.id ?? card.no ?? "");
+  const raw = String(card.cardNo ?? card.id ?? card.no ?? "");
   return Number(raw.replace(/\D/g, "")) || 0;
 }
 
@@ -378,7 +378,7 @@ function showScreen(name) {
 function createInitialSave() {
   const starterNos = Array.from({ length: 18 }, (_, i) => String(i + 1));
   const starterCards = starterNos
-    .map((no) => CARDS.find((card) => String(card.no) === no))
+    .map((no) => CARDS.find((card) => String(card.cardNo ?? card.no) === no))
     .filter(Boolean);
 
   const ownedCards = {};
@@ -2064,9 +2064,15 @@ function checkBattleEnd() {
     ]);
   } else {
     addBattleLog(`引き分け ${score.player} - ${score.npc}`);
-    showModal("引き分け", `<p>引き分けのためカード獲得はありません。</p><p>挑戦料${formatMoney(battle.entryFee)}は返金されません。</p>`, [
+    const refundMoney = Number(battle.entryFee ?? 0);
+    if (refundMoney > 0) {
+      addMoney(refundMoney);
+      addBattleLog(`引き分けのため挑戦料${formatMoney(refundMoney)}が返金されました。`);
+    }
+    showModal("引き分け", `<p>引き分けのためカード獲得はありません。</p><p>挑戦料${formatMoney(battle.entryFee)}は返金されました。</p><p>スコア：自分 ${score.player} - ${score.npc} 相手</p>`, [
       { label: "再戦", onClick: () => { closeModal(); startBattle(battle.npc.id); } },
-      { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } }
+      { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
+      { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
     ]);
   }
 
@@ -2222,7 +2228,7 @@ function rewardDisplayCardHtml(card) {
   return `
     <div class="reward-card reward-display-card" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
       <div class="reward-card-preview mini-card">
-        ${cardMiniHtml(card, "GET", { squareArt: true, detail: true })}
+        ${cardMiniHtml(card, "", { squareArt: true, detail: true, showName: false })}
       </div>
       <div class="reward-card-info">
         <strong>${escapeHtml(card.name)}</strong><br>
@@ -2235,14 +2241,15 @@ function rewardDisplayCardHtml(card) {
 function rewardCardHtml(card) {
   const typeMeta = getCardTypeMeta(card);
   return `
-    <div class="reward-card" data-reward-card-id="${card.id}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
+    <div class="reward-card" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
       <div class="reward-card-preview mini-card">
-        ${cardMiniHtml(card, "GET", { squareArt: true, detail: true })}
+        ${cardMiniHtml(card, "", { squareArt: true, detail: true, showName: false })}
       </div>
       <div class="reward-card-info">
         <strong>${escapeHtml(card.name)}</strong><br>
         <small>${rarityStars(card.rarity)} / ${cardStatLine(card)}</small>
       </div>
+      <button class="small-button reward-get-button" data-reward-card-id="${card.id}">このカードを入手</button>
     </div>
   `;
 }
