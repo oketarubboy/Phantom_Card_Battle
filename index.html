@@ -38,6 +38,17 @@
         </div>
       </section>
 
+      <section id="screen-battle-select" class="screen">
+        <div class="panel battle-select-panel">
+          <h2>対戦モード選択</h2>
+          <p class="muted">NPCと対戦するか、部屋番号を使って別々のスマホでオンライン対戦します。</p>
+          <div class="title-menu battle-mode-menu">
+            <button id="goNpcBattle">NPC対戦</button>
+            <button id="goOnlineBattle">オンライン対戦</button>
+          </div>
+        </div>
+      </section>
+
       <section id="screen-battle-menu" class="screen">
         <div class="panel">
           <h2>対戦相手を選択</h2>
@@ -48,6 +59,29 @@
             <p class="muted">よわい相手は自由設定、ふつう/つよい相手は対戦前に自動抽選されます。</p>
           </div>
           <div id="npcList" class="npc-list"></div>
+        </div>
+      </section>
+
+      <section id="screen-online-battle" class="screen">
+        <div class="panel online-panel">
+          <h2>オンライン対戦</h2>
+          <p class="muted">部屋番号制のオンライン対戦です。報酬・カード移動・銭の増減はありません。</p>
+          <div class="summary">
+            使用デッキ：<strong id="onlineActiveDeckLabel">デッキ1</strong><br>
+            <small>オンライン対戦を使うには、<code>firebase-config.js</code> にFirebase設定を入力してください。</small>
+          </div>
+          <div class="online-actions">
+            <button id="createOnlineRoom">部屋を作る</button>
+            <div class="join-room-row">
+              <input id="onlineRoomCode" class="search" placeholder="部屋番号を入力" maxlength="8" />
+              <button id="joinOnlineRoom">部屋に入る</button>
+            </div>
+          </div>
+          <div id="onlineBattleMessage" class="message"></div>
+          <div class="summary">
+            <strong>通信方式</strong><br>
+            GitHub Pagesの画面同士をFirebase Realtime Databaseで同期します。どこかのPCをサーバーとして起動しておく必要はありません。
+          </div>
         </div>
       </section>
 

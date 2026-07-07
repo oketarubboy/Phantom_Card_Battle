@@ -1957,3 +1957,60 @@ button:disabled {
 .first-reward-status.none {
   color: var(--muted);
 }
+
+
+/* v0.1.25: online battle and pull-to-refresh suppression during battle */
+html.is-battle-screen,
+body.is-battle-screen,
+body.is-battle-screen #app,
+body.is-battle-screen main,
+body.is-battle-screen .battle-screen {
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
+}
+
+.battle-mode-menu {
+  max-width: 420px;
+  margin: 18px auto 0;
+}
+
+.online-panel code {
+  color: #ffd66b;
+}
+
+.online-actions {
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+  margin: 18px 0;
+}
+
+.join-room-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.join-room-row .search {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 900;
+}
+
+.room-code-big {
+  display: inline-block;
+  font-size: 28px;
+  letter-spacing: 0.12em;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.25);
+  color: #ffd66b;
+}
+
+@media (max-width: 520px) {
+  .join-room-row {
+    grid-template-columns: 1fr;
+  }
+}

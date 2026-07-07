@@ -1,9 +1,10 @@
-const CACHE_NAME = "phantom-card-battle-v0.1.24";
+const CACHE_NAME = "phantom-card-battle-v0.1.25";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./firebase-config.js",
   "./manifest.json",
   "./src/data/cards.js",
   "./src/data/npcs.js",

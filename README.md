@@ -237,3 +237,28 @@ assets/cards/card_003.webp
 - 対戦相手選択画面に、NPCごとの勝利回数と初回勝利報酬の獲得状況を表示しました。
 - 対戦画面の相手カード中央に表示されていた「NPC」文字を削除しました。
 - 勝利後の選択肢を「再戦 / 対戦相手選択 / デッキ画面 / タイトルへ戻る」に変更しました。
+
+
+## v0.1.25 更新内容
+- 対戦メニューを「NPC対戦」「オンライン対戦」に分離しました。
+- Firebase Realtime Database + Anonymous Authを使う部屋番号制オンライン対戦を追加しました。
+- オンライン対戦は報酬なし・カード移動なし・銭増減なしです。
+- 対戦中の下スワイプ更新を抑止するCSSを追加しました。
+
+## Firebase設定
+`firebase-config.js` にFirebase Webアプリの設定値を入力してください。Firebaseを使うため、どこかのPCでサーバーを起動する必要はありません。
+
+Realtime Database Rulesの開発用例：
+```json
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
+```
+公開運用では、必要に応じてルールを厳しくしてください。

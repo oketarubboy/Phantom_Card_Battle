@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.24";
+const VERSION = "0.1.25";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -17,6 +17,14 @@ const state = {
   selectedRuleIds: [],
   shopStock: [],
   shopInitialized: false,
+  online: {
+    firebase: null,
+    roomId: null,
+    playerKey: null,
+    unsubscribe: null,
+    lastRoomStatus: null,
+    finishedShown: false
+  },
   battle: null,
   pixi: {
     app: null,
@@ -33,7 +41,9 @@ const $ = (id) => document.getElementById(id);
 
 const screens = {
   title: $("screen-title"),
+  battleSelect: $("screen-battle-select"),
   battleMenu: $("screen-battle-menu"),
+  onlineBattle: $("screen-online-battle"),
   battle: $("screen-battle"),
   deck: $("screen-deck"),
   shop: $("screen-shop"),
@@ -364,10 +374,12 @@ function showScreen(name) {
   Object.values(screens).forEach((screen) => screen?.classList.remove("active"));
   screens[name].classList.add("active");
   document.body.classList.toggle("is-battle-screen", name === "battle");
+  document.documentElement.classList.toggle("is-battle-screen", name === "battle");
   $("backTitleBtn").style.visibility = name === "title" ? "hidden" : "visible";
   updateMoneyDisplays();
   if (name === "battle") scheduleBattleAutoFit();
 
+  if (name === "onlineBattle") renderOnlineBattleScreen();
   if (name === "deck") renderDeckScreen();
   if (name === "shop") enterShop();
   if (name === "collection") renderCollectionScreen();
@@ -1439,6 +1451,409 @@ function prepareBattleStart(npcId) {
   }
 }
 
+
+
+function getActiveDeckCardsForOnline() {
+  const deck = state.save.decks[state.save.activeDeckIndex];
+  const error = validateDeck(deck);
+  if (error) return { error, cards: [] };
+  return { error: "", cards: deck.map((id) => cardById.get(id)).filter(Boolean) };
+}
+
+function getRandomRoomId() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let id = "";
+  for (let i = 0; i < 6; i += 1) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+async function ensureOnlineFirebase() {
+  if (state.online.firebase) return state.online.firebase;
+
+  const configModule = await import("./firebase-config.js");
+  const firebaseConfig = configModule.firebaseConfig ?? {};
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("ここに")) {
+    throw new Error("Firebase設定が未入力です。firebase-config.js にFirebase Webアプリの設定値を入力してください。");
+  }
+
+  const appModule = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+  const authModule = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
+  const dbModule = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js");
+
+  const firebaseApp = appModule.initializeApp(firebaseConfig);
+  const auth = authModule.getAuth(firebaseApp);
+  await authModule.signInAnonymously(auth);
+  const db = dbModule.getDatabase(firebaseApp);
+
+  state.online.firebase = {
+    app: firebaseApp,
+    auth,
+    db,
+    uid: auth.currentUser.uid,
+    ref: dbModule.ref,
+    get: dbModule.get,
+    set: dbModule.set,
+    update: dbModule.update,
+    onValue: dbModule.onValue,
+    off: dbModule.off,
+    remove: dbModule.remove
+  };
+  return state.online.firebase;
+}
+
+function renderOnlineBattleScreen(message = "") {
+  const activeDeck = state.save.deckNames?.[state.save.activeDeckIndex] ?? `デッキ${state.save.activeDeckIndex + 1}`;
+  const activeDeckLabel = $("onlineActiveDeckLabel");
+  if (activeDeckLabel) activeDeckLabel.textContent = activeDeck;
+  const msg = $("onlineBattleMessage");
+  if (msg && message) msg.textContent = message;
+  updateMoneyDisplays();
+}
+
+function detachOnlineRoom() {
+  if (typeof state.online.unsubscribe === "function") {
+    state.online.unsubscribe();
+  }
+  state.online.unsubscribe = null;
+  state.online.roomId = null;
+  state.online.playerKey = null;
+  state.online.lastRoomStatus = null;
+  state.online.finishedShown = false;
+}
+
+function onlineRoomRef(roomId) {
+  const fb = state.online.firebase;
+  return fb.ref(fb.db, `rooms/${roomId}`);
+}
+
+function getOnlinePlayerName(playerKey) {
+  return playerKey === "p1" ? "プレイヤー1" : "プレイヤー2";
+}
+
+function buildOnlineRoom(roomId, deckCards) {
+  return {
+    version: VERSION,
+    roomId,
+    status: "waiting",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    rules: [],
+    board: Array(9).fill(null),
+    turn: null,
+    firstTurn: null,
+    winner: null,
+    result: null,
+    typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
+    players: {
+      p1: {
+        uid: state.online.firebase.uid,
+        name: "プレイヤー1",
+        deck: deckCards.map((card) => card.id),
+        handUsed: deckCards.map(() => false)
+      }
+    }
+  };
+}
+
+async function createOnlineRoom() {
+  const { error, cards } = getActiveDeckCardsForOnline();
+  if (error) {
+    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>オンライン対戦に使うデッキを5枚で作成してください。</p>`, [
+      { label: "デッキへ", onClick: () => { closeModal(); showScreen("deck"); } },
+      { label: "閉じる", className: "ghost", onClick: closeModal }
+    ]);
+    return;
+  }
+
+  try {
+    const fb = await ensureOnlineFirebase();
+    detachOnlineRoom();
+    let roomId = getRandomRoomId();
+    let roomSnap = await fb.get(onlineRoomRef(roomId));
+    for (let i = 0; roomSnap.exists() && i < 8; i += 1) {
+      roomId = getRandomRoomId();
+      roomSnap = await fb.get(onlineRoomRef(roomId));
+    }
+    await fb.set(onlineRoomRef(roomId), buildOnlineRoom(roomId, cards));
+    attachOnlineRoom(roomId, "p1");
+    $("onlineRoomCode").value = roomId;
+    renderOnlineBattleScreen(`部屋を作成しました。部屋番号 ${roomId} を相手に伝えてください。`);
+    showModal("部屋作成", `<p>部屋番号：<strong class="room-code-big">${roomId}</strong></p><p>相手が入室すると対戦が始まります。</p>`, [
+      { label: "閉じる", className: "ghost", onClick: closeModal }
+    ]);
+  } catch (error) {
+    console.error(error);
+    showModal("オンライン接続エラー", `<p>${escapeHtml(error.message ?? error)}</p>`, [{ label: "閉じる", onClick: closeModal }]);
+  }
+}
+
+async function joinOnlineRoom() {
+  const roomId = String($("onlineRoomCode").value ?? "").trim().toUpperCase();
+  if (!roomId) {
+    renderOnlineBattleScreen("部屋番号を入力してください。");
+    return;
+  }
+
+  const { error, cards } = getActiveDeckCardsForOnline();
+  if (error) {
+    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>オンライン対戦に使うデッキを5枚で作成してください。</p>`, [
+      { label: "デッキへ", onClick: () => { closeModal(); showScreen("deck"); } },
+      { label: "閉じる", className: "ghost", onClick: closeModal }
+    ]);
+    return;
+  }
+
+  try {
+    const fb = await ensureOnlineFirebase();
+    detachOnlineRoom();
+    const roomRef = onlineRoomRef(roomId);
+    const snap = await fb.get(roomRef);
+    if (!snap.exists()) throw new Error("指定された部屋が見つかりません。");
+    const room = snap.val();
+    if (room.status !== "waiting" || room.players?.p2) throw new Error("この部屋には入室できません。すでに対戦が始まっている可能性があります。");
+
+    const firstTurn = Math.random() < 0.5 ? "p1" : "p2";
+    await fb.update(roomRef, {
+      status: "playing",
+      updatedAt: Date.now(),
+      turn: firstTurn,
+      firstTurn,
+      "players/p2": {
+        uid: fb.uid,
+        name: "プレイヤー2",
+        deck: cards.map((card) => card.id),
+        handUsed: cards.map(() => false)
+      }
+    });
+    attachOnlineRoom(roomId, "p2");
+    renderOnlineBattleScreen(`部屋 ${roomId} に入室しました。`);
+  } catch (error) {
+    console.error(error);
+    showModal("オンライン接続エラー", `<p>${escapeHtml(error.message ?? error)}</p>`, [{ label: "閉じる", onClick: closeModal }]);
+  }
+}
+
+function attachOnlineRoom(roomId, playerKey) {
+  const fb = state.online.firebase;
+  state.online.roomId = roomId;
+  state.online.playerKey = playerKey;
+  state.online.finishedShown = false;
+  const roomRef = onlineRoomRef(roomId);
+  state.online.unsubscribe = fb.onValue(roomRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      if (state.battle?.mode === "online") {
+        showModal("部屋終了", "<p>オンライン対戦の部屋が終了しました。</p>", [
+          { label: "オンライン対戦へ", onClick: () => { closeModal(); showScreen("onlineBattle"); } }
+        ]);
+      }
+      detachOnlineRoom();
+      return;
+    }
+    applyOnlineRoom(snapshot.val());
+  });
+}
+
+function canonicalToLocalOwner(owner) {
+  return owner === state.online.playerKey ? "player" : "npc";
+}
+
+function localToCanonicalOwner(owner) {
+  if (owner === "player") return state.online.playerKey;
+  return state.online.playerKey === "p1" ? "p2" : "p1";
+}
+
+function getOpponentKey() {
+  return state.online.playerKey === "p1" ? "p2" : "p1";
+}
+
+function serializeOnlineBoard() {
+  return state.battle.board.map((cell) => cell ? {
+    cardId: cell.card.id,
+    owner: localToCanonicalOwner(cell.owner)
+  } : null);
+}
+
+function calcOnlineResult(room) {
+  const playerKey = state.online.playerKey;
+  const opponentKey = getOpponentKey();
+  const score = calcScore();
+  let winner = "draw";
+  if (score.player > score.npc) winner = playerKey;
+  if (score.player < score.npc) winner = opponentKey;
+  return {
+    winner,
+    score: {
+      [playerKey]: score.player,
+      [opponentKey]: score.npc
+    }
+  };
+}
+
+function applyOnlineRoom(room) {
+  const playerKey = state.online.playerKey;
+  const opponentKey = getOpponentKey();
+  const player = room.players?.[playerKey];
+  const opponent = room.players?.[opponentKey];
+
+  if (!player) return;
+  if (room.status === "waiting" || !opponent) {
+    renderOnlineBattleScreen(`部屋番号 ${room.roomId}：相手の入室待ちです。`);
+    return;
+  }
+
+  const playerHand = (player.deck ?? []).map((cardId, index) => ({
+    card: cardById.get(cardId),
+    used: Boolean(player.handUsed?.[index])
+  })).filter((entry) => entry.card);
+
+  const opponentHand = (opponent.deck ?? []).map((cardId, index) => ({
+    card: cardById.get(cardId),
+    used: Boolean(opponent.handUsed?.[index])
+  })).filter((entry) => entry.card);
+
+  const board = (room.board ?? Array(9).fill(null)).map((cell) => cell?.cardId ? {
+    card: cardById.get(cell.cardId),
+    owner: canonicalToLocalOwner(cell.owner)
+  } : null);
+
+  const wasNotPlaying = !state.battle || state.battle.mode !== "online" || state.battle.onlineRoomId !== room.roomId;
+
+  state.battle = {
+    mode: "online",
+    onlineRoomId: room.roomId,
+    playerKey,
+    npc: { id: "online", name: getOnlinePlayerName(opponentKey), difficulty: "オンライン" },
+    rules: room.rules ?? [],
+    playerHand,
+    npcHand: opponentHand,
+    npcBattleCards: [],
+    board,
+    currentTurn: room.status === "finished" ? "finished" : room.turn === playerKey ? "player" : "npc",
+    locked: room.status !== "playing" || room.turn !== playerKey,
+    finished: room.status === "finished",
+    forcedPlayerHandIndex: null,
+    forcedNpcHandIndex: null,
+    typeBoosts: room.typeBoosts ?? Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
+    entryFee: 0,
+    winMoney: 0
+  };
+
+  if (wasNotPlaying) {
+    showScreen("battle");
+    $("battleLog").innerHTML = "";
+    initPixi();
+    addBattleLog(`オンライン対戦：部屋 ${room.roomId}`);
+    addBattleLog(`あなたは${getOnlinePlayerName(playerKey)}です。`);
+    addBattleLog(`先攻：${getOnlinePlayerName(room.firstTurn)}`);
+  }
+
+  $("battleNpcName").textContent = `オンライン対戦 / ${getOnlinePlayerName(playerKey)}`;
+  renderBattleAll();
+
+  if (room.status === "playing") {
+    const turnText = room.turn === playerKey ? "あなたのターンです。" : "相手のターンです。";
+    $("turnLabel").textContent = turnText;
+  }
+
+  if (room.status === "finished" && !state.online.finishedShown) {
+    state.online.finishedShown = true;
+    showOnlineResult(room);
+  }
+}
+
+function showOnlineResult(room) {
+  const playerKey = state.online.playerKey;
+  const result = room.result ?? {};
+  const myScore = result.score?.[playerKey] ?? calcScore().player;
+  const opponentScore = result.score?.[getOpponentKey()] ?? calcScore().npc;
+  const title = result.winner === "draw" ? "引き分け" : result.winner === playerKey ? "勝利" : "敗北";
+  showModal(
+    `オンライン対戦：${title}`,
+    `<p>オンライン対戦は報酬なしです。</p><p>スコア：自分 ${myScore} - ${opponentScore} 相手</p>`,
+    [
+      { label: "オンライン対戦へ", onClick: () => { closeModal(); detachOnlineRoom(); state.battle = null; showScreen("onlineBattle"); } },
+      { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); detachOnlineRoom(); state.battle = null; showScreen("title"); } }
+    ]
+  );
+}
+
+async function handleOnlineBoardClick(index) {
+  const battle = state.battle;
+  if (!battle || battle.mode !== "online" || battle.locked || battle.finished || battle.currentTurn !== "player") return;
+  if (battle.board[index]) return;
+
+  const handIndex = state.selectedHandIndex;
+  if (handIndex === null) {
+    addBattleLog("手札を1枚選択してください。");
+    return;
+  }
+  const hand = battle.playerHand[handIndex];
+  if (!hand || hand.used) return;
+
+  battle.locked = true;
+  await playCard("player", handIndex, index);
+  state.selectedHandIndex = null;
+
+  const boardFull = battle.board.every(Boolean);
+  const noPlayableCards = battle.playerHand.every((entry) => entry.used) && battle.npcHand.every((entry) => entry.used);
+  const finished = boardFull || noPlayableCards;
+  const opponentKey = getOpponentKey();
+  const updates = {
+    board: serializeOnlineBoard(),
+    updatedAt: Date.now(),
+    [`players/${state.online.playerKey}/handUsed`]: battle.playerHand.map((entry) => Boolean(entry.used)),
+    turn: finished ? null : opponentKey,
+    status: finished ? "finished" : "playing",
+    typeBoosts: battle.typeBoosts ?? {}
+  };
+  if (finished) {
+    updates.result = calcOnlineResult();
+    updates.winner = updates.result.winner;
+  }
+
+  try {
+    const fb = await ensureOnlineFirebase();
+    await fb.update(onlineRoomRef(state.online.roomId), updates);
+  } catch (error) {
+    console.error(error);
+    addBattleLog(`オンライン同期エラー：${error.message ?? error}`);
+    battle.locked = false;
+  }
+}
+
+function confirmOnlineExit(destination = "onlineBattle") {
+  const battle = state.battle;
+  if (!battle || battle.mode !== "online" || battle.finished) {
+    detachOnlineRoom();
+    state.battle = null;
+    showScreen(destination === "title" ? "title" : "onlineBattle");
+    return;
+  }
+
+  showModal(
+    "オンライン対戦を終了",
+    "<p>対戦中に終了すると、この端末は部屋から退出します。</p><p>オンライン対戦は報酬なしです。</p>",
+    [
+      {
+        label: "退出する",
+        className: "danger",
+        onClick: async () => {
+          try {
+            const fb = await ensureOnlineFirebase();
+            if (state.online.roomId) await fb.remove(onlineRoomRef(state.online.roomId));
+          } catch (error) {
+            console.warn(error);
+          }
+          closeModal();
+          detachOnlineRoom();
+          state.battle = null;
+          showScreen(destination === "title" ? "title" : "onlineBattle");
+        }
+      },
+      { label: "キャンセル", className: "ghost", onClick: closeModal }
+    ]
+  );
+}
 async function startBattle(npcId, selectedRules = null) {
   const npc = npcById.get(npcId);
   if (!npc) return;
@@ -1625,6 +2040,10 @@ function getForcedHandIndex(owner) {
 
 async function handleBoardClick(index) {
   const battle = state.battle;
+  if (battle?.mode === "online") {
+    await handleOnlineBoardClick(index);
+    return;
+  }
   if (!battle || battle.locked || battle.finished || battle.currentTurn !== "player") return;
   if (battle.board[index]) return;
 
@@ -2036,6 +2455,7 @@ function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null)
 function checkBattleEnd() {
   const battle = state.battle;
   if (!battle) return true;
+  if (battle.mode === "online") return false;
   const boardFull = battle.board.every(Boolean);
   const noPlayableCards = battle.playerHand.every((entry) => entry.used) && battle.npcHand.every((entry) => entry.used);
 
@@ -2270,6 +2690,10 @@ function showRewardResult(card, reason) {
 
 function confirmBattleExit(destination = "title") {
   const battle = state.battle;
+  if (battle?.mode === "online") {
+    confirmOnlineExit(destination === "title" ? "title" : "onlineBattle");
+    return;
+  }
   if (!battle || battle.finished) {
     state.battle = null;
     showScreen(destination === "battleMenu" ? "battleMenu" : "title");
@@ -2323,7 +2747,12 @@ function bindEvents() {
   $("versionLabel").textContent = `v${VERSION}`;
   $("backTitleBtn").addEventListener("click", () => confirmBattleExit("title"));
 
-  $("goBattle").addEventListener("click", () => showScreen("battleMenu"));
+  $("goBattle").addEventListener("click", () => showScreen("battleSelect"));
+  $("goNpcBattle").addEventListener("click", () => showScreen("battleMenu"));
+  $("goOnlineBattle").addEventListener("click", () => showScreen("onlineBattle"));
+  $("createOnlineRoom").addEventListener("click", createOnlineRoom);
+  $("joinOnlineRoom").addEventListener("click", joinOnlineRoom);
+  $("onlineRoomCode").addEventListener("input", (event) => { event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8); });
   $("goDeck").addEventListener("click", () => showScreen("deck"));
   $("goShop").addEventListener("click", () => showScreen("shop"));
   $("goCollection").addEventListener("click", () => showScreen("collection"));
