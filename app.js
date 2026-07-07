@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.25";
+const VERSION = "0.1.26";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -1020,7 +1020,9 @@ function showModal(title, bodyHtml, actions = []) {
 }
 
 function closeModal() {
-  $("modal").classList.add("hidden");
+  const modal = $("modal");
+  modal.classList.add("hidden");
+  delete modal.dataset.onlineWaiting;
 }
 
 function getCardDetailHtml(card) {
@@ -1526,6 +1528,55 @@ function onlineRoomRef(roomId) {
   return fb.ref(fb.db, `rooms/${roomId}`);
 }
 
+function getIndexedOnlineValue(value, index) {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return value[index];
+  return value[String(index)] ?? value[index];
+}
+
+function createEmptyOnlineBoardData() {
+  return Object.fromEntries(Array.from({ length: 9 }, (_, index) => [index, { empty: true }]));
+}
+
+function serializeOnlineBoardForFirebase() {
+  const board = state.battle?.board ?? [];
+  return Object.fromEntries(Array.from({ length: 9 }, (_, index) => {
+    const cell = board[index];
+    return [index, cell ? {
+      cardId: cell.card.id,
+      owner: localToCanonicalOwner(cell.owner)
+    } : { empty: true }];
+  }));
+}
+
+function normalizeOnlineBoardData(boardData) {
+  return Array.from({ length: 9 }, (_, index) => {
+    const cell = getIndexedOnlineValue(boardData, index);
+    if (!cell || cell.empty || !cell.cardId) return null;
+    const card = cardById.get(cell.cardId);
+    if (!card) return null;
+    return {
+      card,
+      owner: canonicalToLocalOwner(cell.owner)
+    };
+  });
+}
+
+function serializeOnlineHandUsedForFirebase(handOrCards) {
+  return Object.fromEntries((handOrCards ?? []).map((entry, index) => [
+    index,
+    Boolean(entry?.used ?? false)
+  ]));
+}
+
+function createOnlineHandUsedData(cards) {
+  return Object.fromEntries((cards ?? []).map((_, index) => [index, false]));
+}
+
+function normalizeOnlineHandUsedData(handUsed, length) {
+  return Array.from({ length }, (_, index) => Boolean(getIndexedOnlineValue(handUsed, index)));
+}
+
 function getOnlinePlayerName(playerKey) {
   return playerKey === "p1" ? "プレイヤー1" : "プレイヤー2";
 }
@@ -1538,7 +1589,7 @@ function buildOnlineRoom(roomId, deckCards) {
     createdAt: Date.now(),
     updatedAt: Date.now(),
     rules: [],
-    board: Array(9).fill(null),
+    board: createEmptyOnlineBoardData(),
     turn: null,
     firstTurn: null,
     winner: null,
@@ -1549,7 +1600,7 @@ function buildOnlineRoom(roomId, deckCards) {
         uid: state.online.firebase.uid,
         name: "プレイヤー1",
         deck: deckCards.map((card) => card.id),
-        handUsed: deckCards.map(() => false)
+        handUsed: createOnlineHandUsedData(deckCards)
       }
     }
   };
@@ -1581,6 +1632,7 @@ async function createOnlineRoom() {
     showModal("部屋作成", `<p>部屋番号：<strong class="room-code-big">${roomId}</strong></p><p>相手が入室すると対戦が始まります。</p>`, [
       { label: "閉じる", className: "ghost", onClick: closeModal }
     ]);
+    $("modal").dataset.onlineWaiting = "1";
   } catch (error) {
     console.error(error);
     showModal("オンライン接続エラー", `<p>${escapeHtml(error.message ?? error)}</p>`, [{ label: "閉じる", onClick: closeModal }]);
@@ -1622,7 +1674,7 @@ async function joinOnlineRoom() {
         uid: fb.uid,
         name: "プレイヤー2",
         deck: cards.map((card) => card.id),
-        handUsed: cards.map(() => false)
+        handUsed: createOnlineHandUsedData(cards)
       }
     });
     attachOnlineRoom(roomId, "p2");
@@ -1649,7 +1701,12 @@ function attachOnlineRoom(roomId, playerKey) {
       detachOnlineRoom();
       return;
     }
-    applyOnlineRoom(snapshot.val());
+    try {
+      applyOnlineRoom(snapshot.val());
+    } catch (error) {
+      console.error("online room apply error", error);
+      renderOnlineBattleScreen(`オンライン同期エラー：${error.message ?? error}`);
+    }
   });
 }
 
@@ -1666,12 +1723,6 @@ function getOpponentKey() {
   return state.online.playerKey === "p1" ? "p2" : "p1";
 }
 
-function serializeOnlineBoard() {
-  return state.battle.board.map((cell) => cell ? {
-    cardId: cell.card.id,
-    owner: localToCanonicalOwner(cell.owner)
-  } : null);
-}
 
 function calcOnlineResult(room) {
   const playerKey = state.online.playerKey;
@@ -1701,20 +1752,26 @@ function applyOnlineRoom(room) {
     return;
   }
 
-  const playerHand = (player.deck ?? []).map((cardId, index) => ({
+  if ($("modal")?.dataset.onlineWaiting === "1") {
+    closeModal();
+  }
+
+  const playerDeck = player.deck ?? [];
+  const opponentDeck = opponent.deck ?? [];
+  const playerUsed = normalizeOnlineHandUsedData(player.handUsed, playerDeck.length);
+  const opponentUsed = normalizeOnlineHandUsedData(opponent.handUsed, opponentDeck.length);
+
+  const playerHand = playerDeck.map((cardId, index) => ({
     card: cardById.get(cardId),
-    used: Boolean(player.handUsed?.[index])
+    used: playerUsed[index]
   })).filter((entry) => entry.card);
 
-  const opponentHand = (opponent.deck ?? []).map((cardId, index) => ({
+  const opponentHand = opponentDeck.map((cardId, index) => ({
     card: cardById.get(cardId),
-    used: Boolean(opponent.handUsed?.[index])
+    used: opponentUsed[index]
   })).filter((entry) => entry.card);
 
-  const board = (room.board ?? Array(9).fill(null)).map((cell) => cell?.cardId ? {
-    card: cardById.get(cell.cardId),
-    owner: canonicalToLocalOwner(cell.owner)
-  } : null);
+  const board = normalizeOnlineBoardData(room.board);
 
   const wasNotPlaying = !state.battle || state.battle.mode !== "online" || state.battle.onlineRoomId !== room.roomId;
 
@@ -1799,9 +1856,9 @@ async function handleOnlineBoardClick(index) {
   const finished = boardFull || noPlayableCards;
   const opponentKey = getOpponentKey();
   const updates = {
-    board: serializeOnlineBoard(),
+    board: serializeOnlineBoardForFirebase(),
     updatedAt: Date.now(),
-    [`players/${state.online.playerKey}/handUsed`]: battle.playerHand.map((entry) => Boolean(entry.used)),
+    [`players/${state.online.playerKey}/handUsed`]: serializeOnlineHandUsedForFirebase(battle.playerHand),
     turn: finished ? null : opponentKey,
     status: finished ? "finished" : "playing",
     typeBoosts: battle.typeBoosts ?? {}
