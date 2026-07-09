@@ -2014,3 +2014,68 @@ body.is-battle-screen .battle-screen {
     grid-template-columns: 1fr;
   }
 }
+
+/* v0.1.27: online ranking and username settings */
+.username-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.username-row .search {
+  margin-bottom: 0;
+}
+
+.settings-card {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.06);
+}
+
+.ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.ranking-panel {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.055);
+  overflow: auto;
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ranking-table th,
+.ranking-table td {
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 8px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.ranking-table th:first-child,
+.ranking-table td:first-child {
+  width: 42px;
+  text-align: center;
+}
+
+.danger-text {
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .username-row {
+    grid-template-columns: 1fr;
+  }
+}

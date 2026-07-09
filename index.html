@@ -27,6 +27,7 @@
             <button id="goDeck">デッキ</button>
             <button id="goShop">ショップ</button>
             <button id="goCollection">図鑑</button>
+            <button id="goRankings">ランキング</button>
             <button id="goRules">ルール説明</button>
             <button id="goSettings">設定</button>
           </div>
@@ -68,6 +69,8 @@
           <p class="muted">部屋番号制のオンライン対戦です。報酬・カード移動・銭の増減はありません。</p>
           <div class="summary">
             使用デッキ：<strong id="onlineActiveDeckLabel">デッキ1</strong><br>
+            ユーザー名：<strong id="onlineUserNameLabel">未設定</strong><br>
+            オンラインレート：<strong id="onlineRateLabel">1500</strong><br>
             <small>オンライン対戦を使うには、<code>firebase-config.js</code> にFirebase設定を入力してください。</small>
           </div>
           <div class="online-actions">
@@ -204,6 +207,14 @@
 
 
 
+      <section id="screen-rankings" class="screen">
+        <div class="panel rankings-panel">
+          <h2>ランキング</h2>
+          <p class="muted">Firebaseに保存されたオンライン対戦レート、図鑑コンプリート率、所持金ランキングを表示します。</p>
+          <div id="rankingContent" class="ranking-content"></div>
+        </div>
+      </section>
+
       <section id="screen-rules" class="screen">
         <div class="panel rules-panel">
           <h2>ルール説明</h2>
@@ -247,6 +258,24 @@
             </span>
             <input id="battleCardPopupToggle" type="checkbox" />
           </label>
+
+          <div class="settings-card">
+            <h3>オンライン対戦・ランキング</h3>
+            <p class="muted">ランキングに表示するユーザー名を設定します。同じユーザー名は登録できません。</p>
+            <div class="summary">
+              現在のユーザー名：<strong id="settingsUserNameLabel">未設定</strong><br>
+              オンラインレート：<strong id="settingsRateLabel">1500</strong>
+            </div>
+            <div class="username-row">
+              <input id="settingUserName" class="search" placeholder="ランキング用ユーザー名" maxlength="16" />
+              <button id="checkUserName">使用可能チェック</button>
+              <button id="saveUserName">保存</button>
+            </div>
+            <div class="settings-buttons">
+              <button id="syncRankings" class="ghost">ランキング情報を更新</button>
+            </div>
+            <div id="userNameCheckResult" class="message"></div>
+          </div>
           <div class="settings-buttons">
             <button id="exportSave">セーブデータを書き出し</button>
             <button id="importSave">セーブデータを読み込み</button>

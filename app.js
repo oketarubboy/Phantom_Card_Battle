@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.26";
+const VERSION = "0.1.27";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -23,7 +23,9 @@ const state = {
     playerKey: null,
     unsubscribe: null,
     lastRoomStatus: null,
-    finishedShown: false
+    finishedShown: false,
+    ratingApplying: false,
+    cachedProfile: null
   },
   battle: null,
   pixi: {
@@ -48,6 +50,7 @@ const screens = {
   deck: $("screen-deck"),
   shop: $("screen-shop"),
   collection: $("screen-collection"),
+  rankings: $("screen-rankings"),
   rules: $("screen-rules"),
   settings: $("screen-settings")
 };
@@ -159,6 +162,292 @@ function displayValue(value) {
 function formatMoney(amount) {
   return `${Number(amount ?? 0).toLocaleString("ja-JP")}銭`;
 }
+
+function getDiscoveredCount() {
+  return CARDS.filter((card) => state.save.discoveredCards?.[card.id]).length;
+}
+
+function getCollectionRate() {
+  return Math.floor((getDiscoveredCount() / Math.max(CARDS.length, 1)) * 10000) / 100;
+}
+
+function safeUserNameKey(name) {
+  const normalized = String(name ?? "").trim();
+  return btoa(unescape(encodeURIComponent(normalized))).replace(/=+$/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+function getOnlineUserName() {
+  return String(state.save?.settings?.onlineUserName ?? "").trim();
+}
+
+function getOnlineUserNameKey() {
+  const saved = String(state.save?.settings?.onlineUserNameKey ?? "").trim();
+  return saved || (getOnlineUserName() ? safeUserNameKey(getOnlineUserName()) : "");
+}
+
+function getDefaultOnlineRating() {
+  return 1500;
+}
+
+function getProfileRef(uid) {
+  const fb = state.online.firebase;
+  return fb.ref(fb.db, `profiles/${uid}`);
+}
+
+function getUsernameRef(nameKey) {
+  const fb = state.online.firebase;
+  return fb.ref(fb.db, `usernames/${nameKey}`);
+}
+
+function getLeaderboardRef(kind, uid = "") {
+  const fb = state.online.firebase;
+  return fb.ref(fb.db, uid ? `leaderboards/${kind}/${uid}` : `leaderboards/${kind}`);
+}
+
+function getCurrentRankingPayload(profile = null) {
+  const name = getOnlineUserName();
+  const username = profile?.username ?? name;
+  const rating = Number(profile?.rating ?? getDefaultOnlineRating());
+  const wins = Number(profile?.onlineWins ?? 0);
+  const losses = Number(profile?.onlineLosses ?? 0);
+  const draws = Number(profile?.onlineDraws ?? 0);
+  const collectionCount = getDiscoveredCount();
+  const collectionRate = getCollectionRate();
+  const money = Number(state.save?.money ?? 0);
+  const now = Date.now();
+  return { username, rating, wins, losses, draws, collectionCount, collectionTotal: CARDS.length, collectionRate, money, updatedAt: now };
+}
+
+async function getOnlineProfile() {
+  const fb = await ensureOnlineFirebase();
+  const snap = await fb.get(getProfileRef(fb.uid));
+  const currentName = getOnlineUserName();
+  const profile = snap.exists() ? snap.val() : {};
+  const merged = {
+    uid: fb.uid,
+    username: profile.username ?? currentName,
+    usernameKey: profile.usernameKey ?? getOnlineUserNameKey(),
+    rating: Number(profile.rating ?? getDefaultOnlineRating()),
+    onlineWins: Number(profile.onlineWins ?? 0),
+    onlineLosses: Number(profile.onlineLosses ?? 0),
+    onlineDraws: Number(profile.onlineDraws ?? 0),
+    createdAt: profile.createdAt ?? Date.now(),
+    updatedAt: Date.now()
+  };
+  state.online.cachedProfile = merged;
+  return merged;
+}
+
+async function syncPlayerRankings() {
+  const name = getOnlineUserName();
+  if (!name) return null;
+  const fb = await ensureOnlineFirebase();
+  const profile = await getOnlineProfile();
+  const payload = getCurrentRankingPayload(profile);
+  const profileUpdate = {
+    uid: fb.uid,
+    username: name,
+    usernameKey: getOnlineUserNameKey(),
+    rating: payload.rating,
+    onlineWins: payload.wins,
+    onlineLosses: payload.losses,
+    onlineDraws: payload.draws,
+    collectionCount: payload.collectionCount,
+    collectionTotal: payload.collectionTotal,
+    collectionRate: payload.collectionRate,
+    money: payload.money,
+    updatedAt: payload.updatedAt,
+    createdAt: profile.createdAt ?? Date.now()
+  };
+  await fb.update(fb.ref(fb.db), {
+    [`profiles/${fb.uid}`]: profileUpdate,
+    [`leaderboards/onlineRating/${fb.uid}`]: {
+      username: name,
+      rating: payload.rating,
+      wins: payload.wins,
+      losses: payload.losses,
+      draws: payload.draws,
+      updatedAt: payload.updatedAt
+    },
+    [`leaderboards/collection/${fb.uid}`]: {
+      username: name,
+      rate: payload.collectionRate,
+      count: payload.collectionCount,
+      total: payload.collectionTotal,
+      updatedAt: payload.updatedAt
+    },
+    [`leaderboards/money/${fb.uid}`]: {
+      username: name,
+      money: payload.money,
+      updatedAt: payload.updatedAt
+    }
+  });
+  state.online.cachedProfile = profileUpdate;
+  return profileUpdate;
+}
+
+function renderProfileSummary(profile = null) {
+  const name = getOnlineUserName() || "未設定";
+  const rating = Number(profile?.rating ?? state.online.cachedProfile?.rating ?? getDefaultOnlineRating());
+  const settingName = $("settingUserName");
+  if (settingName) settingName.value = getOnlineUserName();
+  const rateLabels = [$("settingsRateLabel"), $("onlineRateLabel")].filter(Boolean);
+  for (const label of rateLabels) label.textContent = `${rating}`;
+  const usernameLabels = [$("settingsUserNameLabel"), $("onlineUserNameLabel")].filter(Boolean);
+  for (const label of usernameLabels) label.textContent = name;
+}
+
+async function refreshProfileSummary() {
+  try {
+    if (!getOnlineUserName()) {
+      renderProfileSummary(null);
+      return;
+    }
+    const profile = await getOnlineProfile();
+    renderProfileSummary(profile);
+  } catch (error) {
+    console.warn("profile refresh failed", error);
+    renderProfileSummary(null);
+  }
+}
+
+async function checkUserNameAvailability(showResult = true) {
+  const input = $("settingUserName");
+  const result = $("userNameCheckResult");
+  const name = String(input?.value ?? "").trim();
+  if (!name) {
+    if (result) result.textContent = "ユーザー名を入力してください。";
+    return false;
+  }
+  if (name.length > 16) {
+    if (result) result.textContent = "ユーザー名は16文字以内にしてください。";
+    return false;
+  }
+  try {
+    const fb = await ensureOnlineFirebase();
+    const key = safeUserNameKey(name);
+    const snap = await fb.get(getUsernameRef(key));
+    const value = snap.exists() ? snap.val() : null;
+    const ok = !value || value.uid === fb.uid;
+    if (showResult && result) result.textContent = ok ? "このユーザー名は使用できます。" : "このユーザー名は既に使用されています。";
+    return ok;
+  } catch (error) {
+    if (result) result.textContent = `確認エラー：${error.message ?? error}`;
+    return false;
+  }
+}
+
+async function saveUserNameSetting() {
+  const input = $("settingUserName");
+  const result = $("userNameCheckResult");
+  const name = String(input?.value ?? "").trim();
+  if (!name) {
+    if (result) result.textContent = "ユーザー名を入力してください。";
+    return;
+  }
+  const ok = await checkUserNameAvailability(false);
+  if (!ok) {
+    if (result) result.textContent = "このユーザー名は使用できません。";
+    return;
+  }
+  try {
+    const fb = await ensureOnlineFirebase();
+    const newKey = safeUserNameKey(name);
+    const oldKey = getOnlineUserNameKey();
+    const updates = {};
+    if (oldKey && oldKey !== newKey) {
+      const oldSnap = await fb.get(getUsernameRef(oldKey));
+      if (oldSnap.exists() && oldSnap.val()?.uid === fb.uid) updates[`usernames/${oldKey}`] = null;
+    }
+    updates[`usernames/${newKey}`] = { uid: fb.uid, name, updatedAt: Date.now() };
+    await fb.update(fb.ref(fb.db), updates);
+    state.save.settings.onlineUserName = name;
+    state.save.settings.onlineUserNameKey = newKey;
+    save();
+    const profile = await syncPlayerRankings();
+    renderProfileSummary(profile);
+    if (result) result.textContent = "ユーザー名を保存しました。";
+  } catch (error) {
+    if (result) result.textContent = `保存エラー：${error.message ?? error}`;
+  }
+}
+
+function requireOnlineUserName() {
+  if (getOnlineUserName()) return true;
+  showModal("ユーザー名設定", "<p>オンライン対戦・ランキングを使うには、設定画面でランキング用ユーザー名を登録してください。</p>", [
+    { label: "設定へ", onClick: () => { closeModal(); showScreen("settings"); } },
+    { label: "閉じる", className: "ghost", onClick: closeModal }
+  ]);
+  return false;
+}
+
+function calculateElo(ratingA, ratingB, scoreA, k = 32) {
+  const expectedA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+  return Math.round(ratingA + k * (scoreA - expectedA));
+}
+
+async function applyOnlineRatingIfNeeded(room) {
+  if (!room || room.status !== "finished" || room.ratingApplied || state.online.playerKey !== "p1" || state.online.ratingApplying) return;
+  state.online.ratingApplying = true;
+  try {
+    const fb = await ensureOnlineFirebase();
+    const p1Uid = room.players?.p1?.uid;
+    const p2Uid = room.players?.p2?.uid;
+    if (!p1Uid || !p2Uid) return;
+    const [p1Snap, p2Snap] = await Promise.all([
+      fb.get(getProfileRef(p1Uid)),
+      fb.get(getProfileRef(p2Uid))
+    ]);
+    const p1Profile = p1Snap.exists() ? p1Snap.val() : {};
+    const p2Profile = p2Snap.exists() ? p2Snap.val() : {};
+    const p1Old = Number(p1Profile.rating ?? getDefaultOnlineRating());
+    const p2Old = Number(p2Profile.rating ?? getDefaultOnlineRating());
+    const winner = room.result?.winner ?? room.winner ?? "draw";
+    const p1Score = winner === "draw" ? 0.5 : winner === "p1" ? 1 : 0;
+    const p2Score = winner === "draw" ? 0.5 : winner === "p2" ? 1 : 0;
+    const p1New = calculateElo(p1Old, p2Old, p1Score);
+    const p2New = calculateElo(p2Old, p1Old, p2Score);
+    const now = Date.now();
+    const p1Name = p1Profile.username ?? room.players?.p1?.name ?? "プレイヤー1";
+    const p2Name = p2Profile.username ?? room.players?.p2?.name ?? "プレイヤー2";
+    const p1Wins = Number(p1Profile.onlineWins ?? 0) + (winner === "p1" ? 1 : 0);
+    const p1Losses = Number(p1Profile.onlineLosses ?? 0) + (winner === "p2" ? 1 : 0);
+    const p1Draws = Number(p1Profile.onlineDraws ?? 0) + (winner === "draw" ? 1 : 0);
+    const p2Wins = Number(p2Profile.onlineWins ?? 0) + (winner === "p2" ? 1 : 0);
+    const p2Losses = Number(p2Profile.onlineLosses ?? 0) + (winner === "p1" ? 1 : 0);
+    const p2Draws = Number(p2Profile.onlineDraws ?? 0) + (winner === "draw" ? 1 : 0);
+    await fb.update(fb.ref(fb.db), {
+      [`profiles/${p1Uid}/rating`]: p1New,
+      [`profiles/${p1Uid}/onlineWins`]: p1Wins,
+      [`profiles/${p1Uid}/onlineLosses`]: p1Losses,
+      [`profiles/${p1Uid}/onlineDraws`]: p1Draws,
+      [`profiles/${p1Uid}/updatedAt`]: now,
+      [`profiles/${p2Uid}/rating`]: p2New,
+      [`profiles/${p2Uid}/onlineWins`]: p2Wins,
+      [`profiles/${p2Uid}/onlineLosses`]: p2Losses,
+      [`profiles/${p2Uid}/onlineDraws`]: p2Draws,
+      [`profiles/${p2Uid}/updatedAt`]: now,
+      [`leaderboards/onlineRating/${p1Uid}`]: { username: p1Name, rating: p1New, wins: p1Wins, losses: p1Losses, draws: p1Draws, updatedAt: now },
+      [`leaderboards/onlineRating/${p2Uid}`]: { username: p2Name, rating: p2New, wins: p2Wins, losses: p2Losses, draws: p2Draws, updatedAt: now },
+      [`rooms/${room.roomId}/ratingApplied`]: true,
+      [`rooms/${room.roomId}/ratingChange`]: {
+        p1: { old: p1Old, new: p1New, diff: p1New - p1Old },
+        p2: { old: p2Old, new: p2New, diff: p2New - p2Old }
+      }
+    });
+  } catch (error) {
+    console.error("rating apply failed", error);
+    try {
+      const fb = await ensureOnlineFirebase();
+      if (room?.roomId) await fb.update(onlineRoomRef(room.roomId), { ratingApplied: true, ratingError: String(error.message ?? error) });
+    } catch (innerError) {
+      console.error("rating error flag failed", innerError);
+    }
+  } finally {
+    state.online.ratingApplying = false;
+  }
+}
+
 
 function updateMoneyDisplays() {
   document.querySelectorAll("[data-money-display]").forEach((element) => {
@@ -414,7 +703,9 @@ function createInitialSave() {
     settings: {
       effects: true,
       ownedCardView: "vertical",
-      battleCardPopup: true
+      battleCardPopup: true,
+      onlineUserName: "",
+      onlineUserNameKey: ""
     }
   };
 }
@@ -999,9 +1290,64 @@ function renderCollectionScreen() {
   }
 }
 
+
+function rankingRowsHtml(rows, kind) {
+  if (!rows.length) return `<p class="muted">まだランキングデータがありません。</p>`;
+  return `
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>順位</th>
+          <th>ユーザー名</th>
+          <th>記録</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((row, index) => {
+          let value = "";
+          if (kind === "onlineRating") value = `${Number(row.rating ?? 1500)} / ${Number(row.wins ?? 0)}勝 ${Number(row.losses ?? 0)}敗 ${Number(row.draws ?? 0)}分`;
+          if (kind === "collection") value = `${Number(row.rate ?? 0).toFixed(2)}%（${Number(row.count ?? 0)}/${Number(row.total ?? CARDS.length)}）`;
+          if (kind === "money") value = formatMoney(Number(row.money ?? 0));
+          return `<tr><td>${index + 1}</td><td>${escapeHtml(row.username ?? "名無し")}</td><td>${escapeHtml(value)}</td></tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function renderRankingScreen() {
+  const box = $("rankingContent");
+  if (!box) return;
+  box.innerHTML = `<p class="muted">ランキングを読み込み中です。</p>`;
+  try {
+    if (getOnlineUserName()) await syncPlayerRankings();
+    const fb = await ensureOnlineFirebase();
+    const [ratingSnap, collectionSnap, moneySnap] = await Promise.all([
+      fb.get(getLeaderboardRef("onlineRating")),
+      fb.get(getLeaderboardRef("collection")),
+      fb.get(getLeaderboardRef("money"))
+    ]);
+    const toRows = (snap) => snap.exists() ? Object.entries(snap.val()).map(([uid, value]) => ({ uid, ...value })) : [];
+    const ratings = toRows(ratingSnap).sort((a, b) => Number(b.rating ?? 0) - Number(a.rating ?? 0)).slice(0, 20);
+    const collections = toRows(collectionSnap).sort((a, b) => Number(b.rate ?? 0) - Number(a.rate ?? 0) || Number(b.count ?? 0) - Number(a.count ?? 0)).slice(0, 20);
+    const moneys = toRows(moneySnap).sort((a, b) => Number(b.money ?? 0) - Number(a.money ?? 0)).slice(0, 20);
+    box.innerHTML = `
+      <div class="ranking-grid">
+        <section class="ranking-panel"><h3>オンライン対戦レート</h3>${rankingRowsHtml(ratings, "onlineRating")}</section>
+        <section class="ranking-panel"><h3>図鑑コンプリート率</h3>${rankingRowsHtml(collections, "collection")}</section>
+        <section class="ranking-panel"><h3>所持金</h3>${rankingRowsHtml(moneys, "money")}</section>
+      </div>
+    `;
+  } catch (error) {
+    box.innerHTML = `<p class="danger-text">ランキング読み込みエラー：${escapeHtml(error.message ?? error)}</p><p class="muted">Firebase設定とRealtime Database Rulesを確認してください。</p>`;
+  }
+}
+
 function renderSettingsScreen() {
   $("effectToggle").checked = Boolean(state.save.settings.effects);
   $("battleCardPopupToggle").checked = Boolean(state.save.settings.battleCardPopup);
+  renderProfileSummary(state.online.cachedProfile);
+  refreshProfileSummary();
 }
 
 function showModal(title, bodyHtml, actions = []) {
@@ -1507,6 +1853,8 @@ function renderOnlineBattleScreen(message = "") {
   const activeDeck = state.save.deckNames?.[state.save.activeDeckIndex] ?? `デッキ${state.save.activeDeckIndex + 1}`;
   const activeDeckLabel = $("onlineActiveDeckLabel");
   if (activeDeckLabel) activeDeckLabel.textContent = activeDeck;
+  renderProfileSummary(state.online.cachedProfile);
+  refreshProfileSummary();
   const msg = $("onlineBattleMessage");
   if (msg && message) msg.textContent = message;
   updateMoneyDisplays();
@@ -1521,6 +1869,7 @@ function detachOnlineRoom() {
   state.online.playerKey = null;
   state.online.lastRoomStatus = null;
   state.online.finishedShown = false;
+  state.online.ratingApplying = false;
 }
 
 function onlineRoomRef(roomId) {
@@ -1577,8 +1926,8 @@ function normalizeOnlineHandUsedData(handUsed, length) {
   return Array.from({ length }, (_, index) => Boolean(getIndexedOnlineValue(handUsed, index)));
 }
 
-function getOnlinePlayerName(playerKey) {
-  return playerKey === "p1" ? "プレイヤー1" : "プレイヤー2";
+function getOnlinePlayerName(playerKey, room = null) {
+  return room?.players?.[playerKey]?.name ?? (playerKey === "p1" ? "プレイヤー1" : "プレイヤー2");
 }
 
 function buildOnlineRoom(roomId, deckCards) {
@@ -1598,7 +1947,8 @@ function buildOnlineRoom(roomId, deckCards) {
     players: {
       p1: {
         uid: state.online.firebase.uid,
-        name: "プレイヤー1",
+        name: getOnlineUserName() || "プレイヤー1",
+        rating: Number(state.online.cachedProfile?.rating ?? getDefaultOnlineRating()),
         deck: deckCards.map((card) => card.id),
         handUsed: createOnlineHandUsedData(deckCards)
       }
@@ -1607,6 +1957,7 @@ function buildOnlineRoom(roomId, deckCards) {
 }
 
 async function createOnlineRoom() {
+  if (!requireOnlineUserName()) return;
   const { error, cards } = getActiveDeckCardsForOnline();
   if (error) {
     showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>オンライン対戦に使うデッキを5枚で作成してください。</p>`, [
@@ -1618,6 +1969,7 @@ async function createOnlineRoom() {
 
   try {
     const fb = await ensureOnlineFirebase();
+    state.online.cachedProfile = await syncPlayerRankings();
     detachOnlineRoom();
     let roomId = getRandomRoomId();
     let roomSnap = await fb.get(onlineRoomRef(roomId));
@@ -1640,6 +1992,7 @@ async function createOnlineRoom() {
 }
 
 async function joinOnlineRoom() {
+  if (!requireOnlineUserName()) return;
   const roomId = String($("onlineRoomCode").value ?? "").trim().toUpperCase();
   if (!roomId) {
     renderOnlineBattleScreen("部屋番号を入力してください。");
@@ -1657,6 +2010,7 @@ async function joinOnlineRoom() {
 
   try {
     const fb = await ensureOnlineFirebase();
+    state.online.cachedProfile = await syncPlayerRankings();
     detachOnlineRoom();
     const roomRef = onlineRoomRef(roomId);
     const snap = await fb.get(roomRef);
@@ -1672,7 +2026,8 @@ async function joinOnlineRoom() {
       firstTurn,
       "players/p2": {
         uid: fb.uid,
-        name: "プレイヤー2",
+        name: getOnlineUserName() || "プレイヤー2",
+        rating: Number(state.online.cachedProfile?.rating ?? getDefaultOnlineRating()),
         deck: cards.map((card) => card.id),
         handUsed: createOnlineHandUsedData(cards)
       }
@@ -1779,7 +2134,7 @@ function applyOnlineRoom(room) {
     mode: "online",
     onlineRoomId: room.roomId,
     playerKey,
-    npc: { id: "online", name: getOnlinePlayerName(opponentKey), difficulty: "オンライン" },
+    npc: { id: "online", name: getOnlinePlayerName(opponentKey, room), difficulty: "オンライン" },
     rules: room.rules ?? [],
     playerHand,
     npcHand: opponentHand,
@@ -1800,11 +2155,11 @@ function applyOnlineRoom(room) {
     $("battleLog").innerHTML = "";
     initPixi();
     addBattleLog(`オンライン対戦：部屋 ${room.roomId}`);
-    addBattleLog(`あなたは${getOnlinePlayerName(playerKey)}です。`);
-    addBattleLog(`先攻：${getOnlinePlayerName(room.firstTurn)}`);
+    addBattleLog(`あなたは${getOnlinePlayerName(playerKey, room)}です。`);
+    addBattleLog(`先攻：${getOnlinePlayerName(room.firstTurn, room)}`);
   }
 
-  $("battleNpcName").textContent = `オンライン対戦 / ${getOnlinePlayerName(playerKey)}`;
+  $("battleNpcName").textContent = `オンライン対戦 / ${getOnlinePlayerName(playerKey, room)}`;
   renderBattleAll();
 
   if (room.status === "playing") {
@@ -1812,7 +2167,15 @@ function applyOnlineRoom(room) {
     $("turnLabel").textContent = turnText;
   }
 
+  if (room.status === "finished" && !room.ratingApplied && state.online.playerKey === "p1") {
+    applyOnlineRatingIfNeeded(room);
+  }
+
   if (room.status === "finished" && !state.online.finishedShown) {
+    if (!room.ratingApplied && !room.ratingError) {
+      $("turnLabel").textContent = "レート集計中です。";
+      return;
+    }
     state.online.finishedShown = true;
     showOnlineResult(room);
   }
@@ -1824,11 +2187,16 @@ function showOnlineResult(room) {
   const myScore = result.score?.[playerKey] ?? calcScore().player;
   const opponentScore = result.score?.[getOpponentKey()] ?? calcScore().npc;
   const title = result.winner === "draw" ? "引き分け" : result.winner === playerKey ? "勝利" : "敗北";
+  const rating = room.ratingChange?.[playerKey];
+  const ratingHtml = rating
+    ? `<p>レート：${rating.old} → <strong>${rating.new}</strong>（${rating.diff >= 0 ? "+" : ""}${rating.diff}）</p>`
+    : `<p>レート：集計中、または反映できませんでした。</p>`;
   showModal(
     `オンライン対戦：${title}`,
-    `<p>オンライン対戦は報酬なしです。</p><p>スコア：自分 ${myScore} - ${opponentScore} 相手</p>`,
+    `<p>オンライン対戦は報酬なしです。</p><p>スコア：自分 ${myScore} - ${opponentScore} 相手</p>${ratingHtml}`,
     [
       { label: "オンライン対戦へ", onClick: () => { closeModal(); detachOnlineRoom(); state.battle = null; showScreen("onlineBattle"); } },
+      { label: "ランキングを見る", onClick: () => { closeModal(); detachOnlineRoom(); state.battle = null; showScreen("rankings"); } },
       { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); detachOnlineRoom(); state.battle = null; showScreen("title"); } }
     ]
   );
@@ -2813,6 +3181,7 @@ function bindEvents() {
   $("goDeck").addEventListener("click", () => showScreen("deck"));
   $("goShop").addEventListener("click", () => showScreen("shop"));
   $("goCollection").addEventListener("click", () => showScreen("collection"));
+  $("goRankings").addEventListener("click", () => showScreen("rankings"));
   $("goRules").addEventListener("click", () => showScreen("rules"));
   $("goSettings").addEventListener("click", () => showScreen("settings"));
   $("updateButton").addEventListener("click", forceUpdate);
@@ -2862,6 +3231,23 @@ function bindEvents() {
   $("battleCardPopupToggle").addEventListener("change", (event) => {
     state.save.settings.battleCardPopup = event.target.checked;
     save();
+  });
+
+  $("checkUserName").addEventListener("click", () => checkUserNameAvailability(true));
+  $("saveUserName").addEventListener("click", saveUserNameSetting);
+  $("syncRankings").addEventListener("click", async () => {
+    const result = $("userNameCheckResult");
+    try {
+      if (!getOnlineUserName()) {
+        if (result) result.textContent = "先にユーザー名を保存してください。";
+        return;
+      }
+      const profile = await syncPlayerRankings();
+      renderProfileSummary(profile);
+      if (result) result.textContent = "ランキング情報を更新しました。";
+    } catch (error) {
+      if (result) result.textContent = `更新エラー：${error.message ?? error}`;
+    }
   });
 
   $("exportSave").addEventListener("click", () => {

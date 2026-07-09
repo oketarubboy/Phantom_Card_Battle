@@ -269,3 +269,51 @@ Realtime Database Rulesの開発用例：
 - Firebase Realtime Databaseで盤面が配列ではなくオブジェクトとして返る場合にも同期できるように修正しました。
 - プレイヤー1がカードを置いた後、プレイヤー2側へ盤面・ターンが反映されない問題に対応しました。
 - オンライン同期エラーが画面上に表示されるようにしました。
+
+
+## v0.1.27 更新内容
+- Firebase Realtime Databaseを使ったランキング機能を追加しました。
+- ランキングは、オンライン対戦レート、図鑑コンプリート率、所持金の3種類です。
+- オンライン対戦はイロレーティング形式でレートを更新します。
+- 設定画面でランキング用ユーザー名を登録でき、同じユーザー名は登録できません。
+- オンライン対戦の部屋作成画面と設定画面で自分のレートを確認できます。
+
+### Realtime Database Rules追加例
+オンライン対戦のレート更新をブラウザ側で行うため、まずは下記のルールで動作確認してください。
+
+```json
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "profiles": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "usernames": {
+      "$nameKey": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "leaderboards": {
+      "$kind": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null"
+        }
+      }
+    }
+  }
+}
+```
+
+※このルールはカジュアル対戦向けです。報酬あり・不正対策ありにする場合は、Cloud Functions等でサーバー側判定に変更してください。
