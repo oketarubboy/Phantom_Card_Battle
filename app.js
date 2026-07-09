@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.27";
+const VERSION = "0.1.28";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -672,6 +672,7 @@ function showScreen(name) {
   if (name === "deck") renderDeckScreen();
   if (name === "shop") enterShop();
   if (name === "collection") renderCollectionScreen();
+  if (name === "rankings") renderRankingScreen();
   if (name === "settings") renderSettingsScreen();
   if (name === "battleMenu") renderNpcList();
 }
@@ -1327,11 +1328,19 @@ async function renderRankingScreen() {
       fb.get(getLeaderboardRef("collection")),
       fb.get(getLeaderboardRef("money"))
     ]);
-    const toRows = (snap) => snap.exists() ? Object.entries(snap.val()).map(([uid, value]) => ({ uid, ...value })) : [];
+    const toRows = (snap) => {
+      if (!snap.exists()) return [];
+      const data = snap.val() ?? {};
+      if (Array.isArray(data)) {
+        return data.map((value, index) => value ? ({ uid: String(index), ...value }) : null).filter(Boolean);
+      }
+      return Object.entries(data).map(([uid, value]) => ({ uid, ...(value ?? {}) }));
+    };
     const ratings = toRows(ratingSnap).sort((a, b) => Number(b.rating ?? 0) - Number(a.rating ?? 0)).slice(0, 20);
     const collections = toRows(collectionSnap).sort((a, b) => Number(b.rate ?? 0) - Number(a.rate ?? 0) || Number(b.count ?? 0) - Number(a.count ?? 0)).slice(0, 20);
     const moneys = toRows(moneySnap).sort((a, b) => Number(b.money ?? 0) - Number(a.money ?? 0)).slice(0, 20);
     box.innerHTML = `
+      ${!getOnlineUserName() ? `<p class="muted">自分の記録をランキングへ登録するには、設定画面でランキング用ユーザー名を保存してください。</p>` : ""}
       <div class="ranking-grid">
         <section class="ranking-panel"><h3>オンライン対戦レート</h3>${rankingRowsHtml(ratings, "onlineRating")}</section>
         <section class="ranking-panel"><h3>図鑑コンプリート率</h3>${rankingRowsHtml(collections, "collection")}</section>
@@ -1339,7 +1348,8 @@ async function renderRankingScreen() {
       </div>
     `;
   } catch (error) {
-    box.innerHTML = `<p class="danger-text">ランキング読み込みエラー：${escapeHtml(error.message ?? error)}</p><p class="muted">Firebase設定とRealtime Database Rulesを確認してください。</p>`;
+    console.error("ranking load failed", error);
+    box.innerHTML = `<p class="danger-text">ランキング読み込みエラー：${escapeHtml(error.code ? `${error.code}: ${error.message ?? error}` : error.message ?? error)}</p><p class="muted">Firebase設定、Anonymous Auth、Realtime Database Rulesを確認してください。</p>`;
   }
 }
 
@@ -3244,7 +3254,7 @@ function bindEvents() {
       }
       const profile = await syncPlayerRankings();
       renderProfileSummary(profile);
-      if (result) result.textContent = "ランキング情報を更新しました。";
+      if (result) result.textContent = "ランキング情報を更新しました。ランキング画面を開くと表示されます。";
     } catch (error) {
       if (result) result.textContent = `更新エラー：${error.message ?? error}`;
     }
