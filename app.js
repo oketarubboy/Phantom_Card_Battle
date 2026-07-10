@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.31";
+const VERSION = "0.1.32";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -785,6 +785,13 @@ function createInitialSave() {
   };
 }
 
+function createDefaultLittleDeck() {
+  return ["1", "2", "3", "4", "5"]
+    .map((no) => CARDS.find((card) => String(card.cardNo ?? card.no) === no)?.id)
+    .filter(Boolean);
+}
+
+
 function normalizeSave(save) {
   const fresh = createInitialSave();
   const normalized = {
@@ -796,9 +803,14 @@ function normalizeSave(save) {
     }
   };
 
+  const defaultLittleDeck = createDefaultLittleDeck();
   normalized.decks = Array.from({ length: TOTAL_DECK_COUNT }, (_, index) => {
     const deck = Array.isArray(save?.decks?.[index]) ? save.decks[index] : [];
-    return deck.filter((cardId) => cardById.has(cardId)).slice(0, 5);
+    const normalizedDeck = deck.filter((cardId) => cardById.has(cardId)).slice(0, 5);
+    if (isLittleDeckIndex(index) && normalizedDeck.length === 0) {
+      return [...defaultLittleDeck];
+    }
+    return normalizedDeck;
   });
 
   normalized.ownedCards = normalized.ownedCards ?? {};
