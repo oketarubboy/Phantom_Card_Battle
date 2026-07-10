@@ -913,9 +913,9 @@ export const CARDS = [
     "encyclopediaNo": "68",
     "name": "クラウドナイン",
     "rarity": 3,
-    "up": 8,
+    "up": 1,
     "right": 4,
-    "down": 1,
+    "down": 8,
     "left": 7,
     "power": 20
   },

@@ -70,21 +70,17 @@
           <div class="summary">
             使用デッキ：<strong id="onlineActiveDeckLabel">デッキ1</strong><br>
             ユーザー名：<strong id="onlineUserNameLabel">未設定</strong><br>
-            オンラインレート：<strong id="onlineRateLabel">1500</strong><br>
-            <small>オンライン対戦を使うには、<code>firebase-config.js</code> にFirebase設定を入力してください。</small>
+            オンラインレート：<strong id="onlineRateLabel">1500</strong>
           </div>
           <div class="online-actions">
             <button id="createOnlineRoom">部屋を作る</button>
+            <button id="randomOnlineMatch">ランダムマッチ</button>
             <div class="join-room-row">
               <input id="onlineRoomCode" class="search" placeholder="部屋番号を入力" maxlength="8" />
               <button id="joinOnlineRoom">部屋に入る</button>
             </div>
           </div>
           <div id="onlineBattleMessage" class="message"></div>
-          <div class="summary">
-            <strong>通信方式</strong><br>
-            GitHub Pagesの画面同士をFirebase Realtime Databaseで同期します。どこかのPCをサーバーとして起動しておく必要はありません。
-          </div>
         </div>
       </section>
 
@@ -235,6 +231,7 @@
             <div><strong>エースキラー</strong><p>1だけがAに勝てます。ただし1は2〜9には勝てません。</p></div>
             <div><strong>タイプアセンド</strong><p>場に同じ属性のカードが2枚以上ある時、その属性の場のカードだけが強化されます。2枚なら+1、3枚なら+2です。手札のカードと無属性カードは影響を受けません。上限はAです。</p></div>
             <div><strong>タイプディセンド</strong><p>場に同じ属性のカードが2枚以上ある時、その属性の場のカードだけが弱体化されます。2枚なら-1、3枚なら-2です。手札のカードと無属性カードは影響を受けません。1より小さくなりません。</p></div>
+            <div><strong>リトル★ / リトル★★ / リトル★★★</strong><p>指定された★数までのカードだけで対戦します。リトルが選ばれた場合は他の追加ルールは適用されず、対応する★デッキを使用します。</p></div>
             <div><strong>プラス</strong><p>隣接する辺の合計値が2辺以上同じになった場合、その対象カードをひっくり返します。</p></div>
             <div><strong>セイム</strong><p>隣接する2辺以上の数字が同じ場合、その対象カードをひっくり返します。</p></div>
             <div><strong>コンボ</strong><p>プラスやセイムなどでひっくり返したカードから、さらに通常比較で連鎖してひっくり返します。</p></div>

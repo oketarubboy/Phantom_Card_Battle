@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.30";
+const VERSION = "0.1.31";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -66,6 +66,9 @@ const RULES = [
   { id: "ace_killer", name: "エースキラー", short: "1だけがAに勝てます。1は2〜9には勝てません。" },
   { id: "type_ascend", name: "タイプアセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが+補正されます。" },
   { id: "type_descend", name: "タイプディセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが-補正されます。1未満にはなりません。" },
+  { id: "little_1", name: "リトル★", short: "★1までのカードだけで対戦します。その他の追加ルールは適用されず、★デッキを使用します。" },
+  { id: "little_2", name: "リトル★★", short: "★2までのカードだけで対戦します。その他の追加ルールは適用されず、★★デッキを使用します。" },
+  { id: "little_3", name: "リトル★★★", short: "★3までのカードだけで対戦します。その他の追加ルールは適用されず、★★★デッキを使用します。" },
   { id: "plus", name: "プラス", short: "接する辺の合計値が2辺以上同じなら対象カードを奪います。" },
   { id: "same", name: "セイム", short: "接する2辺以上の数字が同じなら対象カードを奪います。" },
   { id: "combo", name: "コンボ", short: "奪ったカードからさらに通常比較で連鎖します。" }
@@ -73,6 +76,14 @@ const RULES = [
 
 const RULE_NAME_BY_ID = Object.fromEntries(RULES.map((rule) => [rule.id, rule.name]));
 const CARD_TYPES = ["もなタイプ", "美雨タイプ", "凛花タイプ", "百花タイプ"];
+const NORMAL_DECK_COUNT = 5;
+const LITTLE_DECKS = [
+  { index: 5, maxRarity: 1, label: "★デッキ", defaultName: "★デッキ" },
+  { index: 6, maxRarity: 2, label: "★★デッキ", defaultName: "★★デッキ" },
+  { index: 7, maxRarity: 3, label: "★★★デッキ", defaultName: "★★★デッキ" }
+];
+const TOTAL_DECK_COUNT = NORMAL_DECK_COUNT + LITTLE_DECKS.length;
+const LITTLE_RULE_IDS = ["little_1", "little_2", "little_3"];
 const SHOP_PRICES = { 1: 100, 2: 500, 3: 5000 };
 const SHOP_GRADE_SETTINGS = [
   { grade: 1, required: 0, refreshFee: 100, stock: { 1: 7, 2: 2, 3: 1 } },
@@ -113,6 +124,56 @@ function updateOwnedCardViewButtons() {
   vertical.classList.toggle("ghost", view !== "vertical");
   horizontal.classList.toggle("active", view === "horizontal");
   horizontal.classList.toggle("ghost", view !== "horizontal");
+}
+
+function getLittleDeckByIndex(index) {
+  return LITTLE_DECKS.find((deck) => deck.index === index) ?? null;
+}
+
+function isLittleDeckIndex(index) {
+  return Boolean(getLittleDeckByIndex(index));
+}
+
+function getDeckDefaultName(index) {
+  const little = getLittleDeckByIndex(index);
+  return little ? little.defaultName : `デッキ${index + 1}`;
+}
+
+function getDeckDisplayName(index) {
+  return String(state.save?.deckNames?.[index] || getDeckDefaultName(index));
+}
+
+function getDeckRarityLimitByIndex(index) {
+  return getLittleDeckByIndex(index)?.maxRarity ?? null;
+}
+
+function isLittleRuleId(ruleId) {
+  return LITTLE_RULE_IDS.includes(ruleId);
+}
+
+function getLittleRuleMaxRarity(ruleIds = []) {
+  const rule = (ruleIds ?? []).find(isLittleRuleId);
+  if (!rule) return null;
+  return Number(rule.replace("little_", "")) || null;
+}
+
+function getLittleDeckIndexForRule(ruleIds = []) {
+  const maxRarity = getLittleRuleMaxRarity(ruleIds);
+  if (!maxRarity) return null;
+  return LITTLE_DECKS.find((deck) => deck.maxRarity === maxRarity)?.index ?? null;
+}
+
+function getDeckIndexForRules(ruleIds = []) {
+  return getLittleDeckIndexForRule(ruleIds) ?? state.save.activeDeckIndex;
+}
+
+function getDeckRuleNote(index) {
+  const limit = getDeckRarityLimitByIndex(index);
+  return limit ? `このデッキはリトル${rarityStars(limit)}専用です。${rarityStars(limit)}までのカードだけ登録できます。` : "通常対戦で使用するデッキです。";
+}
+
+function getDeckCardsByIndex(index) {
+  return (state.save.decks[index] ?? []).map((id) => cardById.get(id)).filter(Boolean);
 }
 
 function compareOwnedCards(a, b) {
@@ -649,12 +710,13 @@ function getNpcWinMoney(npc) {
 }
 
 function getRewardWeights(npc) {
+  const number = getNpcNumber(npc);
+  if (number >= 1 && number <= 6) return { random_one: 80, choose_one: 17, rare_chance: 3 };
+  if (number >= 7 && number <= 10) return { random_one: 80, choose_one: 15, rare_chance: 5 };
+  if (number >= 11 && number <= 14) return { random_one: 72, choose_one: 20, rare_chance: 8 };
+  if (number === 15) return { random_one: 70, choose_one: 20, rare_chance: 10 };
   const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 20);
-  return {
-    choose_one: 80,
-    random_one: Math.max(0, 20 - rare),
-    rare_chance: rare
-  };
+  return { random_one: Math.max(0, 20 - rare), choose_one: 80, rare_chance: rare };
 }
 
 function shuffle(array) {
@@ -707,8 +769,8 @@ function createInitialSave() {
     selectedDeckIndex: 0,
     ownedCards,
     discoveredCards: Object.fromEntries(starterCards.map((card) => [card.id, true])),
-    decks: [firstDeck, [], [], [], []],
-    deckNames: ["デッキ1", "デッキ2", "デッキ3", "デッキ4", "デッキ5"],
+    decks: [firstDeck, [], [], [], [], [...firstDeck], [...firstDeck], [...firstDeck]],
+    deckNames: Array.from({ length: TOTAL_DECK_COUNT }, (_, index) => getDeckDefaultName(index)),
     npcWins: {},
     money: 100,
     totalEarnedMoney: 0,
@@ -734,7 +796,7 @@ function normalizeSave(save) {
     }
   };
 
-  normalized.decks = Array.from({ length: 5 }, (_, index) => {
+  normalized.decks = Array.from({ length: TOTAL_DECK_COUNT }, (_, index) => {
     const deck = Array.isArray(save?.decks?.[index]) ? save.decks[index] : [];
     return deck.filter((cardId) => cardById.has(cardId)).slice(0, 5);
   });
@@ -742,14 +804,14 @@ function normalizeSave(save) {
   normalized.ownedCards = normalized.ownedCards ?? {};
   normalized.discoveredCards = normalized.discoveredCards ?? {};
   normalized.npcWins = normalized.npcWins ?? {};
-  normalized.deckNames = Array.from({ length: 5 }, (_, index) => {
+  normalized.deckNames = Array.from({ length: TOTAL_DECK_COUNT }, (_, index) => {
     const name = Array.isArray(save?.deckNames) ? String(save.deckNames[index] ?? "").trim() : "";
-    return name || `デッキ${index + 1}`;
+    return name || getDeckDefaultName(index);
   });
   normalized.shopPurchaseTotal = Number.isFinite(Number(normalized.shopPurchaseTotal)) ? Number(normalized.shopPurchaseTotal) : 0;
   normalized.totalEarnedMoney = Number.isFinite(Number(normalized.totalEarnedMoney)) ? Number(normalized.totalEarnedMoney) : 0;
-  normalized.activeDeckIndex = Number.isInteger(normalized.activeDeckIndex) ? Math.min(Math.max(normalized.activeDeckIndex, 0), 4) : 0;
-  normalized.selectedDeckIndex = Number.isInteger(normalized.selectedDeckIndex) ? Math.min(Math.max(normalized.selectedDeckIndex, 0), 4) : 0;
+  normalized.activeDeckIndex = Number.isInteger(normalized.activeDeckIndex) ? Math.min(Math.max(normalized.activeDeckIndex, 0), NORMAL_DECK_COUNT - 1) : 0;
+  normalized.selectedDeckIndex = Number.isInteger(normalized.selectedDeckIndex) ? Math.min(Math.max(normalized.selectedDeckIndex, 0), TOTAL_DECK_COUNT - 1) : 0;
 
   return normalized;
 }
@@ -812,7 +874,9 @@ function countInDeck(deck, cardId) {
   return deck.filter((id) => id === cardId).length;
 }
 
-function validateDeck(deck) {
+function validateDeck(deck, options = {}) {
+  const maxRarity = options.maxRarity ?? null;
+  const deckLabel = options.deckLabel ?? "デッキ";
   const cards = deck.map((id) => cardById.get(id)).filter(Boolean);
   const star5 = cards.filter((card) => card.rarity === 5).length;
   const star4 = cards.filter((card) => card.rarity === 4).length;
@@ -821,23 +885,33 @@ function validateDeck(deck) {
     if (countInDeck(deck, card.id) > getOwnedCount(card.id)) {
       return `「${card.name}」の所持数が足りません。`;
     }
+    if (maxRarity && card.rarity > maxRarity) {
+      return `${deckLabel}には${rarityStars(maxRarity)}までのカードだけ登録できます。`;
+    }
   }
 
   if (deck.length !== 5) return "デッキは5枚必要です。";
-  if (star5 > 1) return "★5は1枚までです。";
-  if (star4 > 2) return "★4は2枚までです。";
+  if (!maxRarity) {
+    if (star5 > 1) return "★5は1枚までです。";
+    if (star4 > 2) return "★4は2枚までです。";
+  }
   return "";
 }
 
-function canAddToDeck(deck, cardId) {
+function canAddToDeck(deck, cardId, options = {}) {
   const card = cardById.get(cardId);
+  const maxRarity = options.maxRarity ?? null;
+  const deckLabel = options.deckLabel ?? "デッキ";
   if (!card) return "カードが見つかりません。";
   if (deck.length >= 5) return "デッキは5枚までです。";
   if (countInDeck(deck, cardId) >= getOwnedCount(cardId)) return "所持数を超えて追加できません。";
+  if (maxRarity && card.rarity > maxRarity) return `${deckLabel}には${rarityStars(maxRarity)}までのカードだけ登録できます。`;
 
   const after = [...deck, cardId].map((id) => cardById.get(id));
-  if (after.filter((c) => c.rarity === 5).length > 1) return "★5は1枚までです。";
-  if (after.filter((c) => c.rarity === 4).length > 2) return "★4は2枚までです。";
+  if (!maxRarity) {
+    if (after.filter((c) => c.rarity === 5).length > 1) return "★5は1枚までです。";
+    if (after.filter((c) => c.rarity === 4).length > 2) return "★4は2枚までです。";
+  }
   return "";
 }
 
@@ -898,7 +972,13 @@ function escapeHtml(value) {
 }
 
 function sanitizeRuleIds(ruleIds, preferredId = null) {
-  const sanitized = [...new Set((ruleIds ?? []).filter((id) => RULE_NAME_BY_ID[id]))];
+  let sanitized = [...new Set((ruleIds ?? []).filter((id) => RULE_NAME_BY_ID[id]))];
+  const preferredLittle = preferredId && isLittleRuleId(preferredId) ? preferredId : null;
+  const littleRules = sanitized.filter(isLittleRuleId);
+  if (littleRules.length) {
+    const keep = preferredLittle && littleRules.includes(preferredLittle) ? preferredLittle : littleRules[0];
+    return [keep];
+  }
   const removeConflict = (a, b) => {
     if (sanitized.includes(a) && sanitized.includes(b)) {
       const removeId = preferredId === a ? b : a;
@@ -995,7 +1075,9 @@ function renderNpcList() {
     const wins = Number(state.save.npcWins?.[npc.id] ?? 0);
     const firstRewardStatus = firstReward ? (wins > 0 ? "獲得済み" : "未獲得") : "なし";
     const firstRewardText = firstReward
-      ? `No.${escapeHtml(firstReward.no)} ${escapeHtml(firstReward.name)}（${firstRewardStatus}）`
+      ? (wins > 0
+        ? `No.${escapeHtml(firstReward.no)} ${escapeHtml(firstReward.name)}（獲得済み）`
+        : `No.${escapeHtml(firstReward.no)}（未獲得）`)
       : firstRewardStatus;
     const firstRewardClass = firstReward ? (wins > 0 ? "obtained" : "not-obtained") : "none";
     const entryFee = getNpcEntryFee(npc);
@@ -1170,10 +1252,11 @@ function renderDeckTabsOnly() {
   if (!tabs) return;
   tabs.innerHTML = "";
 
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < TOTAL_DECK_COUNT; i += 1) {
     const button = document.createElement("button");
-    const deckName = state.save.deckNames?.[i] || `デッキ${i + 1}`;
-    button.textContent = `${deckName}${state.save.activeDeckIndex === i ? " 使用中" : ""}`;
+    const deckName = getDeckDisplayName(i);
+    const activeText = !isLittleDeckIndex(i) && state.save.activeDeckIndex === i ? " 使用中" : "";
+    button.textContent = `${deckName}${activeText}`;
     button.className = state.selectedDeckIndex === i ? "active" : "";
     button.addEventListener("click", () => {
       state.selectedDeckIndex = i;
@@ -1188,7 +1271,7 @@ function renderDeckScreen() {
   renderDeckTabsOnly();
 
   const deckNameInput = $("deckNameInput");
-  if (deckNameInput) deckNameInput.value = state.save.deckNames?.[state.selectedDeckIndex] || `デッキ${state.selectedDeckIndex + 1}`;
+  if (deckNameInput) deckNameInput.value = getDeckDisplayName(state.selectedDeckIndex);
 
   normalizeDeckSort();
   $("deckSortField").value = state.deckSort.field;
@@ -1234,8 +1317,10 @@ function renderCurrentDeck() {
     box.appendChild(row);
   }
 
-  const error = validateDeck(deck);
-  $("deckMessage").textContent = error ? error : "このデッキは使用できます。";
+  const deckLimit = getDeckRarityLimitByIndex(state.selectedDeckIndex);
+  const error = validateDeck(deck, { maxRarity: deckLimit, deckLabel: getDeckDisplayName(state.selectedDeckIndex) });
+  const note = getDeckRuleNote(state.selectedDeckIndex);
+  $("deckMessage").textContent = error ? error : `このデッキは使用できます。${note ? " " + note : ""}`;
   $("deckMessage").style.color = error ? "var(--danger)" : "var(--good)";
 }
 
@@ -1269,7 +1354,7 @@ function renderOwnedCardList() {
     `;
     row.addEventListener("click", () => {
       const deck = state.save.decks[state.selectedDeckIndex];
-      const error = canAddToDeck(deck, card.id);
+      const error = canAddToDeck(deck, card.id, { maxRarity: getDeckRarityLimitByIndex(state.selectedDeckIndex), deckLabel: getDeckDisplayName(state.selectedDeckIndex) });
       if (error) {
         $("deckMessage").textContent = error;
         $("deckMessage").style.color = "var(--danger)";
@@ -1785,8 +1870,18 @@ function getNpcCardPool(npc) {
   return (npc?.cardPool ?? []).map((id) => cardById.get(id)).filter(Boolean);
 }
 
-function buildNpcHand(npc) {
-  const pool = getNpcCardPool(npc);
+function getNpcCardPoolForRules(npc, ruleIds = []) {
+  const maxRarity = getLittleRuleMaxRarity(ruleIds);
+  if (!maxRarity) return getNpcCardPool(npc);
+  const explicit = npc?.littlePools?.[String(maxRarity)] ?? npc?.littlePools?.[maxRarity];
+  const sourceIds = Array.isArray(explicit) ? explicit : (npc?.cardPool ?? []);
+  let pool = sourceIds.map((id) => cardById.get(id)).filter((card) => card && card.rarity <= maxRarity);
+  if (pool.length < 5) pool = CARDS.filter((card) => card.rarity <= maxRarity);
+  return pool;
+}
+
+function buildNpcHand(npc, ruleIds = []) {
+  const pool = getNpcCardPoolForRules(npc, ruleIds);
   const selected = [];
   const selectedIds = new Set();
   const addCard = (card) => {
@@ -1884,11 +1979,16 @@ function prepareBattleStart(npcId) {
 
 
 
+function getDeckCardsForOnlineRules(ruleIds = []) {
+  const deckIndex = getDeckIndexForRules(ruleIds);
+  const deck = state.save.decks[deckIndex] ?? [];
+  const error = validateDeck(deck, { maxRarity: getDeckRarityLimitByIndex(deckIndex), deckLabel: getDeckDisplayName(deckIndex) });
+  if (error) return { error, cards: [], deckIndex };
+  return { error: "", cards: deck.map((id) => cardById.get(id)).filter(Boolean), deckIndex };
+}
+
 function getActiveDeckCardsForOnline() {
-  const deck = state.save.decks[state.save.activeDeckIndex];
-  const error = validateDeck(deck);
-  if (error) return { error, cards: [] };
-  return { error: "", cards: deck.map((id) => cardById.get(id)).filter(Boolean) };
+  return getDeckCardsForOnlineRules([]);
 }
 
 function getRandomRoomId() {
@@ -2013,14 +2113,14 @@ function getOnlinePlayerName(playerKey, room = null) {
   return room?.players?.[playerKey]?.name ?? (playerKey === "p1" ? "プレイヤー1" : "プレイヤー2");
 }
 
-function buildOnlineRoom(roomId, deckCards) {
+function buildOnlineRoom(roomId, deckCards, rules = rollOnlineAdditionalRules()) {
   return {
     version: VERSION,
     roomId,
     status: "waiting",
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    rules: rollOnlineAdditionalRules(),
+    rules,
     board: createEmptyOnlineBoardData(),
     turn: null,
     firstTurn: null,
@@ -2041,10 +2141,11 @@ function buildOnlineRoom(roomId, deckCards) {
 
 async function createOnlineRoom() {
   if (!requireOnlineUserName()) return;
-  const { error, cards } = getActiveDeckCardsForOnline();
+  const rules = rollOnlineAdditionalRules();
+  const { error, cards, deckIndex } = getDeckCardsForOnlineRules(rules);
   if (error) {
-    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>オンライン対戦に使うデッキを5枚で作成してください。</p>`, [
-      { label: "デッキへ", onClick: () => { closeModal(); showScreen("deck"); } },
+    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>オンライン対戦に使う${escapeHtml(getDeckDisplayName(deckIndex))}を5枚で作成してください。</p>`, [
+      { label: "デッキへ", onClick: () => { closeModal(); state.selectedDeckIndex = deckIndex; showScreen("deck"); } },
       { label: "閉じる", className: "ghost", onClick: closeModal }
     ]);
     return;
@@ -2060,7 +2161,7 @@ async function createOnlineRoom() {
       roomId = getRandomRoomId();
       roomSnap = await fb.get(onlineRoomRef(roomId));
     }
-    await fb.set(onlineRoomRef(roomId), buildOnlineRoom(roomId, cards));
+    await fb.set(onlineRoomRef(roomId), buildOnlineRoom(roomId, cards, rules));
     attachOnlineRoom(roomId, "p1");
     $("onlineRoomCode").value = roomId;
     renderOnlineBattleScreen(`部屋を作成しました。部屋番号 ${roomId} を相手に伝えてください。`);
@@ -2082,15 +2183,6 @@ async function joinOnlineRoom() {
     return;
   }
 
-  const { error, cards } = getActiveDeckCardsForOnline();
-  if (error) {
-    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>オンライン対戦に使うデッキを5枚で作成してください。</p>`, [
-      { label: "デッキへ", onClick: () => { closeModal(); showScreen("deck"); } },
-      { label: "閉じる", className: "ghost", onClick: closeModal }
-    ]);
-    return;
-  }
-
   try {
     const fb = await ensureOnlineFirebase();
     state.online.cachedProfile = await syncPlayerRankings();
@@ -2100,6 +2192,14 @@ async function joinOnlineRoom() {
     if (!snap.exists()) throw new Error("指定された部屋が見つかりません。");
     const room = snap.val();
     if (room.status !== "waiting" || room.players?.p2) throw new Error("この部屋には入室できません。すでに対戦が始まっている可能性があります。");
+    const { error, cards, deckIndex } = getDeckCardsForOnlineRules(room.rules ?? []);
+    if (error) {
+      showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>この部屋の追加ルールでは${escapeHtml(getDeckDisplayName(deckIndex))}が必要です。</p>`, [
+        { label: "デッキへ", onClick: () => { closeModal(); state.selectedDeckIndex = deckIndex; showScreen("deck"); } },
+        { label: "閉じる", className: "ghost", onClick: closeModal }
+      ]);
+      return;
+    }
 
     const firstTurn = Math.random() < 0.5 ? "p1" : "p2";
     await fb.update(roomRef, {
@@ -2121,6 +2221,186 @@ async function joinOnlineRoom() {
     console.error(error);
     showModal("オンライン接続エラー", `<p>${escapeHtml(error.message ?? error)}</p>`, [{ label: "閉じる", onClick: closeModal }]);
   }
+}
+
+
+function onlineMatchmakingRef(uid = null) {
+  const fb = state.online.firebase;
+  return fb.ref(fb.db, uid ? `matchmaking/waiting/${uid}` : "matchmaking/waiting");
+}
+
+function getRandomOnlineNpcSpecs() {
+  return [
+    { id: "online_npc_1", name: "ランダムNPC1", difficulty: "よわい", rating: 1000, pattern: [{ rarity: 1, count: 2 }, { rarity: 2, count: 2 }, { rarity: 3, count: 1 }] },
+    { id: "online_npc_2", name: "ランダムNPC2", difficulty: "ふつう", rating: 1500, pattern: [{ rarity: 2, count: 2 }, { rarity: 3, count: 2 }, { rarity: 4, count: 1 }] },
+    { id: "online_npc_3", name: "ランダムNPC3", difficulty: "つよい", rating: 2000, pattern: [{ rarity: 3, count: 2 }, { rarity: 4, count: 2 }, { rarity: 5, count: 1 }] }
+  ];
+}
+
+function buildRandomOnlineNpcHand(spec, ruleIds = []) {
+  const maxRarity = getLittleRuleMaxRarity(ruleIds);
+  if (maxRarity) return sample(CARDS.filter((card) => card.rarity <= maxRarity), 5);
+  const result = [];
+  const used = new Set();
+  for (const part of spec.pattern) {
+    const candidates = shuffle(CARDS.filter((card) => card.rarity === part.rarity && !used.has(card.id)));
+    for (const card of candidates.slice(0, part.count)) {
+      result.push(card);
+      used.add(card.id);
+    }
+  }
+  while (result.length < 5) {
+    const card = sample(CARDS.filter((item) => !used.has(item.id)), 1)[0];
+    if (!card) break;
+    result.push(card);
+    used.add(card.id);
+  }
+  return result.slice(0, 5);
+}
+
+async function startRandomOnlineMatch() {
+  if (!requireOnlineUserName()) return;
+  try {
+    const fb = await ensureOnlineFirebase();
+    state.online.cachedProfile = await syncPlayerRankings();
+    const myUid = fb.uid;
+    const now = Date.now();
+    detachOnlineRoom();
+    renderOnlineBattleScreen("ランダムマッチを検索しています。最大30秒待機します。");
+    const waitingSnap = await fb.get(onlineMatchmakingRef());
+    const waitingData = waitingSnap.exists() ? waitingSnap.val() : {};
+    const opponentEntry = Object.entries(waitingData).find(([uid, ticket]) => uid !== myUid && ticket && now - Number(ticket.createdAt ?? 0) < 30000);
+    if (opponentEntry) {
+      const [opponentUid, ticket] = opponentEntry;
+      const rules = sanitizeRuleIds(ticket.rules ?? rollOnlineAdditionalRules());
+      const myDeck = getDeckCardsForOnlineRules(rules);
+      if (myDeck.error) {
+        showModal("デッキ確認", `<p>${escapeHtml(myDeck.error)}</p><p>ランダムマッチの追加ルールでは${escapeHtml(getDeckDisplayName(myDeck.deckIndex))}が必要です。</p>`, [
+          { label: "デッキへ", onClick: () => { closeModal(); state.selectedDeckIndex = myDeck.deckIndex; showScreen("deck"); } },
+          { label: "閉じる", className: "ghost", onClick: closeModal }
+        ]);
+        return;
+      }
+      const opponentDeckIds = ticket.deck ?? [];
+      const roomId = getRandomRoomId();
+      const firstTurn = Math.random() < 0.5 ? "p1" : "p2";
+      const room = {
+        version: VERSION,
+        roomId,
+        status: "playing",
+        createdAt: now,
+        updatedAt: now,
+        rules,
+        board: createEmptyOnlineBoardData(),
+        turn: firstTurn,
+        firstTurn,
+        winner: null,
+        result: null,
+        players: {
+          p1: { uid: opponentUid, name: ticket.name || "プレイヤー1", rating: Number(ticket.rating ?? 1500), deck: opponentDeckIds, handUsed: createOnlineHandUsedData(opponentDeckIds) },
+          p2: { uid: myUid, name: getOnlineUserName() || "プレイヤー2", rating: Number(state.online.cachedProfile?.rating ?? 1500), deck: myDeck.cards.map((card) => card.id), handUsed: createOnlineHandUsedData(myDeck.cards) }
+        }
+      };
+      await fb.set(onlineRoomRef(roomId), room);
+      await fb.update(fb.ref(fb.db), {
+        [`matchmaking/waiting/${opponentUid}/matchedRoomId`]: roomId,
+        [`matchmaking/waiting/${opponentUid}/matchedAt`]: now,
+        [`matchmaking/waiting/${myUid}`]: null
+      });
+      attachOnlineRoom(roomId, "p2");
+      return;
+    }
+
+    const rules = rollOnlineAdditionalRules();
+    const deckData = getDeckCardsForOnlineRules(rules);
+    if (deckData.error) {
+      showModal("デッキ確認", `<p>${escapeHtml(deckData.error)}</p><p>ランダムマッチの追加ルールでは${escapeHtml(getDeckDisplayName(deckData.deckIndex))}が必要です。</p>`, [
+        { label: "デッキへ", onClick: () => { closeModal(); state.selectedDeckIndex = deckData.deckIndex; showScreen("deck"); } },
+        { label: "閉じる", className: "ghost", onClick: closeModal }
+      ]);
+      return;
+    }
+    await fb.set(onlineMatchmakingRef(myUid), {
+      uid: myUid,
+      name: getOnlineUserName() || "プレイヤー1",
+      rating: Number(state.online.cachedProfile?.rating ?? 1500),
+      deck: deckData.cards.map((card) => card.id),
+      rules,
+      createdAt: now,
+      matchedRoomId: null
+    });
+    const deadline = Date.now() + 30000;
+    showModal("ランダムマッチ待機", "<p>対戦相手を探しています。</p><p>30秒以内に見つからない場合はランダムNPCと対戦します。</p>", [
+      { label: "キャンセル", className: "ghost", onClick: async () => { try { await fb.remove(onlineMatchmakingRef(myUid)); } catch {} closeModal(); renderOnlineBattleScreen("ランダムマッチをキャンセルしました。"); } }
+    ]);
+    const timer = setInterval(async () => {
+      try {
+        const snap = await fb.get(onlineMatchmakingRef(myUid));
+        const ticket = snap.exists() ? snap.val() : null;
+        if (ticket?.matchedRoomId) {
+          clearInterval(timer);
+          closeModal();
+          attachOnlineRoom(ticket.matchedRoomId, "p1");
+          setTimeout(() => fb.remove(onlineMatchmakingRef(myUid)).catch(() => {}), 3000);
+          return;
+        }
+        if (Date.now() >= deadline) {
+          clearInterval(timer);
+          await fb.remove(onlineMatchmakingRef(myUid));
+          closeModal();
+          startOnlineRandomNpcBattle();
+        }
+      } catch (error) {
+        clearInterval(timer);
+        closeModal();
+        showModal("ランダムマッチエラー", `<p>${escapeHtml(error.message ?? error)}</p>`, [{ label: "閉じる", onClick: closeModal }]);
+      }
+    }, 1200);
+  } catch (error) {
+    showModal("ランダムマッチエラー", `<p>${escapeHtml(error.message ?? error)}</p>`, [{ label: "閉じる", onClick: closeModal }]);
+  }
+}
+
+async function startOnlineRandomNpcBattle() {
+  const specs = getRandomOnlineNpcSpecs();
+  const spec = sample(specs, 1)[0];
+  const rules = rollOnlineAdditionalRules();
+  const deckData = getDeckCardsForOnlineRules(rules);
+  if (deckData.error) {
+    showModal("デッキ確認", `<p>${escapeHtml(deckData.error)}</p><p>ランダムNPC戦の追加ルールでは${escapeHtml(getDeckDisplayName(deckData.deckIndex))}が必要です。</p>`, [
+      { label: "デッキへ", onClick: () => { closeModal(); state.selectedDeckIndex = deckData.deckIndex; showScreen("deck"); } },
+      { label: "閉じる", className: "ghost", onClick: closeModal }
+    ]);
+    return;
+  }
+  const npcHandCards = buildRandomOnlineNpcHand(spec, rules);
+  const firstTurn = Math.random() < 0.5 ? "player" : "npc";
+  state.battle = {
+    mode: "onlineNpc",
+    npc: { id: spec.id, name: spec.name, difficulty: spec.difficulty, onlineNpcRating: spec.rating },
+    rules,
+    playerHand: deckData.cards.map((card) => ({ card, used: false })),
+    npcHand: npcHandCards.map((card) => ({ card, used: false })),
+    npcBattleCards: npcHandCards,
+    board: Array(9).fill(null),
+    currentTurn: firstTurn,
+    locked: false,
+    finished: false,
+    forcedPlayerHandIndex: null,
+    forcedNpcHandIndex: null,
+    entryFee: 0,
+    winMoney: 0
+  };
+  state.selectedHandIndex = null;
+  showScreen("battle");
+  $("battleNpcName").textContent = `ランダムマッチ / ${spec.name}`;
+  $("battleLog").innerHTML = "";
+  initPixi();
+  addBattleLog(`ランダムNPC戦を開始しました。相手レート相当：${spec.rating}`);
+  addBattleLog(`追加ルール：${getRuleSummary(rules)}`);
+  prepareTurn(firstTurn);
+  renderBattleAll();
+  if (firstTurn === "npc") setTimeout(() => npcTurn(), 550);
 }
 
 function attachOnlineRoom(roomId, playerKey) {
@@ -2306,7 +2586,7 @@ async function startOnlineRematch(room) {
     ratingApplied: null,
     ratingError: null,
     ratingChange: null,
-    rules: rollOnlineAdditionalRules(),
+    rules: room.rules ?? [],
     typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
     "players/p1/handUsed": createOnlineHandUsedData(p1Deck),
     "players/p2/handUsed": createOnlineHandUsedData(p2Deck),
@@ -2322,16 +2602,18 @@ async function requestOnlineRematch() {
     showScreen("onlineBattle");
     return;
   }
-  const { error, cards } = getActiveDeckCardsForOnline();
-  if (error) {
-    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>オンライン対戦に使うデッキを5枚で作成してください。</p>`, [
-      { label: "デッキへ", onClick: () => { closeModal(); showScreen("deck"); } },
-      { label: "閉じる", className: "ghost", onClick: closeModal }
-    ]);
-    return;
-  }
   try {
     const fb = await ensureOnlineFirebase();
+    const currentSnap = await fb.get(onlineRoomRef(roomId));
+    const currentRoom = currentSnap.exists() ? currentSnap.val() : null;
+    const { error, cards, deckIndex } = getDeckCardsForOnlineRules(currentRoom?.rules ?? []);
+    if (error) {
+      showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>再戦には${escapeHtml(getDeckDisplayName(deckIndex))}が必要です。</p>`, [
+        { label: "デッキへ", onClick: () => { closeModal(); state.selectedDeckIndex = deckIndex; showScreen("deck"); } },
+        { label: "閉じる", className: "ghost", onClick: closeModal }
+      ]);
+      return;
+    }
     await fb.update(onlineRoomRef(roomId), {
       [`players/${playerKey}/deck`]: cards.map((card) => card.id),
       [`players/${playerKey}/handUsed`]: createOnlineHandUsedData(cards),
@@ -2444,11 +2726,13 @@ async function startBattle(npcId, selectedRules = null) {
     return;
   }
   selectedRules = sanitizeRuleIds(selectedRules);
-  const deck = state.save.decks[state.save.activeDeckIndex];
-  const error = validateDeck(deck);
+  const deckIndex = getDeckIndexForRules(selectedRules);
+  const deck = state.save.decks[deckIndex] ?? [];
+  const deckLimit = getDeckRarityLimitByIndex(deckIndex);
+  const error = validateDeck(deck, { maxRarity: deckLimit, deckLabel: getDeckDisplayName(deckIndex) });
   if (error) {
-    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>デッキ画面で5枚のデッキを作成してください。</p>`, [
-      { label: "デッキへ", onClick: () => { closeModal(); showScreen("deck"); } },
+    showModal("デッキ確認", `<p>${escapeHtml(error)}</p><p>${escapeHtml(getDeckDisplayName(deckIndex))}を5枚で作成してください。</p>`, [
+      { label: "デッキへ", onClick: () => { closeModal(); state.selectedDeckIndex = deckIndex; showScreen("deck"); } },
       { label: "閉じる", className: "ghost", onClick: closeModal }
     ]);
     return;
@@ -2474,7 +2758,7 @@ async function startBattle(npcId, selectedRules = null) {
   spendMoney(entryFee);
 
   const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
-  const npcDeck = buildNpcHand(npc);
+  const npcDeck = buildNpcHand(npc, selectedRules);
   const playerHandCards = [...playerBattleDeck];
   const npcHandCards = [...npcDeck];
   let swapInfo = null;
@@ -2518,6 +2802,7 @@ async function startBattle(npcId, selectedRules = null) {
   addBattleLog(`挑戦料として${formatMoney(entryFee)}を支払いました。敗北・棄権時は返金されません。`);
   addBattleLog(`勝利報酬：${formatMoney(getNpcWinMoney(npc))}`);
   addBattleLog(`追加ルール：${getRuleSummary(selectedRules)}`);
+  addBattleLog(`使用デッキ：${getDeckDisplayName(deckIndex)}`);
   if (swapInfo) addBattleLog(`スワップ：お互いの手札から1枚を交換しました。対戦後に戻ります。`);
   addBattleLog("コイントスで先攻・後攻を決定します。");
   initPixi();
@@ -3038,6 +3323,10 @@ function checkBattleEnd() {
   renderBattleAll();
 
   const score = calcScore();
+  if (battle.mode === "onlineNpc") {
+    handleOnlineNpcResult(score);
+    return true;
+  }
   if (score.player > score.npc) {
     addBattleLog(`勝利！ ${score.player} - ${score.npc}`);
     const winMoney = getNpcWinMoney(battle.npc);
@@ -3077,6 +3366,43 @@ function checkBattleEnd() {
   }
 
   return true;
+}
+
+async function handleOnlineNpcResult(score) {
+  const battle = state.battle;
+  const winner = score.player > score.npc ? "player" : score.player < score.npc ? "npc" : "draw";
+  const myScore = winner === "draw" ? 0.5 : winner === "player" ? 1 : 0;
+  const oldRating = Number(state.online.cachedProfile?.rating ?? getDefaultOnlineRating());
+  const opponentRating = Number(battle.npc?.onlineNpcRating ?? 1500);
+  const newRating = calculateElo(oldRating, opponentRating, myScore);
+  const title = winner === "draw" ? "引き分け" : winner === "player" ? "勝利" : "敗北";
+  addBattleLog(`${title} ${score.player} - ${score.npc}`);
+  try {
+    const fb = await ensureOnlineFirebase();
+    const profileSnap = await fb.get(getProfileRef(fb.uid));
+    const profile = profileSnap.exists() ? profileSnap.val() : {};
+    const wins = Number(profile.onlineWins ?? 0) + (winner === "player" ? 1 : 0);
+    const losses = Number(profile.onlineLosses ?? 0) + (winner === "npc" ? 1 : 0);
+    const draws = Number(profile.onlineDraws ?? 0) + (winner === "draw" ? 1 : 0);
+    const username = getOnlineUserName() || profile.username || "名無し";
+    const now = Date.now();
+    await fb.update(fb.ref(fb.db), {
+      [`profiles/${fb.uid}/rating`]: newRating,
+      [`profiles/${fb.uid}/onlineWins`]: wins,
+      [`profiles/${fb.uid}/onlineLosses`]: losses,
+      [`profiles/${fb.uid}/onlineDraws`]: draws,
+      [`profiles/${fb.uid}/updatedAt`]: now,
+      [`leaderboards/onlineRating/${fb.uid}`]: { username, rating: newRating, wins, losses, draws, updatedAt: now }
+    });
+    state.online.cachedProfile = { ...(state.online.cachedProfile ?? {}), rating: newRating, onlineWins: wins, onlineLosses: losses, onlineDraws: draws };
+  } catch (error) {
+    addBattleLog(`レート反映エラー：${error.message ?? error}`);
+  }
+  showModal(`ランダムNPC戦：${title}`, `<p>スコア：自分 ${score.player} - ${score.npc} 相手</p><p>レート：${oldRating} → <strong>${newRating}</strong>（${newRating - oldRating >= 0 ? "+" : ""}${newRating - oldRating}）</p>`, [
+    { label: "もう一度ランダムマッチ", onClick: () => { closeModal(); state.battle = null; showScreen("onlineBattle"); startRandomOnlineMatch(); } },
+    { label: "オンライン対戦へ", className: "ghost", onClick: () => { closeModal(); state.battle = null; showScreen("onlineBattle"); } },
+    { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); state.battle = null; showScreen("title"); } }
+  ]);
 }
 
 function getFirstWinRewardCard(battle) {
@@ -3327,6 +3653,8 @@ function bindEvents() {
   $("goOnlineBattle").addEventListener("click", () => showScreen("onlineBattle"));
   $("createOnlineRoom").addEventListener("click", createOnlineRoom);
   $("joinOnlineRoom").addEventListener("click", joinOnlineRoom);
+  const randomMatchBtn = $("randomOnlineMatch");
+  if (randomMatchBtn) randomMatchBtn.addEventListener("click", startRandomOnlineMatch);
   $("onlineRoomCode").addEventListener("input", (event) => { event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8); });
   $("goDeck").addEventListener("click", () => showScreen("deck"));
   $("goShop").addEventListener("click", () => showScreen("shop"));
@@ -3349,13 +3677,18 @@ function bindEvents() {
   });
   $("collectionSearch").addEventListener("input", renderCollectionScreen);
   $("deckNameInput").addEventListener("input", (event) => {
-    const name = event.target.value.trim() || `デッキ${state.selectedDeckIndex + 1}`;
+    const name = event.target.value.trim() || getDeckDefaultName(state.selectedDeckIndex);
     state.save.deckNames[state.selectedDeckIndex] = name;
     save();
     renderDeckTabsOnly();
   });
 
   $("setActiveDeck").addEventListener("click", () => {
+    if (isLittleDeckIndex(state.selectedDeckIndex)) {
+      $("deckMessage").textContent = "リトル専用デッキは、リトルルール時に自動で使用されます。通常使用デッキには設定できません。";
+      $("deckMessage").style.color = "var(--danger)";
+      return;
+    }
     const error = validateDeck(state.save.decks[state.selectedDeckIndex]);
     if (error) {
       $("deckMessage").textContent = error;
