@@ -394,7 +394,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [],
     "rareChanceRarities": [
@@ -454,7 +455,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [],
     "rareChanceRarities": [
@@ -514,7 +516,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [],
     "rareChanceRarities": [
@@ -574,7 +577,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [],
     "rareChanceRarities": [
@@ -638,7 +642,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [
       "plus",
@@ -709,7 +714,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [
       "plus",
@@ -780,7 +786,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [
       "plus",
@@ -851,7 +858,8 @@ export const NPCS = [
       "swap",
       "reverse",
       "ace_killer",
-      "type_ascend"
+      "type_ascend",
+      "type_descend"
     ],
     "ruleGroup2": [
       "plus",
