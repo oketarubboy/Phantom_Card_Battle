@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.29";
+const VERSION = "0.1.30";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -64,8 +64,8 @@ const RULES = [
   { id: "swap", name: "スワップ", short: "開始前に手札1枚をランダム交換します。対戦後は戻ります。" },
   { id: "reverse", name: "リバース", short: "数字の強さが逆になります。Aが最弱、1が最強です。" },
   { id: "ace_killer", name: "エースキラー", short: "1だけがAに勝てます。1は2〜9には勝てません。" },
-  { id: "type_ascend", name: "タイプアセンド", short: "同じタイプのカードが場に出るたび、そのタイプが+1されます。" },
-  { id: "type_descend", name: "タイプディセンド", short: "同じタイプのカードが場に出るたび、そのタイプが-1されます。1より小さくなりません。" },
+  { id: "type_ascend", name: "タイプアセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが+補正されます。" },
+  { id: "type_descend", name: "タイプディセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが-補正されます。1未満にはなりません。" },
   { id: "plus", name: "プラス", short: "接する辺の合計値が2辺以上同じなら対象カードを奪います。" },
   { id: "same", name: "セイム", short: "接する2辺以上の数字が同じなら対象カードを奪います。" },
   { id: "combo", name: "コンボ", short: "奪ったカードからさらに通常比較で連鎖します。" }
@@ -533,21 +533,31 @@ function hasRule(ruleId, battle = state.battle) {
   return Boolean(battle?.rules?.includes(ruleId));
 }
 
-function getEffectiveCardValue(card, side, battle = state.battle, typeBoosts = null) {
-  let value = Number(card?.[side] ?? 0);
+function getTypeRuleLevel(card, battle = state.battle, board = null) {
   const type = getCardType(card);
-  const boost = type ? Number((typeBoosts ?? battle?.typeBoosts ?? {})[type] ?? 0) : 0;
-  if (type && battle?.rules?.includes("type_ascend")) value += boost;
-  if (type && battle?.rules?.includes("type_descend")) value -= boost;
+  if (!type || !battle || (!hasRule("type_ascend", battle) && !hasRule("type_descend", battle))) return 0;
+  const targetBoard = Array.isArray(board) ? board : Array.isArray(battle.board) ? battle.board : [];
+  const sameTypeCount = targetBoard.filter((cell) => cell?.card && getCardType(cell.card) === type).length;
+  // 1枚目は変化なし。2枚目で±1、3枚目で±2のように、場の同属性枚数から補正値を決める。
+  return Math.max(0, sameTypeCount - 1);
+}
+
+function getEffectiveCardValue(card, side, battle = state.battle, board = null) {
+  let value = Number(card?.[side] ?? 0);
+  const level = getTypeRuleLevel(card, battle, board);
+  if (level > 0) {
+    if (hasRule("type_ascend", battle)) value += level;
+    if (hasRule("type_descend", battle)) value -= level;
+  }
   return clamp(value, 1, 10);
 }
 
-function getCardValueSet(card, battle = state.battle, typeBoosts = null) {
+function getCardValueSet(card, battle = state.battle, board = null) {
   return {
-    up: getEffectiveCardValue(card, "up", battle, typeBoosts),
-    right: getEffectiveCardValue(card, "right", battle, typeBoosts),
-    down: getEffectiveCardValue(card, "down", battle, typeBoosts),
-    left: getEffectiveCardValue(card, "left", battle, typeBoosts)
+    up: getEffectiveCardValue(card, "up", battle, board),
+    right: getEffectiveCardValue(card, "right", battle, board),
+    down: getEffectiveCardValue(card, "down", battle, board),
+    left: getEffectiveCardValue(card, "left", battle, board)
   };
 }
 
@@ -942,6 +952,20 @@ function getRuleSummary(ruleIds = state.selectedRuleIds) {
   const rules = sanitizeRuleIds(ruleIds);
   if (!rules.length) return "追加ルールなし";
   return rules.map((id) => RULE_NAME_BY_ID[id] ?? id).join(" / ");
+}
+
+function getRuleDescriptionHtml(ruleIds) {
+  const rules = sanitizeRuleIds(ruleIds);
+  if (!rules.length) return `<p class="muted">追加ルールはありません。</p>`;
+  return `
+    <div class="selected-rule-descriptions">
+      ${rules.map((id) => {
+        const rule = RULES.find((item) => item.id === id);
+        if (!rule) return "";
+        return `<div><strong>${escapeHtml(rule.name)}</strong><p>${escapeHtml(rule.short)}</p></div>`;
+      }).join("")}
+    </div>
+  `;
 }
 
 function renderNpcList() {
@@ -1423,11 +1447,12 @@ function closeModal() {
   delete modal.dataset.onlineRematchWaiting;
 }
 
-function getCardDetailHtml(card) {
+function getCardDetailHtml(card, options = {}) {
+  const effective = Boolean(options.effective);
   return `
     <div class="card-detail-popup">
       <div class="card-detail-preview mini-card detail-card-card">
-        ${cardMiniHtml(card, "", { effective: true, squareArt: true, detail: true })}
+        ${cardMiniHtml(card, "", { effective, squareArt: true, detail: true })}
       </div>
       <div class="card-detail-meta">
         <div><strong>No.${escapeHtml(card.no)}</strong></div>
@@ -1450,7 +1475,7 @@ function showCardDetailPopup(card, options = {}) {
     });
   }
   actions.push({ label: "閉じる", className: "ghost", onClick: closeModal });
-  showModal(options.title ?? "カード詳細", getCardDetailHtml(card), actions);
+  showModal(options.title ?? "カード詳細", getCardDetailHtml(card, options), actions);
 }
 
 function fitBattleLayout() {
@@ -1636,7 +1661,7 @@ function createPixiCard(card, owner, x, y) {
     container.cursor = "pointer";
     container.on("pointertap", (event) => {
       event.stopPropagation();
-      showCardDetailPopup(card, { title: owner === "player" ? "場の自分カード" : "場の相手カード" });
+      showCardDetailPopup(card, { title: owner === "player" ? "場の自分カード" : "場の相手カード", effective: true });
     });
   }
 
@@ -1682,7 +1707,7 @@ function renderBattleHands() {
     const div = document.createElement("div");
     const isForced = forcedPlayerIndex === index && battle.currentTurn === "player" && !entry.used;
     div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index || isForced ? "selected" : ""} ${isForced ? "forced" : ""}`;
-    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { effective: true, showName: false });
+    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { showName: false });
     applyCardTypeStyle(div, entry.card);
 
     const canSelect = !entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null;
@@ -1714,7 +1739,7 @@ function renderBattleHands() {
     const isForced = getForcedHandIndex("npc") === index && battle.currentTurn === "npc" && !entry.used;
     if (revealNpcHand) {
       div.className = `mini-card opponent-open ${entry.used ? "used" : ""} ${isForced ? "forced" : ""}`;
-      div.innerHTML = cardMiniHtml(entry.card, "", { effective: true, showName: false });
+      div.innerHTML = cardMiniHtml(entry.card, "", { showName: false });
       applyCardTypeStyle(div, entry.card);
       if (isBattleCardPopupEnabled()) {
         div.addEventListener("click", () => showCardDetailPopup(entry.card, { title: "相手の手札" }));
@@ -1838,11 +1863,11 @@ function showRuleLottery(npc) {
     `
       <p><strong>${escapeHtml(npc.name)}</strong>との対戦では、追加ルールが自動で決まります。</p>
       <p class="rule-result-text">追加ルールは <strong>${escapeHtml(getRuleSummary(rules))}</strong> です。</p>
+      ${getRuleDescriptionHtml(rules)}
       <p class="muted">挑戦料：${formatMoney(getNpcEntryFee(npc))} / 勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
     `,
     [
-      { label: "対戦開始", onClick: () => { closeModal(); startBattle(npc.id, rules); } },
-      { label: "キャンセル", className: "ghost", onClick: closeModal }
+      { label: "対戦開始", onClick: () => { closeModal(); startBattle(npc.id, rules); } }
     ]
   );
 }
@@ -2631,10 +2656,10 @@ async function playCard(owner, handIndex, boardIndex) {
 
   if (hasRule("type_ascend", battle) || hasRule("type_descend", battle)) {
     const type = getCardType(entry.card);
-    if (type) {
-      battle.typeBoosts[type] = Math.min(9, Number(battle.typeBoosts[type] ?? 0) + 1);
-      if (hasRule("type_ascend", battle)) addBattleLog(`タイプアセンド：${type}が+${battle.typeBoosts[type]}になりました。`);
-      if (hasRule("type_descend", battle)) addBattleLog(`タイプディセンド：${type}が-${battle.typeBoosts[type]}になりました。`);
+    const level = getTypeRuleLevel(entry.card, battle, battle.board);
+    if (type && level > 0) {
+      if (hasRule("type_ascend", battle)) addBattleLog(`タイプアセンド：場の${type}カードが${level > 0 ? `+${level}` : "変化なし"}になりました。`);
+      if (hasRule("type_descend", battle)) addBattleLog(`タイプディセンド：場の${type}カードが-${level}になりました。`);
     }
   }
 
@@ -2664,8 +2689,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
   if (hasRule("plus", battle)) {
     const sums = new Map();
     for (const item of neighbors) {
-      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, typeBoosts);
-      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, typeBoosts);
+      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board);
+      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board);
       const sum = placedValue + targetValue;
       if (!sums.has(sum)) sums.set(sum, []);
       sums.get(sum).push(item);
@@ -2687,8 +2712,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
   if (hasRule("same", battle)) {
     const sameItems = [];
     for (const item of neighbors) {
-      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, typeBoosts);
-      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, typeBoosts);
+      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board);
+      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board);
       if (placedValue === targetValue) sameItems.push(item);
     }
     if (sameItems.length >= 2) {
@@ -2705,8 +2730,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
 
   for (const item of neighbors) {
     if (item.target.owner === owner) continue;
-    const placedValue = getEffectiveCardValue(placed.card, item.side, battle, typeBoosts);
-    const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, typeBoosts);
+    const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board);
+    const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board);
     if (sideBeats(placedValue, targetValue, battle)) {
       indexes.add(item.index);
     }
@@ -2729,8 +2754,8 @@ function getComboCaptures(board, startIndexes, owner, battle = state.battle, typ
     for (const neighbor of getNeighbors(sourceIndex)) {
       const target = board[neighbor.index];
       if (!target || target.owner === owner) continue;
-      const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, typeBoosts);
-      const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, typeBoosts);
+      const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, board);
+      const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, board);
       if (sideBeats(sourceValue, targetValue, battle)) {
         target.owner = owner;
         if (!seen.has(neighbor.index)) {
@@ -2775,8 +2800,8 @@ async function resolveCaptures(boardIndex) {
       for (const neighbor of getNeighbors(sourceIndex)) {
         const target = battle.board[neighbor.index];
         if (!target || target.owner === placed.owner) continue;
-        const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, battle.typeBoosts);
-        const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, battle.typeBoosts);
+        const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, battle.board);
+        const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, battle.board);
         if (sideBeats(sourceValue, targetValue, battle)) {
           target.owner = placed.owner;
           captured.push(neighbor.index);
@@ -2977,7 +3002,7 @@ function safetyScore(board, boardIndex, owner) {
   const exposedSides = getNeighbors(boardIndex).filter((neighbor) => !board[neighbor.index]);
   if (exposedSides.length === 0) return 8;
 
-  return exposedSides.reduce((sum, neighbor) => sum + getEffectiveCardValue(placed.card, neighbor.side, state.battle), 0) / exposedSides.length;
+  return exposedSides.reduce((sum, neighbor) => sum + getEffectiveCardValue(placed.card, neighbor.side, state.battle, board), 0) / exposedSides.length;
 }
 
 function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null) {
@@ -2985,13 +3010,9 @@ function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null)
   const simBattle = { ...battle, typeBoosts: { ...(typeBoostsOverride ?? battle.typeBoosts ?? {}) } };
   const copy = board.map((cell) => cell ? { card: cell.card, owner: cell.owner } : null);
   copy[boardIndex] = { card, owner };
+  simBattle.board = copy;
 
-  if (hasRule("type_ascend", simBattle) || hasRule("type_descend", simBattle)) {
-    const type = getCardType(card);
-    if (type) simBattle.typeBoosts[type] = Math.min(9, Number(simBattle.typeBoosts[type] ?? 0) + 1);
-  }
-
-  const plan = getCapturePlan(copy, boardIndex, simBattle, simBattle.typeBoosts);
+  const plan = getCapturePlan(copy, boardIndex, simBattle, copy);
   const capturedIndexes = [];
   for (const index of plan.indexes) {
     const target = copy[index];
@@ -3000,7 +3021,7 @@ function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null)
     capturedIndexes.push(index);
   }
 
-  const comboCaptured = getComboCaptures(copy, capturedIndexes, owner, simBattle, simBattle.typeBoosts);
+  const comboCaptured = getComboCaptures(copy, capturedIndexes, owner, simBattle, copy);
   return { board: copy, captured: capturedIndexes.length + comboCaptured.length, typeBoosts: simBattle.typeBoosts };
 }
 
