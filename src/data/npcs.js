@@ -1333,8 +1333,6 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
-      "little_1",
-      "little_2",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1467,8 +1465,6 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
-      "little_1",
-      "little_2",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1601,8 +1597,6 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
-      "little_1",
-      "little_2",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1735,8 +1729,6 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
-      "little_1",
-      "little_2",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1839,12 +1831,10 @@ export const NPCS = [
     "ruleGroup1": [
       "plus",
       "same",
-      "little_1",
-      "little_2",
-      "little_3"
     ],
     "ruleGroup2": [
-      "combo"
+      "combo",
+      "little_3"
     ],
     "rareChanceRarities": [
       5

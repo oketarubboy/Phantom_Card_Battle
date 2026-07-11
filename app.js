@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.32";
+const VERSION = "0.1.33";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -66,9 +66,9 @@ const RULES = [
   { id: "ace_killer", name: "エースキラー", short: "1だけがAに勝てます。1は2〜9には勝てません。" },
   { id: "type_ascend", name: "タイプアセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが+補正されます。" },
   { id: "type_descend", name: "タイプディセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが-補正されます。1未満にはなりません。" },
-  { id: "little_1", name: "リトル★", short: "★1までのカードだけで対戦します。その他の追加ルールは適用されず、★デッキを使用します。" },
-  { id: "little_2", name: "リトル★★", short: "★2までのカードだけで対戦します。その他の追加ルールは適用されず、★★デッキを使用します。" },
-  { id: "little_3", name: "リトル★★★", short: "★3までのカードだけで対戦します。その他の追加ルールは適用されず、★★★デッキを使用します。" },
+  { id: "little_1", name: "リトル★", short: "★1までのカードだけで対戦します。★デッキを使用し、他の追加ルールも適用されます。" },
+  { id: "little_2", name: "リトル★★", short: "★2までのカードだけで対戦します。★★デッキを使用し、他の追加ルールも適用されます。" },
+  { id: "little_3", name: "リトル★★★", short: "★3までのカードだけで対戦します。★★★デッキを使用し、他の追加ルールも適用されます。" },
   { id: "plus", name: "プラス", short: "接する辺の合計値が2辺以上同じなら対象カードを奪います。" },
   { id: "same", name: "セイム", short: "接する2辺以上の数字が同じなら対象カードを奪います。" },
   { id: "combo", name: "コンボ", short: "奪ったカードからさらに通常比較で連鎖します。" }
@@ -985,12 +985,15 @@ function escapeHtml(value) {
 
 function sanitizeRuleIds(ruleIds, preferredId = null) {
   let sanitized = [...new Set((ruleIds ?? []).filter((id) => RULE_NAME_BY_ID[id]))];
+
+  // リトル系は1種類だけ選択可能。ただし、他の追加ルールは併用する。
   const preferredLittle = preferredId && isLittleRuleId(preferredId) ? preferredId : null;
   const littleRules = sanitized.filter(isLittleRuleId);
-  if (littleRules.length) {
+  if (littleRules.length > 1) {
     const keep = preferredLittle && littleRules.includes(preferredLittle) ? preferredLittle : littleRules[0];
-    return [keep];
+    sanitized = sanitized.filter((id) => !isLittleRuleId(id) || id === keep);
   }
+
   const removeConflict = (a, b) => {
     if (sanitized.includes(a) && sanitized.includes(b)) {
       const removeId = preferredId === a ? b : a;
@@ -1903,8 +1906,14 @@ function buildNpcHand(npc, ruleIds = []) {
     return true;
   };
 
+  const maxRarity = getLittleRuleMaxRarity(ruleIds);
+  const poolIds = new Set(pool.map((card) => card.id));
   for (const cardId of npc.requiredCards ?? []) {
-    addCard(cardById.get(cardId));
+    const requiredCard = cardById.get(cardId);
+    // リトル時は、指定★を超える必須カードを手札から除外する。
+    // また、littlePoolsに含まれていない必須カードも除外する。
+    if (maxRarity && (!requiredCard || requiredCard.rarity > maxRarity || !poolIds.has(requiredCard.id))) continue;
+    addCard(requiredCard);
   }
 
   for (const pattern of npc.handPattern ?? []) {
