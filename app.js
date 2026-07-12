@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.34";
+const VERSION = "0.1.35";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -594,18 +594,38 @@ function hasRule(ruleId, battle = state.battle) {
   return Boolean(battle?.rules?.includes(ruleId));
 }
 
-function getTypeRuleLevel(card, battle = state.battle, board = null) {
+function getFieldEffectAt(index, battle = state.battle) {
+  if (!Number.isInteger(index)) return 0;
+  const effects = battle?.fieldEffects ?? {};
+  return Number(effects[index] ?? effects[String(index)] ?? 0) || 0;
+}
+
+function createFieldEffectsForBattle(npc) {
+  if (npc?.difficulty !== "つよい") return {};
+  const indexes = shuffle(Array.from({ length: 9 }, (_, index) => index)).slice(0, 1 + Math.floor(Math.random() * 3));
+  const values = [-2, -1, 1, 2];
+  return Object.fromEntries(indexes.map((index) => [index, values[Math.floor(Math.random() * values.length)]]));
+}
+
+function getTypeRuleLevel(card, battle = state.battle, board = null, boardIndex = null) {
   const type = getCardType(card);
   if (!type || !battle || (!hasRule("type_ascend", battle) && !hasRule("type_descend", battle))) return 0;
+  if (!Number.isInteger(boardIndex)) return 0;
   const targetBoard = Array.isArray(board) ? board : Array.isArray(battle.board) ? battle.board : [];
   const sameTypeCount = targetBoard.filter((cell) => cell?.card && getCardType(cell.card) === type).length;
   // 1枚目は変化なし。2枚目で±1、3枚目で±2のように、場の同属性枚数から補正値を決める。
   return Math.max(0, sameTypeCount - 1);
 }
 
-function getEffectiveCardValue(card, side, battle = state.battle, board = null) {
+function getEffectiveCardValue(card, side, battle = state.battle, board = null, boardIndex = null) {
   let value = Number(card?.[side] ?? 0);
-  const level = getTypeRuleLevel(card, battle, board);
+
+  // フィールド効果は、実際に場に置かれているカードだけに適用する。
+  if (Number.isInteger(boardIndex)) {
+    value += getFieldEffectAt(boardIndex, battle);
+  }
+
+  const level = getTypeRuleLevel(card, battle, board, boardIndex);
   if (level > 0) {
     if (hasRule("type_ascend", battle)) value += level;
     if (hasRule("type_descend", battle)) value -= level;
@@ -613,13 +633,20 @@ function getEffectiveCardValue(card, side, battle = state.battle, board = null) 
   return clamp(value, 1, 10);
 }
 
-function getCardValueSet(card, battle = state.battle, board = null) {
+function getCardValueSet(card, battle = state.battle, board = null, boardIndex = null) {
   return {
-    up: getEffectiveCardValue(card, "up", battle, board),
-    right: getEffectiveCardValue(card, "right", battle, board),
-    down: getEffectiveCardValue(card, "down", battle, board),
-    left: getEffectiveCardValue(card, "left", battle, board)
+    up: getEffectiveCardValue(card, "up", battle, board, boardIndex),
+    right: getEffectiveCardValue(card, "right", battle, board, boardIndex),
+    down: getEffectiveCardValue(card, "down", battle, board, boardIndex),
+    left: getEffectiveCardValue(card, "left", battle, board, boardIndex)
   };
+}
+
+function getAiCardPower(card, battle = state.battle, board = null, boardIndex = null) {
+  const values = getCardValueSet(card, battle, board, boardIndex);
+  const total = values.up + values.right + values.down + values.left;
+  // リバースでは小さい数字ほど強いため、AI評価も反転させる。
+  return hasRule("reverse", battle) ? 44 - total : total;
 }
 
 function sideBeats(attackerValue, defenderValue, battle = state.battle) {
@@ -1680,15 +1707,36 @@ function renderBoard() {
     cell.on("pointertap", () => handleBoardClick(index));
     boardLayer.addChild(cell);
 
+    const fieldValue = getFieldEffectAt(index, state.battle);
+    if (fieldValue) {
+      const fieldBadge = new PIXI.Graphics();
+      const positive = fieldValue > 0;
+      fieldBadge.beginFill(positive ? 0x1e8f57 : 0x9f2d45, 0.92);
+      fieldBadge.lineStyle(2, 0xffffff, 0.18);
+      fieldBadge.drawRoundedRect(pos.x + cellSize - 48, pos.y + 8, 40, 24, 8);
+      fieldBadge.endFill();
+      boardLayer.addChild(fieldBadge);
+
+      const fieldLabel = new PIXI.Text(`${fieldValue > 0 ? "+" : ""}${fieldValue}`, {
+        fontFamily: "Arial",
+        fontSize: 15,
+        fontWeight: "bold",
+        fill: 0xffffff
+      });
+      fieldLabel.anchor.set(0.5);
+      fieldLabel.x = pos.x + cellSize - 28;
+      fieldLabel.y = pos.y + 20;
+      boardLayer.addChild(fieldLabel);
+    }
 
     const placed = state.battle?.board[index];
     if (placed) {
-      boardLayer.addChild(createPixiCard(placed.card, placed.owner, pos.x + 8, pos.y + 8));
+      boardLayer.addChild(createPixiCard(placed.card, placed.owner, pos.x + 8, pos.y + 8, index));
     }
   }
 }
 
-function createPixiCard(card, owner, x, y) {
+function createPixiCard(card, owner, x, y, boardIndex = null) {
   const container = new PIXI.Container();
   container.x = x;
   container.y = y;
@@ -1750,7 +1798,7 @@ function createPixiCard(card, owner, x, y) {
   container.addChild(star);
 
 
-  const values = getCardValueSet(card);
+  const values = getCardValueSet(card, state.battle, state.battle?.board, boardIndex);
   addValueText(container, displayValue(values.up), 58, 18);
   addValueText(container, displayValue(values.right), 98, 58);
   addValueText(container, displayValue(values.down), 58, 98);
@@ -2806,6 +2854,7 @@ async function startBattle(npcId, selectedRules = null) {
     forcedPlayerHandIndex: null,
     forcedNpcHandIndex: null,
     typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
+    fieldEffects: createFieldEffectsForBattle(npc),
     entryFee,
     winMoney: getNpcWinMoney(npc),
     swapInfo
@@ -2821,6 +2870,8 @@ async function startBattle(npcId, selectedRules = null) {
   addBattleLog(`勝利報酬：${formatMoney(getNpcWinMoney(npc))}`);
   addBattleLog(`追加ルール：${getRuleSummary(selectedRules)}`);
   addBattleLog(`使用デッキ：${getDeckDisplayName(deckIndex)}`);
+  const fieldEntries = Object.entries(state.battle.fieldEffects ?? {});
+  if (fieldEntries.length) addBattleLog(`フィールド効果：${fieldEntries.length}マスに効果が発生しました。`);
   if (swapInfo) addBattleLog(`スワップ：お互いの手札から1枚を交換しました。対戦後に戻ります。`);
   addBattleLog("コイントスで先攻・後攻を決定します。");
   initPixi();
@@ -2992,8 +3043,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
   if (hasRule("plus", battle)) {
     const sums = new Map();
     for (const item of neighbors) {
-      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board);
-      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board);
+      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board, boardIndex);
+      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board, item.index);
       const sum = placedValue + targetValue;
       if (!sums.has(sum)) sums.set(sum, []);
       sums.get(sum).push(item);
@@ -3015,8 +3066,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
   if (hasRule("same", battle)) {
     const sameItems = [];
     for (const item of neighbors) {
-      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board);
-      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board);
+      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board, boardIndex);
+      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board, item.index);
       if (placedValue === targetValue) sameItems.push(item);
     }
     if (sameItems.length >= 2) {
@@ -3033,8 +3084,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
 
   for (const item of neighbors) {
     if (item.target.owner === owner) continue;
-    const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board);
-    const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board);
+    const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board, boardIndex);
+    const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board, item.index);
     if (sideBeats(placedValue, targetValue, battle)) {
       indexes.add(item.index);
     }
@@ -3057,8 +3108,8 @@ function getComboCaptures(board, startIndexes, owner, battle = state.battle, typ
     for (const neighbor of getNeighbors(sourceIndex)) {
       const target = board[neighbor.index];
       if (!target || target.owner === owner) continue;
-      const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, board);
-      const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, board);
+      const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, board, sourceIndex);
+      const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, board, neighbor.index);
       if (sideBeats(sourceValue, targetValue, battle)) {
         target.owner = owner;
         if (!seen.has(neighbor.index)) {
@@ -3103,8 +3154,8 @@ async function resolveCaptures(boardIndex) {
       for (const neighbor of getNeighbors(sourceIndex)) {
         const target = battle.board[neighbor.index];
         if (!target || target.owner === placed.owner) continue;
-        const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, battle.board);
-        const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, battle.board);
+        const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, battle.board, sourceIndex);
+        const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, battle.board, neighbor.index);
         if (sideBeats(sourceValue, targetValue, battle)) {
           target.owner = placed.owner;
           captured.push(neighbor.index);
@@ -3249,13 +3300,18 @@ function chooseNpcMove() {
   }
 
   if (battle.npc.difficulty === "ふつう") {
-    const scored = moves.map((move) => ({
-      move,
-      score: simulateMove(battle.board, move.card, "npc", move.boardIndex).captured
-    })).sort((a, b) => b.score - a.score);
+    const scored = moves.map((move) => {
+      const sim = simulateMove(battle.board, move.card, "npc", move.boardIndex);
+      return {
+        move,
+        score: sim.captured,
+        aiPower: getAiCardPower(move.card, battle, sim.board, move.boardIndex),
+        safety: safetyScore(sim.board, move.boardIndex, "npc")
+      };
+    }).sort((a, b) => (b.score - a.score) || (b.safety - a.safety) || (b.aiPower - a.aiPower));
 
     if (scored[0].score > 0) return scored[0].move;
-    return moves[Math.floor(Math.random() * moves.length)];
+    return scored[0].move;
   }
 
   return chooseStrongMove(moves);
@@ -3281,7 +3337,7 @@ function chooseStrongMove(moves) {
     const score = boardAdvantageForNpc(sim.board, playerRemaining, npcRemaining) * 24
       + sim.captured * 42
       + safetyScore(sim.board, move.boardIndex, "npc")
-      + move.card.power
+      + getAiCardPower(move.card, battle, sim.board, move.boardIndex)
       - worstCounter;
 
     if (!best || score > best.score) {
@@ -3305,7 +3361,8 @@ function safetyScore(board, boardIndex, owner) {
   const exposedSides = getNeighbors(boardIndex).filter((neighbor) => !board[neighbor.index]);
   if (exposedSides.length === 0) return 8;
 
-  return exposedSides.reduce((sum, neighbor) => sum + getEffectiveCardValue(placed.card, neighbor.side, state.battle, board), 0) / exposedSides.length;
+  const average = exposedSides.reduce((sum, neighbor) => sum + getEffectiveCardValue(placed.card, neighbor.side, state.battle, board, boardIndex), 0) / exposedSides.length;
+  return hasRule("reverse", state.battle) ? 11 - average : average;
 }
 
 function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null) {
