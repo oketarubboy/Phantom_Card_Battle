@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.35";
+const VERSION = "0.1.36";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -66,6 +66,8 @@ const RULES = [
   { id: "ace_killer", name: "エースキラー", short: "1だけがAに勝てます。1は2〜9には勝てません。" },
   { id: "type_ascend", name: "タイプアセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが+補正されます。" },
   { id: "type_descend", name: "タイプディセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが-補正されます。1未満にはなりません。" },
+  { id: "mirror", name: "ミラー", short: "場に出した瞬間、カードの上下・左右の数字が入れ替わります。" },
+  { id: "wild_card", name: "ワイルドカード", short: "各プレイヤーの手札1枚に、1辺+2またはA/1化のランダム変化が発生します。" },
   { id: "little_1", name: "リトル★", short: "★1までのカードだけで対戦します。★デッキを使用し、他の追加ルールも適用されます。" },
   { id: "little_2", name: "リトル★★", short: "★2までのカードだけで対戦します。★★デッキを使用し、他の追加ルールも適用されます。" },
   { id: "little_3", name: "リトル★★★", short: "★3までのカードだけで対戦します。★★★デッキを使用し、他の追加ルールも適用されます。" },
@@ -76,6 +78,7 @@ const RULES = [
 
 const RULE_NAME_BY_ID = Object.fromEntries(RULES.map((rule) => [rule.id, rule.name]));
 const CARD_TYPES = ["もなタイプ", "美雨タイプ", "凛花タイプ", "百花タイプ"];
+const CARD_SIDES = ["up", "right", "down", "left"];
 const NORMAL_DECK_COUNT = 5;
 const LITTLE_DECKS = [
   { index: 5, maxRarity: 1, label: "★デッキ", defaultName: "★デッキ" },
@@ -594,6 +597,62 @@ function hasRule(ruleId, battle = state.battle) {
   return Boolean(battle?.rules?.includes(ruleId));
 }
 
+function getCardRawValue(card, side) {
+  return Number(card?.battleValues?.[side] ?? card?.[side] ?? 0);
+}
+
+function cloneCardForBattle(card, battleValues = null) {
+  if (!card) return card;
+  const cleanValues = battleValues && typeof battleValues === "object"
+    ? Object.fromEntries(CARD_SIDES.map((side) => [side, clamp(Number(battleValues[side] ?? card[side] ?? 0), 1, 10)]))
+    : null;
+  return cleanValues ? { ...card, battleValues: cleanValues } : card;
+}
+
+function generateWildCardMods(cards) {
+  if (!Array.isArray(cards) || cards.length === 0) return {};
+  const index = Math.floor(Math.random() * cards.length);
+  const card = cards[index];
+  if (!card) return {};
+  const values = Object.fromEntries(CARD_SIDES.map((side) => [side, Number(card?.[side] ?? 0)]));
+  if (Math.random() < 0.5) {
+    const side = sample(CARD_SIDES, 1)[0];
+    values[side] = clamp(values[side] + 2, 1, 10);
+  } else {
+    const sides = shuffle(CARD_SIDES);
+    values[sides[0]] = 10;
+    values[sides[1]] = 1;
+  }
+  return { [index]: values };
+}
+
+function applyWildCardModsToCards(cards, mods = {}) {
+  return (cards ?? []).map((card, index) => cloneCardForBattle(card, mods?.[index] ?? mods?.[String(index)] ?? null));
+}
+
+function setupWildCardForHands(playerCards, npcCards, battle = state.battle) {
+  if (!hasRule("wild_card", battle)) {
+    return { playerCards, npcCards, playerMods: {}, npcMods: {} };
+  }
+  const playerMods = generateWildCardMods(playerCards);
+  const npcMods = generateWildCardMods(npcCards);
+  return {
+    playerCards: applyWildCardModsToCards(playerCards, playerMods),
+    npcCards: applyWildCardModsToCards(npcCards, npcMods),
+    playerMods,
+    npcMods
+  };
+}
+
+function getMirrorSide(side, battle = state.battle, boardIndex = null) {
+  if (!Number.isInteger(boardIndex) || !hasRule("mirror", battle)) return side;
+  if (side === "up") return "down";
+  if (side === "down") return "up";
+  if (side === "left") return "right";
+  if (side === "right") return "left";
+  return side;
+}
+
 function getFieldEffectAt(index, battle = state.battle) {
   if (!Number.isInteger(index)) return 0;
   const effects = battle?.fieldEffects ?? {};
@@ -607,6 +666,25 @@ function createFieldEffectsForBattle(npc) {
   return Object.fromEntries(indexes.map((index) => [index, values[Math.floor(Math.random() * values.length)]]));
 }
 
+function createLockCellsForBattle(npc) {
+  if (!npc || !["ふつう", "つよい"].includes(npc.difficulty)) return {};
+  const count = Math.random() < 0.5 ? 0 : 1;
+  if (!count) return {};
+  const index = Math.floor(Math.random() * 9);
+  return { [index]: true };
+}
+
+function isLockCell(index, battle = state.battle) {
+  if (!Number.isInteger(index)) return false;
+  const cells = battle?.lockCells ?? {};
+  return Boolean(cells[index] ?? cells[String(index)]);
+}
+
+function isCardLockedAt(board, index) {
+  const cell = Array.isArray(board) ? board[index] : null;
+  return Boolean(cell?.locked);
+}
+
 function getTypeRuleLevel(card, battle = state.battle, board = null, boardIndex = null) {
   const type = getCardType(card);
   if (!type || !battle || (!hasRule("type_ascend", battle) && !hasRule("type_descend", battle))) return 0;
@@ -618,7 +696,8 @@ function getTypeRuleLevel(card, battle = state.battle, board = null, boardIndex 
 }
 
 function getEffectiveCardValue(card, side, battle = state.battle, board = null, boardIndex = null) {
-  let value = Number(card?.[side] ?? 0);
+  const baseSide = getMirrorSide(side, battle, boardIndex);
+  let value = getCardRawValue(card, baseSide);
 
   // フィールド効果は、実際に場に置かれているカードだけに適用する。
   if (Number.isInteger(boardIndex)) {
@@ -1732,6 +1811,23 @@ function renderBoard() {
     const placed = state.battle?.board[index];
     if (placed) {
       boardLayer.addChild(createPixiCard(placed.card, placed.owner, pos.x + 8, pos.y + 8, index));
+      if (placed.locked) {
+        const lockBg = new PIXI.Graphics();
+        lockBg.beginFill(0x101626, 0.86);
+        lockBg.lineStyle(2, 0xffd66b, 0.9);
+        lockBg.drawCircle(pos.x + cellSize - 24, pos.y + cellSize - 24, 15);
+        lockBg.endFill();
+        boardLayer.addChild(lockBg);
+        const lockText = new PIXI.Text("🔒", {
+          fontFamily: "Arial",
+          fontSize: 17,
+          fill: 0xffd66b
+        });
+        lockText.anchor.set(0.5);
+        lockText.x = pos.x + cellSize - 24;
+        lockText.y = pos.y + cellSize - 24;
+        boardLayer.addChild(lockText);
+      }
     }
   }
 }
@@ -2142,7 +2238,9 @@ function serializeOnlineBoardForFirebase() {
     const cell = board[index];
     return [index, cell ? {
       cardId: cell.card.id,
-      owner: localToCanonicalOwner(cell.owner)
+      owner: localToCanonicalOwner(cell.owner),
+      battleValues: cell.card?.battleValues ?? null,
+      locked: Boolean(cell.locked)
     } : { empty: true }];
   }));
 }
@@ -2151,11 +2249,12 @@ function normalizeOnlineBoardData(boardData) {
   return Array.from({ length: 9 }, (_, index) => {
     const cell = getIndexedOnlineValue(boardData, index);
     if (!cell || cell.empty || !cell.cardId) return null;
-    const card = cardById.get(cell.cardId);
+    const card = cloneCardForBattle(cardById.get(cell.cardId), cell.battleValues ?? null);
     if (!card) return null;
     return {
       card,
-      owner: canonicalToLocalOwner(cell.owner)
+      owner: canonicalToLocalOwner(cell.owner),
+      locked: Boolean(cell.locked)
     };
   });
 }
@@ -2199,7 +2298,8 @@ function buildOnlineRoom(roomId, deckCards, rules = rollOnlineAdditionalRules())
         name: getOnlineUserName() || "プレイヤー1",
         rating: Number(state.online.cachedProfile?.rating ?? getDefaultOnlineRating()),
         deck: deckCards.map((card) => card.id),
-        handUsed: createOnlineHandUsedData(deckCards)
+        handUsed: createOnlineHandUsedData(deckCards),
+        wildMods: hasRule("wild_card", { rules }) ? generateWildCardMods(deckCards) : {}
       }
     }
   };
@@ -2278,7 +2378,8 @@ async function joinOnlineRoom() {
         name: getOnlineUserName() || "プレイヤー2",
         rating: Number(state.online.cachedProfile?.rating ?? getDefaultOnlineRating()),
         deck: cards.map((card) => card.id),
-        handUsed: createOnlineHandUsedData(cards)
+        handUsed: createOnlineHandUsedData(cards),
+        wildMods: hasRule("wild_card", { rules: room.rules ?? [] }) ? generateWildCardMods(cards) : {}
       }
     });
     attachOnlineRoom(roomId, "p2");
@@ -2363,8 +2464,8 @@ async function startRandomOnlineMatch() {
         winner: null,
         result: null,
         players: {
-          p1: { uid: opponentUid, name: ticket.name || "プレイヤー1", rating: Number(ticket.rating ?? 1500), deck: opponentDeckIds, handUsed: createOnlineHandUsedData(opponentDeckIds) },
-          p2: { uid: myUid, name: getOnlineUserName() || "プレイヤー2", rating: Number(state.online.cachedProfile?.rating ?? 1500), deck: myDeck.cards.map((card) => card.id), handUsed: createOnlineHandUsedData(myDeck.cards) }
+          p1: { uid: opponentUid, name: ticket.name || "プレイヤー1", rating: Number(ticket.rating ?? 1500), deck: opponentDeckIds, handUsed: createOnlineHandUsedData(opponentDeckIds), wildMods: ticket.wildMods ?? {} },
+          p2: { uid: myUid, name: getOnlineUserName() || "プレイヤー2", rating: Number(state.online.cachedProfile?.rating ?? 1500), deck: myDeck.cards.map((card) => card.id), handUsed: createOnlineHandUsedData(myDeck.cards), wildMods: hasRule("wild_card", { rules }) ? generateWildCardMods(myDeck.cards) : {} }
         }
       };
       await fb.set(onlineRoomRef(roomId), room);
@@ -2391,6 +2492,7 @@ async function startRandomOnlineMatch() {
       name: getOnlineUserName() || "プレイヤー1",
       rating: Number(state.online.cachedProfile?.rating ?? 1500),
       deck: deckData.cards.map((card) => card.id),
+      wildMods: hasRule("wild_card", { rules }) ? generateWildCardMods(deckData.cards) : {},
       rules,
       createdAt: now,
       matchedRoomId: null
@@ -2439,13 +2541,19 @@ async function startOnlineRandomNpcBattle() {
     ]);
     return;
   }
-  const npcHandCards = buildRandomOnlineNpcHand(spec, rules);
+  let npcHandCards = buildRandomOnlineNpcHand(spec, rules);
+  let playerCards = deckData.cards;
+  if (rules.includes("wild_card")) {
+    const wild = setupWildCardForHands(playerCards, npcHandCards, { rules });
+    playerCards = wild.playerCards;
+    npcHandCards = wild.npcCards;
+  }
   const firstTurn = Math.random() < 0.5 ? "player" : "npc";
   state.battle = {
     mode: "onlineNpc",
     npc: { id: spec.id, name: spec.name, difficulty: spec.difficulty, onlineNpcRating: spec.rating },
     rules,
-    playerHand: deckData.cards.map((card) => ({ card, used: false })),
+    playerHand: playerCards.map((card) => ({ card, used: false })),
     npcHand: npcHandCards.map((card) => ({ card, used: false })),
     npcBattleCards: npcHandCards,
     board: Array(9).fill(null),
@@ -2455,7 +2563,9 @@ async function startOnlineRandomNpcBattle() {
     forcedPlayerHandIndex: null,
     forcedNpcHandIndex: null,
     entryFee: 0,
-    winMoney: 0
+    winMoney: 0,
+    fieldEffects: createFieldEffectsForBattle({ difficulty: spec.difficulty }),
+    lockCells: createLockCellsForBattle({ difficulty: spec.difficulty })
   };
   state.selectedHandIndex = null;
   showScreen("battle");
@@ -2546,13 +2656,16 @@ function applyOnlineRoom(room) {
   const playerUsed = normalizeOnlineHandUsedData(player.handUsed, playerDeck.length);
   const opponentUsed = normalizeOnlineHandUsedData(opponent.handUsed, opponentDeck.length);
 
-  const playerHand = playerDeck.map((cardId, index) => ({
-    card: cardById.get(cardId),
+  const playerCards = applyWildCardModsToCards(playerDeck.map((cardId) => cardById.get(cardId)).filter(Boolean), player.wildMods ?? {});
+  const opponentCards = applyWildCardModsToCards(opponentDeck.map((cardId) => cardById.get(cardId)).filter(Boolean), opponent.wildMods ?? {});
+
+  const playerHand = playerCards.map((card, index) => ({
+    card,
     used: playerUsed[index]
   })).filter((entry) => entry.card);
 
-  const opponentHand = opponentDeck.map((cardId, index) => ({
-    card: cardById.get(cardId),
+  const opponentHand = opponentCards.map((card, index) => ({
+    card,
     used: opponentUsed[index]
   })).filter((entry) => entry.card);
 
@@ -2656,6 +2769,8 @@ async function startOnlineRematch(room) {
     typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
     "players/p1/handUsed": createOnlineHandUsedData(p1Deck),
     "players/p2/handUsed": createOnlineHandUsedData(p2Deck),
+    "players/p1/wildMods": hasRule("wild_card", { rules: room.rules ?? [] }) ? generateWildCardMods((p1Deck ?? []).map((id) => cardById.get(id)).filter(Boolean)) : {},
+    "players/p2/wildMods": hasRule("wild_card", { rules: room.rules ?? [] }) ? generateWildCardMods((p2Deck ?? []).map((id) => cardById.get(id)).filter(Boolean)) : {},
     "players/p1/rematchReady": false,
     "players/p2/rematchReady": false
   });
@@ -2825,8 +2940,8 @@ async function startBattle(npcId, selectedRules = null) {
 
   const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
   const npcDeck = buildNpcHand(npc, selectedRules);
-  const playerHandCards = [...playerBattleDeck];
-  const npcHandCards = [...npcDeck];
+  let playerHandCards = [...playerBattleDeck];
+  let npcHandCards = [...npcDeck];
   let swapInfo = null;
 
   if (selectedRules.includes("swap") && playerHandCards.length && npcHandCards.length) {
@@ -2839,6 +2954,13 @@ async function startBattle(npcId, selectedRules = null) {
       npcCard: npcHandCards[npcIndex]
     };
     [playerHandCards[playerIndex], npcHandCards[npcIndex]] = [npcHandCards[npcIndex], playerHandCards[playerIndex]];
+  }
+
+  const preBattleForRules = { rules: selectedRules };
+  if (selectedRules.includes("wild_card")) {
+    const wild = setupWildCardForHands(playerHandCards, npcHandCards, preBattleForRules);
+    playerHandCards = wild.playerCards;
+    npcHandCards = wild.npcCards;
   }
 
   state.battle = {
@@ -2855,6 +2977,7 @@ async function startBattle(npcId, selectedRules = null) {
     forcedNpcHandIndex: null,
     typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
     fieldEffects: createFieldEffectsForBattle(npc),
+    lockCells: createLockCellsForBattle(npc),
     entryFee,
     winMoney: getNpcWinMoney(npc),
     swapInfo
@@ -2872,6 +2995,9 @@ async function startBattle(npcId, selectedRules = null) {
   addBattleLog(`使用デッキ：${getDeckDisplayName(deckIndex)}`);
   const fieldEntries = Object.entries(state.battle.fieldEffects ?? {});
   if (fieldEntries.length) addBattleLog(`フィールド効果：${fieldEntries.length}マスに効果が発生しました。`);
+  if (["ふつう", "つよい"].includes(npc.difficulty)) addBattleLog("ロック：0〜1マスに隠しロックマスが発生する可能性があります。");
+  if (selectedRules.includes("mirror")) addBattleLog("ミラー：場に出たカードは上下・左右の数字が入れ替わります。");
+  if (selectedRules.includes("wild_card")) addBattleLog("ワイルドカード：お互いの手札1枚にランダム変化が発生しました。");
   if (swapInfo) addBattleLog(`スワップ：お互いの手札から1枚を交換しました。対戦後に戻ります。`);
   addBattleLog("コイントスで先攻・後攻を決定します。");
   initPixi();
@@ -3006,7 +3132,11 @@ async function playCard(owner, handIndex, boardIndex) {
   const hand = owner === "player" ? battle.playerHand : battle.npcHand;
   const entry = hand[handIndex];
   entry.used = true;
-  battle.board[boardIndex] = { card: entry.card, owner };
+  const lockedByField = isLockCell(boardIndex, battle);
+  battle.board[boardIndex] = { card: entry.card, owner, locked: lockedByField };
+  if (lockedByField) {
+    addBattleLog(`ロック：${owner === "player" ? "プレイヤー" : battle.npc.name}のカードがロックされました。`);
+  }
 
   if (hasRule("type_ascend", battle) || hasRule("type_descend", battle)) {
     const type = getCardType(entry.card);
@@ -3053,7 +3183,7 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
       if (group.length >= 2) {
         let flipped = 0;
         for (const item of group) {
-          if (item.target.owner !== owner) {
+          if (item.target.owner !== owner && !item.target.locked) {
             indexes.add(item.index);
             flipped += 1;
           }
@@ -3073,7 +3203,7 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
     if (sameItems.length >= 2) {
       let flipped = 0;
       for (const item of sameItems) {
-        if (item.target.owner !== owner) {
+        if (item.target.owner !== owner && !item.target.locked) {
           indexes.add(item.index);
           flipped += 1;
         }
@@ -3083,7 +3213,7 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
   }
 
   for (const item of neighbors) {
-    if (item.target.owner === owner) continue;
+    if (item.target.owner === owner || item.target.locked) continue;
     const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board, boardIndex);
     const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board, item.index);
     if (sideBeats(placedValue, targetValue, battle)) {
@@ -3107,7 +3237,7 @@ function getComboCaptures(board, startIndexes, owner, battle = state.battle, typ
 
     for (const neighbor of getNeighbors(sourceIndex)) {
       const target = board[neighbor.index];
-      if (!target || target.owner === owner) continue;
+      if (!target || target.owner === owner || target.locked) continue;
       const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, board, sourceIndex);
       const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, board, neighbor.index);
       if (sideBeats(sourceValue, targetValue, battle)) {
@@ -3134,7 +3264,7 @@ async function resolveCaptures(boardIndex) {
 
   for (const index of plan.indexes) {
     const target = battle.board[index];
-    if (!target || target.owner === placed.owner) continue;
+    if (!target || target.owner === placed.owner || target.locked) continue;
     target.owner = placed.owner;
     captured.push(index);
     renderBoard();
@@ -3153,7 +3283,7 @@ async function resolveCaptures(boardIndex) {
 
       for (const neighbor of getNeighbors(sourceIndex)) {
         const target = battle.board[neighbor.index];
-        if (!target || target.owner === placed.owner) continue;
+        if (!target || target.owner === placed.owner || target.locked) continue;
         const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, battle.board, sourceIndex);
         const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, battle.board, neighbor.index);
         if (sideBeats(sourceValue, targetValue, battle)) {
@@ -3368,8 +3498,8 @@ function safetyScore(board, boardIndex, owner) {
 function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null) {
   const battle = state.battle;
   const simBattle = { ...battle, typeBoosts: { ...(typeBoostsOverride ?? battle.typeBoosts ?? {}) } };
-  const copy = board.map((cell) => cell ? { card: cell.card, owner: cell.owner } : null);
-  copy[boardIndex] = { card, owner };
+  const copy = board.map((cell) => cell ? { card: cell.card, owner: cell.owner, locked: Boolean(cell.locked) } : null);
+  copy[boardIndex] = { card, owner, locked: isLockCell(boardIndex, battle) };
   simBattle.board = copy;
 
   const plan = getCapturePlan(copy, boardIndex, simBattle, copy);
