@@ -1,8 +1,9 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.38";
+const VERSION = "0.1.39";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
+const NPC_LIST_VIEW_KEY = "phantom_card_battle_npc_list_view_v1";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));
@@ -15,6 +16,13 @@ const state = {
   ownedCardView: "vertical",
   battleCardPopup: true,
   selectedRuleIds: [],
+  npcListView: {
+    difficulty: "all",
+    winStatus: "all",
+    attribute: "all",
+    sortField: "number",
+    sortOrder: "asc"
+  },
   shopStock: [],
   shopInitialized: false,
   online: {
@@ -606,7 +614,7 @@ function cloneCardForBattle(card, battleValues = null) {
   const cleanValues = battleValues && typeof battleValues === "object"
     ? Object.fromEntries(CARD_SIDES.map((side) => [side, clamp(Number(battleValues[side] ?? card[side] ?? 0), 1, 10)]))
     : null;
-  return cleanValues ? { ...card, battleValues: cleanValues } : card;
+  return cleanValues ? { ...card, battleValues: cleanValues, isWildCard: true } : card;
 }
 
 function generateWildCardMods(cards) {
@@ -1054,6 +1062,7 @@ function cardMiniHtml(card, extra = "", options = {}) {
   const showTop = options.showTop !== false;
   const showValues = options.showValues !== false;
   const visualClasses = ["card-visual"];
+  if (card?.isWildCard) visualClasses.push("wild-card-active");
   if (options.squareArt) visualClasses.push("square-art");
   if (options.detail) visualClasses.push("card-detail-visual");
 
@@ -1169,7 +1178,113 @@ function getRuleDescriptionHtml(ruleIds) {
   `;
 }
 
+function getDefaultNpcListView() {
+  return {
+    difficulty: "all",
+    winStatus: "all",
+    attribute: "all",
+    sortField: "number",
+    sortOrder: "asc"
+  };
+}
+
+function normalizeNpcListView(value) {
+  const base = getDefaultNpcListView();
+  const source = value && typeof value === "object" ? value : {};
+  const normalized = {
+    difficulty: ["all", "よわい", "ふつう", "つよい"].includes(source.difficulty) ? source.difficulty : base.difficulty,
+    winStatus: ["all", "unwon", "won"].includes(source.winStatus) ? source.winStatus : base.winStatus,
+    attribute: ["all", "もな", "美雨", "凛花", "百花", "other"].includes(source.attribute) ? source.attribute : base.attribute,
+    sortField: ["number", "name", "difficulty"].includes(source.sortField) ? source.sortField : base.sortField,
+    sortOrder: ["asc", "desc"].includes(source.sortOrder) ? source.sortOrder : base.sortOrder
+  };
+  return normalized;
+}
+
+function loadNpcListView() {
+  try {
+    const raw = localStorage.getItem(NPC_LIST_VIEW_KEY);
+    state.npcListView = normalizeNpcListView(raw ? JSON.parse(raw) : null);
+  } catch (error) {
+    console.warn("NPC一覧表示設定の読み込みに失敗しました。初期値を使用します。", error);
+    state.npcListView = getDefaultNpcListView();
+  }
+}
+
+function saveNpcListView() {
+  state.npcListView = normalizeNpcListView(state.npcListView);
+  try {
+    localStorage.setItem(NPC_LIST_VIEW_KEY, JSON.stringify(state.npcListView));
+  } catch (error) {
+    console.warn("NPC一覧表示設定の保存に失敗しました。", error);
+  }
+}
+
+function getNpcNumber(npc) {
+  const match = String(npc?.id ?? "").match(/(\d+)/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function getNpcAttributeGroup(npc) {
+  const name = String(npc?.name ?? "");
+  for (const attribute of ["もな", "美雨", "凛花", "百花"]) {
+    if (name.includes(attribute)) return attribute;
+  }
+  return "other";
+}
+
+function getFilteredSortedNpcs() {
+  const view = normalizeNpcListView(state.npcListView);
+  const difficultyRank = { "よわい": 1, "ふつう": 2, "つよい": 3 };
+  const direction = view.sortOrder === "desc" ? -1 : 1;
+
+  return NPCS
+    .filter((npc) => isNpcUnlocked(npc))
+    .filter((npc) => view.difficulty === "all" || npc.difficulty === view.difficulty)
+    .filter((npc) => {
+      const wins = Number(state.save?.npcWins?.[npc.id] ?? 0);
+      if (view.winStatus === "unwon") return wins === 0;
+      if (view.winStatus === "won") return wins > 0;
+      return true;
+    })
+    .filter((npc) => view.attribute === "all" || getNpcAttributeGroup(npc) === view.attribute)
+    .sort((a, b) => {
+      let result = 0;
+      if (view.sortField === "name") {
+        result = String(a.name ?? "").localeCompare(String(b.name ?? ""), "ja");
+      } else if (view.sortField === "difficulty") {
+        result = (difficultyRank[a.difficulty] ?? 99) - (difficultyRank[b.difficulty] ?? 99);
+        if (result === 0) result = getNpcNumber(a) - getNpcNumber(b);
+      } else {
+        result = getNpcNumber(a) - getNpcNumber(b);
+      }
+      return result * direction;
+    });
+}
+
+function syncNpcListControls() {
+  const view = normalizeNpcListView(state.npcListView);
+  const controls = {
+    npcFilterDifficulty: view.difficulty,
+    npcFilterWinStatus: view.winStatus,
+    npcFilterAttribute: view.attribute,
+    npcSortField: view.sortField,
+    npcSortOrder: view.sortOrder
+  };
+  Object.entries(controls).forEach(([id, value]) => {
+    const element = $(id);
+    if (element && element.value !== value) element.value = value;
+  });
+}
+
+function updateNpcListView(key, value) {
+  state.npcListView = normalizeNpcListView({ ...state.npcListView, [key]: value });
+  saveNpcListView();
+  renderNpcList();
+}
+
 function renderNpcList() {
+  syncNpcListControls();
   const panel = document.querySelector(".rule-panel");
   if (panel) {
     panel.innerHTML = `
@@ -1186,8 +1301,15 @@ function renderNpcList() {
     ? `<div class="summary">${escapeHtml(getNpcUnlockMessage())}<br>未解放の対戦相手：${hiddenCount}人</div>`
     : "";
 
-  for (const npc of NPCS) {
-    if (!isNpcUnlocked(npc)) continue;
+  const visibleNpcs = getFilteredSortedNpcs();
+  if (!visibleNpcs.length) {
+    const empty = document.createElement("div");
+    empty.className = "summary";
+    empty.textContent = "指定した条件に一致する対戦相手はいません。";
+    list.appendChild(empty);
+  }
+
+  for (const npc of visibleNpcs) {
     const poolCards = getNpcCardPool(npc);
     const avgPower = poolCards.reduce((sum, card) => sum + card.power, 0) / Math.max(poolCards.length, 1);
     const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
@@ -3858,6 +3980,12 @@ function bindEvents() {
   $("goBattle").addEventListener("click", () => showScreen("battleSelect"));
   $("goNpcBattle").addEventListener("click", () => showScreen("battleMenu"));
   $("goOnlineBattle").addEventListener("click", () => showScreen("onlineBattle"));
+
+  $("npcFilterDifficulty")?.addEventListener("change", (event) => updateNpcListView("difficulty", event.target.value));
+  $("npcFilterWinStatus")?.addEventListener("change", (event) => updateNpcListView("winStatus", event.target.value));
+  $("npcFilterAttribute")?.addEventListener("change", (event) => updateNpcListView("attribute", event.target.value));
+  $("npcSortField")?.addEventListener("change", (event) => updateNpcListView("sortField", event.target.value));
+  $("npcSortOrder")?.addEventListener("change", (event) => updateNpcListView("sortOrder", event.target.value));
   $("createOnlineRoom").addEventListener("click", createOnlineRoom);
   $("joinOnlineRoom").addEventListener("click", joinOnlineRoom);
   const randomMatchBtn = $("randomOnlineMatch");
@@ -3992,6 +4120,7 @@ function bindEvents() {
 }
 
 function init() {
+  loadNpcListView();
   loadSave();
   bindEvents();
   showScreen("title");

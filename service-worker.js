@@ -1,4 +1,4 @@
-const CACHE_NAME = "phantom-card-battle-v0.1.38";
+const CACHE_NAME = "phantom-card-battle-v0.1.39";
 const ASSETS = [
   "./",
   "./index.html",
