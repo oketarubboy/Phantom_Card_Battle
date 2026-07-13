@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.38";
+const VERSION = "0.1.39";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -14,6 +14,7 @@ const state = {
   deckSort: { field: "rarity", order: "desc" },
   ownedCardView: "vertical",
   battleCardPopup: true,
+  npcListView: { difficulty: "all", win: "all", type: "all", sort: "number", order: "asc" },
   selectedRuleIds: [],
   shopStock: [],
   shopInitialized: false,
@@ -606,7 +607,7 @@ function cloneCardForBattle(card, battleValues = null) {
   const cleanValues = battleValues && typeof battleValues === "object"
     ? Object.fromEntries(CARD_SIDES.map((side) => [side, clamp(Number(battleValues[side] ?? card[side] ?? 0), 1, 10)]))
     : null;
-  return cleanValues ? { ...card, battleValues: cleanValues } : card;
+  return cleanValues ? { ...card, battleValues: cleanValues, wildCardModified: true } : card;
 }
 
 function generateWildCardMods(cards) {
@@ -886,7 +887,8 @@ function createInitialSave() {
       ownedCardView: "vertical",
       battleCardPopup: true,
       onlineUserName: "",
-      onlineUserNameKey: ""
+      onlineUserNameKey: "",
+      npcListView: { difficulty: "all", win: "all", type: "all", sort: "number", order: "asc" }
     }
   };
 }
@@ -908,6 +910,9 @@ function normalizeSave(save) {
       ...(save?.settings ?? {})
     }
   };
+
+  normalized.settings.npcListView = normalizeNpcListView(normalized.settings.npcListView);
+  state.npcListView = { ...normalized.settings.npcListView };
 
   const defaultLittleDeck = createDefaultLittleDeck();
   normalized.decks = Array.from({ length: TOTAL_DECK_COUNT }, (_, index) => {
@@ -1169,6 +1174,51 @@ function getRuleDescriptionHtml(ruleIds) {
   `;
 }
 
+function normalizeNpcListView(view = {}) {
+  const difficulty = ["all", "よわい", "ふつう", "つよい"].includes(view?.difficulty) ? view.difficulty : "all";
+  const win = ["all", "unwon", "won"].includes(view?.win) ? view.win : "all";
+  const type = ["all", "mona", "miu", "rinka", "momoka", "other"].includes(view?.type) ? view.type : "all";
+  const sort = ["name", "difficulty", "number"].includes(view?.sort) ? view.sort : "number";
+  const order = view?.order === "desc" ? "desc" : "asc";
+  return { difficulty, win, type, sort, order };
+}
+
+function getNpcNumber(npc) {
+  const match = String(npc?.id ?? "").match(/(\d+)/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function getNpcTypeCategory(npc) {
+  const name = String(npc?.name ?? "");
+  if (name.includes("もな")) return "mona";
+  if (name.includes("美雨")) return "miu";
+  if (name.includes("凛花")) return "rinka";
+  if (name.includes("百花")) return "momoka";
+  return "other";
+}
+
+function updateNpcListView(patch) {
+  const next = normalizeNpcListView({ ...(state.save?.settings?.npcListView ?? state.npcListView), ...patch });
+  state.npcListView = next;
+  state.save.settings.npcListView = { ...next };
+  save();
+  renderNpcList();
+}
+
+function syncNpcListControls(view) {
+  const values = {
+    npcFilterDifficulty: view.difficulty,
+    npcFilterWin: view.win,
+    npcFilterType: view.type,
+    npcSortField: view.sort,
+    npcSortOrder: view.order
+  };
+  for (const [id, value] of Object.entries(values)) {
+    const el = $(id);
+    if (el && el.value !== value) el.value = value;
+  }
+}
+
 function renderNpcList() {
   const panel = document.querySelector(".rule-panel");
   if (panel) {
@@ -1180,14 +1230,49 @@ function renderNpcList() {
     `;
   }
 
+  const view = normalizeNpcListView(state.save?.settings?.npcListView ?? state.npcListView);
+  state.npcListView = view;
+  state.save.settings.npcListView = { ...view };
+  syncNpcListControls(view);
+
+  const difficultyRank = { "よわい": 1, "ふつう": 2, "つよい": 3 };
+  const visibleNpcs = NPCS
+    .filter((npc) => isNpcUnlocked(npc))
+    .filter((npc) => view.difficulty === "all" || npc.difficulty === view.difficulty)
+    .filter((npc) => {
+      const wins = Number(state.save.npcWins?.[npc.id] ?? 0);
+      if (view.win === "won") return wins > 0;
+      if (view.win === "unwon") return wins === 0;
+      return true;
+    })
+    .filter((npc) => view.type === "all" || getNpcTypeCategory(npc) === view.type)
+    .sort((a, b) => {
+      let result = 0;
+      if (view.sort === "name") {
+        result = String(a.name).localeCompare(String(b.name), "ja");
+      } else if (view.sort === "difficulty") {
+        result = (difficultyRank[a.difficulty] ?? 99) - (difficultyRank[b.difficulty] ?? 99);
+        if (result === 0) result = getNpcNumber(a) - getNpcNumber(b);
+      } else {
+        result = getNpcNumber(a) - getNpcNumber(b);
+      }
+      return view.order === "desc" ? -result : result;
+    });
+
   const list = $("npcList");
   const hiddenCount = NPCS.filter((npc) => !isNpcUnlocked(npc)).length;
   list.innerHTML = hiddenCount > 0
     ? `<div class="summary">${escapeHtml(getNpcUnlockMessage())}<br>未解放の対戦相手：${hiddenCount}人</div>`
     : "";
 
-  for (const npc of NPCS) {
-    if (!isNpcUnlocked(npc)) continue;
+  if (visibleNpcs.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "summary";
+    empty.textContent = "条件に一致する対戦相手はいません。";
+    list.appendChild(empty);
+  }
+
+  for (const npc of visibleNpcs) {
     const poolCards = getNpcCardPool(npc);
     const avgPower = poolCards.reduce((sum, card) => sum + card.power, 0) / Math.max(poolCards.length, 1);
     const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
@@ -3857,6 +3942,12 @@ function bindEvents() {
 
   $("goBattle").addEventListener("click", () => showScreen("battleSelect"));
   $("goNpcBattle").addEventListener("click", () => showScreen("battleMenu"));
+
+  $("npcFilterDifficulty").addEventListener("change", (event) => updateNpcListView({ difficulty: event.target.value }));
+  $("npcFilterWin").addEventListener("change", (event) => updateNpcListView({ win: event.target.value }));
+  $("npcFilterType").addEventListener("change", (event) => updateNpcListView({ type: event.target.value }));
+  $("npcSortField").addEventListener("change", (event) => updateNpcListView({ sort: event.target.value }));
+  $("npcSortOrder").addEventListener("change", (event) => updateNpcListView({ order: event.target.value }));
   $("goOnlineBattle").addEventListener("click", () => showScreen("onlineBattle"));
   $("createOnlineRoom").addEventListener("click", createOnlineRoom);
   $("joinOnlineRoom").addEventListener("click", joinOnlineRoom);
