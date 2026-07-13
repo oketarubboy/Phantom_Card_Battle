@@ -1,10 +1,8 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.41";
+const VERSION = "0.1.38";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
-const SAVE_BACKUP_KEY = "phantom_card_battle_emergency_backup";
-const LEGACY_SAVE_PREFIX = "phantom_card_battle_save_";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));
@@ -16,7 +14,6 @@ const state = {
   deckSort: { field: "rarity", order: "desc" },
   ownedCardView: "vertical",
   battleCardPopup: true,
-  npcListView: { difficulty: "all", win: "all", type: "all", sort: "number", order: "asc" },
   selectedRuleIds: [],
   shopStock: [],
   shopInitialized: false,
@@ -609,7 +606,7 @@ function cloneCardForBattle(card, battleValues = null) {
   const cleanValues = battleValues && typeof battleValues === "object"
     ? Object.fromEntries(CARD_SIDES.map((side) => [side, clamp(Number(battleValues[side] ?? card[side] ?? 0), 1, 10)]))
     : null;
-  return cleanValues ? { ...card, battleValues: cleanValues, wildCardModified: true } : card;
+  return cleanValues ? { ...card, battleValues: cleanValues } : card;
 }
 
 function generateWildCardMods(cards) {
@@ -889,8 +886,7 @@ function createInitialSave() {
       ownedCardView: "vertical",
       battleCardPopup: true,
       onlineUserName: "",
-      onlineUserNameKey: "",
-      npcListView: { difficulty: "all", win: "all", type: "all", sort: "number", order: "asc" }
+      onlineUserNameKey: ""
     }
   };
 }
@@ -912,9 +908,6 @@ function normalizeSave(save) {
       ...(save?.settings ?? {})
     }
   };
-
-  normalized.settings.npcListView = normalizeNpcListView(normalized.settings.npcListView);
-  state.npcListView = { ...normalized.settings.npcListView };
 
   const defaultLittleDeck = createDefaultLittleDeck();
   normalized.decks = Array.from({ length: TOTAL_DECK_COUNT }, (_, index) => {
@@ -941,70 +934,10 @@ function normalizeSave(save) {
   return normalized;
 }
 
-function getSaveProgressScore(saveData) {
-  if (!saveData || typeof saveData !== "object") return -1;
-  const ownedTotal = Object.values(saveData.ownedCards ?? {}).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
-  const discoveredTotal = Object.values(saveData.discoveredCards ?? {}).filter(Boolean).length;
-  const winTotal = Object.values(saveData.npcWins ?? {}).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
-  const deckTotal = Array.isArray(saveData.decks) ? saveData.decks.reduce((sum, deck) => sum + (Array.isArray(deck) ? deck.length : 0), 0) : 0;
-  const money = Math.max(0, Number(saveData.money) || 0);
-  const earned = Math.max(0, Number(saveData.totalEarnedMoney) || 0);
-  return ownedTotal * 1000000 + discoveredTotal * 10000 + winTotal * 1000 + deckTotal * 100 + Math.min(money, 99999999) + Math.min(earned, 99999999);
-}
-
-function readSaveCandidate(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? { key, data: parsed, score: getSaveProgressScore(parsed) } : null;
-  } catch (error) {
-    console.warn(`セーブデータの読込に失敗しました: ${key}`, error);
-    return null;
-  }
-}
-
-function findBestAvailableSave() {
-  const candidates = [];
-  const current = readSaveCandidate(SAVE_KEY);
-  if (current) candidates.push(current);
-
-  const backup = readSaveCandidate(SAVE_BACKUP_KEY);
-  if (backup) candidates.push(backup);
-
-  for (let index = 0; index < localStorage.length; index += 1) {
-    const key = localStorage.key(index);
-    if (!key || key === SAVE_KEY || key === SAVE_BACKUP_KEY || !key.startsWith(LEGACY_SAVE_PREFIX)) continue;
-    const candidate = readSaveCandidate(key);
-    if (candidate) candidates.push(candidate);
-  }
-
-  if (!candidates.length) return null;
-  candidates.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    if (a.key === SAVE_KEY) return -1;
-    if (b.key === SAVE_KEY) return 1;
-    return 0;
-  });
-  return candidates[0];
-}
-
-function createSaveBackup(saveData = state.save) {
-  if (!saveData || typeof saveData !== "object") return;
-  try {
-    localStorage.setItem(SAVE_BACKUP_KEY, JSON.stringify(saveData));
-  } catch (error) {
-    console.warn("セーブデータのバックアップ作成に失敗しました。", error);
-  }
-}
-
 function loadSave() {
   try {
-    const candidate = findBestAvailableSave();
-    state.save = candidate ? normalizeSave(candidate.data) : createInitialSave();
-    if (candidate && candidate.key !== SAVE_KEY) {
-      console.info(`旧セーブデータを引き継ぎました: ${candidate.key}`);
-    }
+    const raw = localStorage.getItem(SAVE_KEY);
+    state.save = raw ? normalizeSave(JSON.parse(raw)) : createInitialSave();
   } catch (error) {
     console.error(error);
     state.save = createInitialSave();
@@ -1020,9 +953,7 @@ function loadSave() {
 function save() {
   state.save.version = VERSION;
   state.save.selectedDeckIndex = state.selectedDeckIndex;
-  const serialized = JSON.stringify(state.save);
-  localStorage.setItem(SAVE_KEY, serialized);
-  localStorage.setItem(SAVE_BACKUP_KEY, serialized);
+  localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
 }
 
 function addMoney(amount) {
@@ -1238,51 +1169,6 @@ function getRuleDescriptionHtml(ruleIds) {
   `;
 }
 
-function normalizeNpcListView(view = {}) {
-  const difficulty = ["all", "よわい", "ふつう", "つよい"].includes(view?.difficulty) ? view.difficulty : "all";
-  const win = ["all", "unwon", "won"].includes(view?.win) ? view.win : "all";
-  const type = ["all", "mona", "miu", "rinka", "momoka", "other"].includes(view?.type) ? view.type : "all";
-  const sort = ["name", "difficulty", "number"].includes(view?.sort) ? view.sort : "number";
-  const order = view?.order === "desc" ? "desc" : "asc";
-  return { difficulty, win, type, sort, order };
-}
-
-function getNpcNumber(npc) {
-  const match = String(npc?.id ?? "").match(/(\d+)/);
-  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
-}
-
-function getNpcTypeCategory(npc) {
-  const name = String(npc?.name ?? "");
-  if (name.includes("もな")) return "mona";
-  if (name.includes("美雨")) return "miu";
-  if (name.includes("凛花")) return "rinka";
-  if (name.includes("百花")) return "momoka";
-  return "other";
-}
-
-function updateNpcListView(patch) {
-  const next = normalizeNpcListView({ ...(state.save?.settings?.npcListView ?? state.npcListView), ...patch });
-  state.npcListView = next;
-  state.save.settings.npcListView = { ...next };
-  save();
-  renderNpcList();
-}
-
-function syncNpcListControls(view) {
-  const values = {
-    npcFilterDifficulty: view.difficulty,
-    npcFilterWin: view.win,
-    npcFilterType: view.type,
-    npcSortField: view.sort,
-    npcSortOrder: view.order
-  };
-  for (const [id, value] of Object.entries(values)) {
-    const el = $(id);
-    if (el && el.value !== value) el.value = value;
-  }
-}
-
 function renderNpcList() {
   const panel = document.querySelector(".rule-panel");
   if (panel) {
@@ -1294,49 +1180,14 @@ function renderNpcList() {
     `;
   }
 
-  const view = normalizeNpcListView(state.save?.settings?.npcListView ?? state.npcListView);
-  state.npcListView = view;
-  state.save.settings.npcListView = { ...view };
-  syncNpcListControls(view);
-
-  const difficultyRank = { "よわい": 1, "ふつう": 2, "つよい": 3 };
-  const visibleNpcs = NPCS
-    .filter((npc) => isNpcUnlocked(npc))
-    .filter((npc) => view.difficulty === "all" || npc.difficulty === view.difficulty)
-    .filter((npc) => {
-      const wins = Number(state.save.npcWins?.[npc.id] ?? 0);
-      if (view.win === "won") return wins > 0;
-      if (view.win === "unwon") return wins === 0;
-      return true;
-    })
-    .filter((npc) => view.type === "all" || getNpcTypeCategory(npc) === view.type)
-    .sort((a, b) => {
-      let result = 0;
-      if (view.sort === "name") {
-        result = String(a.name).localeCompare(String(b.name), "ja");
-      } else if (view.sort === "difficulty") {
-        result = (difficultyRank[a.difficulty] ?? 99) - (difficultyRank[b.difficulty] ?? 99);
-        if (result === 0) result = getNpcNumber(a) - getNpcNumber(b);
-      } else {
-        result = getNpcNumber(a) - getNpcNumber(b);
-      }
-      return view.order === "desc" ? -result : result;
-    });
-
   const list = $("npcList");
   const hiddenCount = NPCS.filter((npc) => !isNpcUnlocked(npc)).length;
   list.innerHTML = hiddenCount > 0
     ? `<div class="summary">${escapeHtml(getNpcUnlockMessage())}<br>未解放の対戦相手：${hiddenCount}人</div>`
     : "";
 
-  if (visibleNpcs.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "summary";
-    empty.textContent = "条件に一致する対戦相手はいません。";
-    list.appendChild(empty);
-  }
-
-  for (const npc of visibleNpcs) {
+  for (const npc of NPCS) {
+    if (!isNpcUnlocked(npc)) continue;
     const poolCards = getNpcCardPool(npc);
     const avgPower = poolCards.reduce((sum, card) => sum + card.power, 0) / Math.max(poolCards.length, 1);
     const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
@@ -3978,50 +3829,23 @@ function confirmBattleExit(destination = "title") {
 }
 
 async function forceUpdate() {
-  const button = $("updateButton");
-  const originalLabel = button?.textContent ?? "最新版に更新";
-  if (button) {
-    button.disabled = true;
-    button.textContent = "更新を確認中…";
-  }
-
   try {
-    createSaveBackup();
-
-    if ("serviceWorker" in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map(async (registration) => {
-        try {
-          await registration.update();
-        } catch (error) {
-          console.warn("Service Workerの更新確認に失敗しました。", error);
-        }
-      }));
-    }
-
     const cacheNames = await caches.keys();
-    await Promise.all(cacheNames
-      .filter((name) => name.startsWith("phantom-card-battle-"))
-      .map((name) => caches.delete(name)));
-
-    const url = new URL(location.href);
-    url.searchParams.set("appVersion", VERSION);
-    url.searchParams.set("update", String(Date.now()));
-    location.replace(url.toString());
+    await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((reg) => reg.unregister()));
+    }
   } catch (error) {
     console.warn(error);
-    if (button) {
-      button.disabled = false;
-      button.textContent = originalLabel;
-    }
-    location.reload();
   }
+  location.reload();
 }
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register(`./service-worker.js?v=${encodeURIComponent(VERSION)}`, { updateViaCache: "none" }).catch((error) => {
+    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
       console.warn("Service Worker registration failed", error);
     });
   });
@@ -4033,12 +3857,6 @@ function bindEvents() {
 
   $("goBattle").addEventListener("click", () => showScreen("battleSelect"));
   $("goNpcBattle").addEventListener("click", () => showScreen("battleMenu"));
-
-  $("npcFilterDifficulty").addEventListener("change", (event) => updateNpcListView({ difficulty: event.target.value }));
-  $("npcFilterWin").addEventListener("change", (event) => updateNpcListView({ win: event.target.value }));
-  $("npcFilterType").addEventListener("change", (event) => updateNpcListView({ type: event.target.value }));
-  $("npcSortField").addEventListener("change", (event) => updateNpcListView({ sort: event.target.value }));
-  $("npcSortOrder").addEventListener("change", (event) => updateNpcListView({ order: event.target.value }));
   $("goOnlineBattle").addEventListener("click", () => showScreen("onlineBattle"));
   $("createOnlineRoom").addEventListener("click", createOnlineRoom);
   $("joinOnlineRoom").addEventListener("click", joinOnlineRoom);

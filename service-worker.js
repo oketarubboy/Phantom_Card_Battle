@@ -1,6 +1,13 @@
-const CACHE_NAME = "phantom-card-battle-assets-v0.1.41";
-const STATIC_ASSETS = [
+const CACHE_NAME = "phantom-card-battle-v0.1.38";
+const ASSETS = [
+  "./",
+  "./index.html",
+  "./style.css",
+  "./app.js",
+  "./firebase-config.js",
   "./manifest.json",
+  "./src/data/cards.js",
+  "./src/data/npcs.js",
   "./assets/icons/icon-192.png",
   "./assets/icons/icon-512.png",
   "./assets/coins/coin-front.webp",
@@ -8,37 +15,31 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+    caches.keys().then((keys) => Promise.all(keys
+      .filter((key) => key !== CACHE_NAME)
+      .map((key) => caches.delete(key))
     ))
   );
   self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  const request = event.request;
-  const url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== self.location.origin) return;
-
-  const isProgramFile = request.mode === "navigate" || /(?:index\.html|app\.js|style\.css|firebase-config\.js|cards\.js|npcs\.js|version\.json)$/.test(url.pathname);
-
-  if (isProgramFile) {
-    event.respondWith(fetch(request, { cache: "no-store" }));
-    return;
-  }
+  const url = new URL(event.request.url);
+  if (url.origin !== location.origin) return;
 
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (response && response.ok) {
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
-      }
-      return response;
-    }))
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      });
+    })
   );
 });
