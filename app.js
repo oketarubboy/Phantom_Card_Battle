@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.40";
+const VERSION = "0.1.41";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 const SAVE_BACKUP_KEY = "phantom_card_battle_emergency_backup";
 const LEGACY_SAVE_PREFIX = "phantom_card_battle_save_";

@@ -6,7 +6,7 @@
   <title>Phantom Card Battle</title>
   <meta name="theme-color" content="#15182b" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=0.1.41" />
 </head>
 <body>
   <div id="app">
@@ -34,7 +34,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.10</span>
+          <span id="versionLabel">v0.1.41</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -303,6 +303,35 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module">
+    const BOOT_VERSION = "0.1.41";
+    const versionLabel = document.getElementById("versionLabel");
+    if (versionLabel) versionLabel.textContent = `v${BOOT_VERSION}`;
+
+    try {
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      }
+
+      if ("caches" in window) {
+        const names = await caches.keys();
+        await Promise.all(names
+          .filter((name) => name.startsWith("phantom-card-battle-"))
+          .map((name) => caches.delete(name)));
+      }
+
+      await import(`./app.js?v=${BOOT_VERSION}`);
+    } catch (error) {
+      console.error("Phantom Card Battleの起動に失敗しました。", error);
+      const box = document.querySelector(".version-box");
+      if (box) {
+        const message = document.createElement("div");
+        message.className = "boot-error";
+        message.textContent = "起動ファイルの更新に失敗しました。ページを閉じて、もう一度開いてください。";
+        box.appendChild(message);
+      }
+    }
+  </script>
 </body>
 </html>
