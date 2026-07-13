@@ -837,6 +837,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_1",
       "little_2",
       "little_3"
@@ -960,6 +962,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_1",
       "little_2",
       "little_3"
@@ -1083,6 +1087,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_1",
       "little_2",
       "little_3"
@@ -1206,6 +1212,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_1",
       "little_2",
       "little_3"
@@ -1333,6 +1341,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1465,6 +1475,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1597,6 +1609,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1729,6 +1743,8 @@ export const NPCS = [
       "ace_killer",
       "type_ascend",
       "type_descend",
+      "mirror",
+      "wild_card",
       "little_3"
     ],
     "ruleGroup2": [
@@ -1829,12 +1845,19 @@ export const NPCS = [
     ],
     "rareChanceLabel": "必ず★5",
     "ruleGroup1": [
+      "order",
+      "chaos",
+      "ace_killer",
+      "type_ascend",
+      "type_descend",
       "plus",
       "same",
+      "mirror",
+      "wild_card",
+      "little_3"
     ],
     "ruleGroup2": [
       "combo",
-      "little_3"
     ],
     "rareChanceRarities": [
       5
