@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.38";
+const VERSION = "0.1.42";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -15,6 +15,13 @@ const state = {
   ownedCardView: "vertical",
   battleCardPopup: true,
   selectedRuleIds: [],
+  npcListUi: {
+    difficulty: "all",
+    winStatus: "all",
+    attribute: "all",
+    sortField: "number",
+    sortOrder: "asc"
+  },
   shopStock: [],
   shopInitialized: false,
   online: {
@@ -1169,6 +1176,59 @@ function getRuleDescriptionHtml(ruleIds) {
   `;
 }
 
+function getNpcAttributeCategory(npc) {
+  const name = String(npc?.name ?? "");
+  if (name.includes("もな")) return "mona";
+  if (name.includes("美雨")) return "miu";
+  if (name.includes("凛花")) return "rinka";
+  if (name.includes("百花")) return "momoka";
+  return "other";
+}
+
+function getNpcDifficultyRank(difficulty) {
+  return { "よわい": 1, "ふつう": 2, "つよい": 3 }[difficulty] ?? 99;
+}
+
+function getFilteredSortedNpcs() {
+  const ui = state.npcListUi;
+  const filtered = NPCS.filter((npc) => isNpcUnlocked(npc)).filter((npc) => {
+    if (ui.difficulty !== "all" && npc.difficulty !== ui.difficulty) return false;
+    const wins = Number(state.save?.npcWins?.[npc.id] ?? 0);
+    if (ui.winStatus === "unwon" && wins > 0) return false;
+    if (ui.winStatus === "won" && wins <= 0) return false;
+    if (ui.attribute !== "all" && getNpcAttributeCategory(npc) !== ui.attribute) return false;
+    return true;
+  });
+  const direction = ui.sortOrder === "desc" ? -1 : 1;
+  filtered.sort((a, b) => {
+    let result = 0;
+    if (ui.sortField === "name") {
+      result = String(a.name).localeCompare(String(b.name), "ja");
+    } else if (ui.sortField === "difficulty") {
+      result = getNpcDifficultyRank(a.difficulty) - getNpcDifficultyRank(b.difficulty);
+      if (result === 0) result = getNpcNumber(a) - getNpcNumber(b);
+    } else {
+      result = getNpcNumber(a) - getNpcNumber(b);
+    }
+    return result * direction;
+  });
+  return filtered;
+}
+
+function renderNpcListControls() {
+  const controls = {
+    npcFilterDifficulty: state.npcListUi.difficulty,
+    npcFilterWinStatus: state.npcListUi.winStatus,
+    npcFilterAttribute: state.npcListUi.attribute,
+    npcSortField: state.npcListUi.sortField,
+    npcSortOrder: state.npcListUi.sortOrder
+  };
+  Object.entries(controls).forEach(([id, value]) => {
+    const el = $(id);
+    if (el) el.value = value;
+  });
+}
+
 function renderNpcList() {
   const panel = document.querySelector(".rule-panel");
   if (panel) {
@@ -1186,8 +1246,13 @@ function renderNpcList() {
     ? `<div class="summary">${escapeHtml(getNpcUnlockMessage())}<br>未解放の対戦相手：${hiddenCount}人</div>`
     : "";
 
-  for (const npc of NPCS) {
-    if (!isNpcUnlocked(npc)) continue;
+  renderNpcListControls();
+  const filteredNpcs = getFilteredSortedNpcs();
+  if (!filteredNpcs.length) {
+    list.insertAdjacentHTML("beforeend", '<div class="summary">条件に一致する対戦相手はいません。</div>');
+  }
+
+  for (const npc of filteredNpcs) {
     const poolCards = getNpcCardPool(npc);
     const avgPower = poolCards.reduce((sum, card) => sum + card.power, 0) / Math.max(poolCards.length, 1);
     const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
@@ -1951,7 +2016,7 @@ function renderBattleHands() {
     const div = document.createElement("div");
     const isForced = forcedPlayerIndex === index && battle.currentTurn === "player" && !entry.used;
     div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index || isForced ? "selected" : ""} ${isForced ? "forced" : ""}`;
-    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { showName: false });
+    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { showName: false, effective: true });
     applyCardTypeStyle(div, entry.card);
 
     const canSelect = !entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null;
@@ -1983,7 +2048,7 @@ function renderBattleHands() {
     const isForced = getForcedHandIndex("npc") === index && battle.currentTurn === "npc" && !entry.used;
     if (revealNpcHand) {
       div.className = `mini-card opponent-open ${entry.used ? "used" : ""} ${isForced ? "forced" : ""}`;
-      div.innerHTML = cardMiniHtml(entry.card, "", { showName: false });
+      div.innerHTML = cardMiniHtml(entry.card, "", { showName: false, effective: true });
       applyCardTypeStyle(div, entry.card);
       if (isBattleCardPopupEnabled()) {
         div.addEventListener("click", () => showCardDetailPopup(entry.card, { title: "相手の手札" }));
@@ -3883,6 +3948,22 @@ function bindEvents() {
     renderOwnedCardList();
   });
   $("collectionSearch").addEventListener("input", renderCollectionScreen);
+
+  [
+    ["npcFilterDifficulty", "difficulty"],
+    ["npcFilterWinStatus", "winStatus"],
+    ["npcFilterAttribute", "attribute"],
+    ["npcSortField", "sortField"],
+    ["npcSortOrder", "sortOrder"]
+  ].forEach(([id, key]) => {
+    const control = $(id);
+    if (!control) return;
+    control.addEventListener("change", (event) => {
+      state.npcListUi[key] = event.target.value;
+      renderNpcList();
+    });
+  });
+
   $("deckNameInput").addEventListener("input", (event) => {
     const name = event.target.value.trim() || getDeckDefaultName(state.selectedDeckIndex);
     state.save.deckNames[state.selectedDeckIndex] = name;

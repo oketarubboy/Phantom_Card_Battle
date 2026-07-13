@@ -2124,3 +2124,10 @@ body.is-battle-screen .battle-screen {
   font-size: 13px;
   line-height: 1.45;
 }
+
+
+/* v0.1.42 NPC list controls: session only */
+.npc-list-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin:12px 0 14px;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(255,255,255,.04)}
+.npc-list-controls label{display:grid;gap:4px;flex:1 1 116px;min-width:0;font-size:11px;color:var(--muted)}
+.npc-list-controls select{width:100%;min-width:0;height:36px;padding:5px 8px;font-size:13px}
+@media(max-width:520px){.npc-list-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px}.npc-list-controls label{font-size:10px}.npc-list-controls select{height:34px;padding:4px;font-size:11px}}
