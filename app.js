@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.37";
+const VERSION = "0.1.38";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -3235,18 +3235,17 @@ function getComboCaptures(board, startIndexes, owner, battle = state.battle, typ
     const source = board[sourceIndex];
     if (!source || source.owner !== owner) continue;
 
-    for (const neighbor of getNeighbors(sourceIndex)) {
-      const target = board[neighbor.index];
+    // コンボでひっくり返ったカードも、通常比較だけでなく
+    // セイム・プラスを含めて再判定する。
+    const plan = getCapturePlan(board, sourceIndex, battle, typeBoosts);
+    for (const index of plan.indexes) {
+      const target = board[index];
       if (!target || target.owner === owner || target.locked) continue;
-      const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, board, sourceIndex);
-      const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, board, neighbor.index);
-      if (sideBeats(sourceValue, targetValue, battle)) {
-        target.owner = owner;
-        if (!seen.has(neighbor.index)) {
-          seen.add(neighbor.index);
-          queue.push(neighbor.index);
-          captured.push(neighbor.index);
-        }
+      target.owner = owner;
+      if (!seen.has(index)) {
+        seen.add(index);
+        queue.push(index);
+        captured.push(index);
       }
     }
   }
@@ -3275,32 +3274,35 @@ async function resolveCaptures(boardIndex) {
     const comboQueue = [...captured];
     const seen = new Set(comboQueue);
     let comboCount = 0;
+    const comboReasons = new Set();
 
     while (comboQueue.length) {
       const sourceIndex = comboQueue.shift();
       const source = battle.board[sourceIndex];
       if (!source || source.owner !== placed.owner) continue;
 
-      for (const neighbor of getNeighbors(sourceIndex)) {
-        const target = battle.board[neighbor.index];
+      // コンボでひっくり返ったカードを起点に、通常比較・セイム・プラスを再判定する。
+      const comboPlan = getCapturePlan(battle.board, sourceIndex, battle, battle.typeBoosts);
+      for (const index of comboPlan.indexes) {
+        const target = battle.board[index];
         if (!target || target.owner === placed.owner || target.locked) continue;
-        const sourceValue = getEffectiveCardValue(source.card, neighbor.side, battle, battle.board, sourceIndex);
-        const targetValue = getEffectiveCardValue(target.card, neighbor.opposite, battle, battle.board, neighbor.index);
-        if (sideBeats(sourceValue, targetValue, battle)) {
-          target.owner = placed.owner;
-          captured.push(neighbor.index);
-          comboCount += 1;
-          if (!seen.has(neighbor.index)) {
-            seen.add(neighbor.index);
-            comboQueue.push(neighbor.index);
-          }
-          renderBoard();
-          await animateFlip(neighbor.index, placed.owner);
+        target.owner = placed.owner;
+        captured.push(index);
+        comboCount += 1;
+        for (const reason of comboPlan.reasons) comboReasons.add(reason);
+        if (!seen.has(index)) {
+          seen.add(index);
+          comboQueue.push(index);
         }
+        renderBoard();
+        await animateFlip(index, placed.owner);
       }
     }
 
-    if (comboCount) addBattleLog(`コンボ発動：${comboCount}枚を追加で変更しました。`);
+    if (comboCount) {
+      const reasonText = comboReasons.size ? `（${[...comboReasons].join("・")}含む）` : "";
+      addBattleLog(`コンボ発動${reasonText}：${comboCount}枚を追加で変更しました。`);
+    }
   }
 
   return captured;
