@@ -1,8 +1,10 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.39";
+const VERSION = "0.1.40";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
+const SAVE_BACKUP_KEY = "phantom_card_battle_emergency_backup";
+const LEGACY_SAVE_PREFIX = "phantom_card_battle_save_";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));
@@ -939,10 +941,70 @@ function normalizeSave(save) {
   return normalized;
 }
 
+function getSaveProgressScore(saveData) {
+  if (!saveData || typeof saveData !== "object") return -1;
+  const ownedTotal = Object.values(saveData.ownedCards ?? {}).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+  const discoveredTotal = Object.values(saveData.discoveredCards ?? {}).filter(Boolean).length;
+  const winTotal = Object.values(saveData.npcWins ?? {}).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+  const deckTotal = Array.isArray(saveData.decks) ? saveData.decks.reduce((sum, deck) => sum + (Array.isArray(deck) ? deck.length : 0), 0) : 0;
+  const money = Math.max(0, Number(saveData.money) || 0);
+  const earned = Math.max(0, Number(saveData.totalEarnedMoney) || 0);
+  return ownedTotal * 1000000 + discoveredTotal * 10000 + winTotal * 1000 + deckTotal * 100 + Math.min(money, 99999999) + Math.min(earned, 99999999);
+}
+
+function readSaveCandidate(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? { key, data: parsed, score: getSaveProgressScore(parsed) } : null;
+  } catch (error) {
+    console.warn(`セーブデータの読込に失敗しました: ${key}`, error);
+    return null;
+  }
+}
+
+function findBestAvailableSave() {
+  const candidates = [];
+  const current = readSaveCandidate(SAVE_KEY);
+  if (current) candidates.push(current);
+
+  const backup = readSaveCandidate(SAVE_BACKUP_KEY);
+  if (backup) candidates.push(backup);
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (!key || key === SAVE_KEY || key === SAVE_BACKUP_KEY || !key.startsWith(LEGACY_SAVE_PREFIX)) continue;
+    const candidate = readSaveCandidate(key);
+    if (candidate) candidates.push(candidate);
+  }
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.key === SAVE_KEY) return -1;
+    if (b.key === SAVE_KEY) return 1;
+    return 0;
+  });
+  return candidates[0];
+}
+
+function createSaveBackup(saveData = state.save) {
+  if (!saveData || typeof saveData !== "object") return;
+  try {
+    localStorage.setItem(SAVE_BACKUP_KEY, JSON.stringify(saveData));
+  } catch (error) {
+    console.warn("セーブデータのバックアップ作成に失敗しました。", error);
+  }
+}
+
 function loadSave() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    state.save = raw ? normalizeSave(JSON.parse(raw)) : createInitialSave();
+    const candidate = findBestAvailableSave();
+    state.save = candidate ? normalizeSave(candidate.data) : createInitialSave();
+    if (candidate && candidate.key !== SAVE_KEY) {
+      console.info(`旧セーブデータを引き継ぎました: ${candidate.key}`);
+    }
   } catch (error) {
     console.error(error);
     state.save = createInitialSave();
@@ -958,7 +1020,9 @@ function loadSave() {
 function save() {
   state.save.version = VERSION;
   state.save.selectedDeckIndex = state.selectedDeckIndex;
-  localStorage.setItem(SAVE_KEY, JSON.stringify(state.save));
+  const serialized = JSON.stringify(state.save);
+  localStorage.setItem(SAVE_KEY, serialized);
+  localStorage.setItem(SAVE_BACKUP_KEY, serialized);
 }
 
 function addMoney(amount) {
@@ -3914,23 +3978,50 @@ function confirmBattleExit(destination = "title") {
 }
 
 async function forceUpdate() {
+  const button = $("updateButton");
+  const originalLabel = button?.textContent ?? "最新版に更新";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "更新を確認中…";
+  }
+
   try {
-    const cacheNames = await caches.keys();
-    await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    createSaveBackup();
+
     if ("serviceWorker" in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((reg) => reg.unregister()));
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(async (registration) => {
+        try {
+          await registration.update();
+        } catch (error) {
+          console.warn("Service Workerの更新確認に失敗しました。", error);
+        }
+      }));
     }
+
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames
+      .filter((name) => name.startsWith("phantom-card-battle-"))
+      .map((name) => caches.delete(name)));
+
+    const url = new URL(location.href);
+    url.searchParams.set("appVersion", VERSION);
+    url.searchParams.set("update", String(Date.now()));
+    location.replace(url.toString());
   } catch (error) {
     console.warn(error);
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
+    location.reload();
   }
-  location.reload();
 }
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+    navigator.serviceWorker.register(`./service-worker.js?v=${encodeURIComponent(VERSION)}`, { updateViaCache: "none" }).catch((error) => {
       console.warn("Service Worker registration failed", error);
     });
   });

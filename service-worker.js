@@ -1,4 +1,4 @@
-const CACHE_NAME = "phantom-card-battle-v0.1.39";
+const CACHE_NAME = "phantom-card-battle-v0.1.40";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const ASSETS = [
   "./app.js",
   "./firebase-config.js",
   "./manifest.json",
+  "./version.json",
   "./src/data/cards.js",
   "./src/data/npcs.js",
   "./assets/icons/icon-192.png",
@@ -30,16 +31,42 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  if (url.origin !== location.origin) return;
+  const request = event.request;
+  const url = new URL(request.url);
+  if (url.origin !== location.origin || request.method !== "GET") return;
+
+  const isAppShell = request.mode === "navigate" || [
+    "/index.html",
+    "/app.js",
+    "/style.css",
+    "/firebase-config.js",
+    "/service-worker.js",
+    "/src/data/cards.js",
+    "/src/data/npcs.js"
+  ].some((path) => url.pathname.endsWith(path));
+
+  if (isAppShell) {
+    event.respondWith(
+      fetch(request, { cache: "no-store" })
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
+    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+      if (response && response.ok) {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      });
-    })
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+      }
+      return response;
+    }))
   );
 });
