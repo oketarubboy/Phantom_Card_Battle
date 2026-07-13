@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.36";
+const VERSION = "0.1.37";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -67,7 +67,7 @@ const RULES = [
   { id: "type_ascend", name: "タイプアセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが+補正されます。" },
   { id: "type_descend", name: "タイプディセンド", short: "場に同じ属性カードが2枚以上ある時、その属性の場のカードだけが-補正されます。1未満にはなりません。" },
   { id: "mirror", name: "ミラー", short: "場に出した瞬間、カードの上下・左右の数字が入れ替わります。" },
-  { id: "wild_card", name: "ワイルドカード", short: "各プレイヤーの手札1枚に、1辺+2またはA/1化のランダム変化が発生します。" },
+  { id: "wild_card", name: "ワイルドカード", short: "対戦開始時に、各プレイヤーの手札からランダムで1枚だけ選ばれます。そのカードは「どれか1辺が+2」または「どれか1辺がAになり、別の1辺が1になる」のどちらかの変化を受けます。" },
   { id: "little_1", name: "リトル★", short: "★1までのカードだけで対戦します。★デッキを使用し、他の追加ルールも適用されます。" },
   { id: "little_2", name: "リトル★★", short: "★2までのカードだけで対戦します。★★デッキを使用し、他の追加ルールも適用されます。" },
   { id: "little_3", name: "リトル★★★", short: "★3までのカードだけで対戦します。★★★デッキを使用し、他の追加ルールも適用されます。" },
@@ -2997,7 +2997,7 @@ async function startBattle(npcId, selectedRules = null) {
   if (fieldEntries.length) addBattleLog(`フィールド効果：${fieldEntries.length}マスに効果が発生しました。`);
   if (["ふつう", "つよい"].includes(npc.difficulty)) addBattleLog("ロック：0〜1マスに隠しロックマスが発生する可能性があります。");
   if (selectedRules.includes("mirror")) addBattleLog("ミラー：場に出たカードは上下・左右の数字が入れ替わります。");
-  if (selectedRules.includes("wild_card")) addBattleLog("ワイルドカード：お互いの手札1枚にランダム変化が発生しました。");
+  if (selectedRules.includes("wild_card")) addBattleLog("ワイルドカード：お互いの手札からランダムで1枚ずつ選ばれ、1辺+2、または1辺A・別の1辺1の変化が発生しました。");
   if (swapInfo) addBattleLog(`スワップ：お互いの手札から1枚を交換しました。対戦後に戻ります。`);
   addBattleLog("コイントスで先攻・後攻を決定します。");
   initPixi();
