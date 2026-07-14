@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.43";
+const VERSION = "0.1.44";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -610,12 +610,31 @@ function getCardRawValue(card, side) {
   return Number(card?.battleValues?.[side] ?? card?.[side] ?? 0);
 }
 
-function cloneCardForBattle(card, battleValues = null) {
+function cloneCardForBattle(card, battleMod = null) {
   if (!card) return card;
-  const cleanValues = battleValues && typeof battleValues === "object"
-    ? Object.fromEntries(CARD_SIDES.map((side) => [side, clamp(Number(battleValues[side] ?? card[side] ?? 0), 1, 10)]))
-    : null;
-  return cleanValues ? { ...card, battleValues: cleanValues } : card;
+  if (!battleMod || typeof battleMod !== "object") return card;
+
+  // v0.1.44以降は { values, changes } 形式。旧オンライン部屋の数値だけの形式にも対応する。
+  const sourceValues = battleMod.values && typeof battleMod.values === "object"
+    ? battleMod.values
+    : battleMod;
+  const cleanValues = Object.fromEntries(
+    CARD_SIDES.map((side) => [side, clamp(Number(sourceValues[side] ?? card[side] ?? 0), 1, 10)])
+  );
+  const sourceChanges = battleMod.changes && typeof battleMod.changes === "object"
+    ? battleMod.changes
+    : {};
+  const wildChanges = Object.fromEntries(
+    CARD_SIDES
+      .filter((side) => ["plus2", "ace", "one"].includes(sourceChanges[side]))
+      .map((side) => [side, sourceChanges[side]])
+  );
+
+  return {
+    ...card,
+    battleValues: cleanValues,
+    wildChanges
+  };
 }
 
 function generateWildCardMods(cards) {
@@ -624,19 +643,41 @@ function generateWildCardMods(cards) {
   const card = cards[index];
   if (!card) return {};
   const values = Object.fromEntries(CARD_SIDES.map((side) => [side, Number(card?.[side] ?? 0)]));
+  const changes = {};
+
   if (Math.random() < 0.5) {
     const side = sample(CARD_SIDES, 1)[0];
     values[side] = clamp(values[side] + 2, 1, 10);
+    // +2の結果Aになった場合も黄色表示にする。
+    changes[side] = "plus2";
   } else {
     const sides = shuffle(CARD_SIDES);
     values[sides[0]] = 10;
     values[sides[1]] = 1;
+    changes[sides[0]] = "ace";
+    changes[sides[1]] = "one";
   }
-  return { [index]: values };
+  return { [index]: { values, changes } };
 }
 
 function applyWildCardModsToCards(cards, mods = {}) {
   return (cards ?? []).map((card, index) => cloneCardForBattle(card, mods?.[index] ?? mods?.[String(index)] ?? null));
+}
+
+function getWildChangeClass(card, side) {
+  const change = card?.wildChanges?.[side];
+  if (change === "plus2") return "wild-plus2";
+  if (change === "ace") return "wild-ace";
+  if (change === "one") return "wild-one";
+  return "";
+}
+
+function getWildValueColor(card, side) {
+  const change = card?.wildChanges?.[side];
+  if (change === "plus2") return 0xffdf4d;
+  if (change === "ace") return 0x55aaff;
+  if (change === "one") return 0xff5b5b;
+  return 0xffffff;
 }
 
 function setupWildCardForHands(playerCards, npcCards, battle = state.battle) {
@@ -1073,10 +1114,10 @@ function cardMiniHtml(card, extra = "", options = {}) {
         <span class="card-stars">${rarityStars(card.rarity)}</span>
       </div>` : ""}
       ${showValues ? `<div class="card-visual-values">
-        <span class="cv cv-up">${displayValue(values.up)}</span>
-        <span class="cv cv-right">${displayValue(values.right)}</span>
-        <span class="cv cv-down">${displayValue(values.down)}</span>
-        <span class="cv cv-left">${displayValue(values.left)}</span>
+        <span class="cv cv-up ${getWildChangeClass(card, "up")}">${displayValue(values.up)}</span>
+        <span class="cv cv-right ${getWildChangeClass(card, "right")}">${displayValue(values.right)}</span>
+        <span class="cv cv-down ${getWildChangeClass(card, "down")}">${displayValue(values.down)}</span>
+        <span class="cv cv-left ${getWildChangeClass(card, "left")}">${displayValue(values.left)}</span>
         ${centerLabel ? `<span class="cv cv-center">${centerLabel}</span>` : ""}
       </div>` : ""}
       ${showName ? `<div class="card-visual-name">${escapeHtml(card.name)}</div>` : ""}
@@ -1999,10 +2040,10 @@ function createPixiCard(card, owner, x, y, boardIndex = null) {
 
 
   const values = getCardValueSet(card, state.battle, state.battle?.board, boardIndex);
-  addValueText(container, displayValue(values.up), 58, 18);
-  addValueText(container, displayValue(values.right), 98, 58);
-  addValueText(container, displayValue(values.down), 58, 98);
-  addValueText(container, displayValue(values.left), 18, 58);
+  addValueText(container, displayValue(values.up), 58, 18, getWildValueColor(card, "up"));
+  addValueText(container, displayValue(values.right), 98, 58, getWildValueColor(card, "right"));
+  addValueText(container, displayValue(values.down), 58, 98, getWildValueColor(card, "down"));
+  addValueText(container, displayValue(values.left), 18, 58, getWildValueColor(card, "left"));
 
   if (isBattleCardPopupEnabled()) {
     container.eventMode = "static";
@@ -2016,7 +2057,7 @@ function createPixiCard(card, owner, x, y, boardIndex = null) {
   return container;
 }
 
-function addValueText(container, text, x, y) {
+function addValueText(container, text, x, y, textColor = 0xffffff) {
   const bg = new PIXI.Graphics();
   bg.beginFill(0x0b1020, 0.82);
   bg.lineStyle(1, 0xffffff, 0.16);
@@ -2028,7 +2069,7 @@ function addValueText(container, text, x, y) {
     fontFamily: "Arial",
     fontSize: 14,
     fontWeight: "bold",
-    fill: 0xffffff
+    fill: textColor
   });
   label.anchor.set(0.5);
   label.x = x;

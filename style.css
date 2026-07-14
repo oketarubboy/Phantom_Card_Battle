@@ -2149,3 +2149,17 @@ body.is-battle-screen .battle-screen {
   .deck-filter-row .search, .collection-filter-row .search { flex-basis: 100%; }
   .deck-filter-row .sort-select, .collection-filter-row .sort-select { flex: 1 1 calc(50% - 6px); min-width: 0; }
 }
+
+
+/* v0.1.44: ワイルドカードで変化した数値の色 */
+.card-visual-values .cv.wild-plus2 {
+  color: #ffdf4d;
+}
+
+.card-visual-values .cv.wild-ace {
+  color: #55aaff;
+}
+
+.card-visual-values .cv.wild-one {
+  color: #ff5b5b;
+}
