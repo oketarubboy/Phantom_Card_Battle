@@ -1,10 +1,98 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.44";
+const VERSION = "0.1.45";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
+
+function normalizeCardLookupName(value) {
+  return String(value ?? "").normalize("NFKC").trim();
+}
+
+function resolveCardRef(ref, contextLabel = "カード参照") {
+  if (!ref) return null;
+  if (typeof ref === "string") {
+    return cardById.get(ref) ?? null;
+  }
+
+  const targetName = normalizeCardLookupName(ref.name);
+  const candidates = CARDS.filter((card) => {
+    if (targetName && normalizeCardLookupName(card.name) !== targetName) return false;
+    if (ref.type && String(card.type ?? "") !== String(ref.type)) return false;
+    if (ref.rarity && Number(card.rarity) !== Number(ref.rarity)) return false;
+    if (ref.cardNo && String(card.cardNo) !== String(ref.cardNo)) return false;
+    return true;
+  });
+
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length > 1) {
+    console.warn(`${contextLabel}: 複数カードが一致しました。先頭を使用します。`, ref, candidates.map((card) => card.id));
+    return candidates[0];
+  }
+  console.warn(`${contextLabel}: カードが見つかりません。`, ref);
+  return null;
+}
+
+function resolveCardPoolSpec(spec, contextLabel = "カードプール") {
+  if (!spec) return [];
+  const rarities = Array.isArray(spec.rarities) ? spec.rarities.map(Number) : null;
+  const ids = new Set();
+  const cards = [];
+  const addCard = (card) => {
+    if (!card || ids.has(card.id)) return;
+    ids.add(card.id);
+    cards.push(card);
+  };
+
+  if (rarities || spec.type || spec.untypedOnly) {
+    for (const card of CARDS) {
+      if (rarities && !rarities.includes(Number(card.rarity))) continue;
+      if (spec.type && String(card.type ?? "") !== String(spec.type)) continue;
+      if (spec.untypedOnly && card.type) continue;
+      addCard(card);
+    }
+  }
+
+  for (const ref of spec.fixedCardRefs ?? []) {
+    addCard(resolveCardRef(ref, `${contextLabel}の固定カード`));
+  }
+
+  return cards;
+}
+
+function hydrateNpcCardReferences(npc) {
+  const label = `${npc.name ?? npc.id}`;
+  const poolCards = resolveCardPoolSpec(npc.cardPoolSpec, `${label}の所持カード`);
+  if (poolCards.length) npc.cardPool = poolCards.map((card) => card.id);
+
+  if (npc.littlePoolSpecs) {
+    npc.littlePools = {};
+    for (const [key, spec] of Object.entries(npc.littlePoolSpecs)) {
+      npc.littlePools[key] = resolveCardPoolSpec(spec, `${label}のリトル${key}カード`).map((card) => card.id);
+    }
+  }
+
+  if (Array.isArray(npc.requiredCardRefs)) {
+    npc.requiredCards = npc.requiredCardRefs
+      .map((ref) => resolveCardRef(ref, `${label}の必須カード`))
+      .filter(Boolean)
+      .map((card) => card.id);
+  }
+
+  if (npc.firstWinRewardCardRef) {
+    npc.firstWinRewardCardId = resolveCardRef(npc.firstWinRewardCardRef, `${label}の初回勝利報酬`)?.id ?? null;
+  }
+
+  if (Array.isArray(npc.fixedCardRefs)) {
+    npc.fixedCards = npc.fixedCardRefs
+      .map((ref) => resolveCardRef(ref, `${label}の固定カード`))
+      .filter(Boolean)
+      .map((card) => card.id);
+  }
+}
+
+for (const npc of NPCS) hydrateNpcCardReferences(npc);
 const npcById = new Map(NPCS.map((npc) => [npc.id, npc]));
 
 const state = {

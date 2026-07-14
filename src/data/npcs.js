@@ -6,30 +6,6 @@ export const NPCS = [
     "difficulty": "よわい",
     "entryFee": 0,
     "winMoney": 100,
-    "cardPool": [
-      "card_001",
-      "card_002",
-      "card_003",
-      "card_004",
-      "card_005",
-      "card_006",
-      "card_007",
-      "card_008",
-      "card_009",
-      "card_010",
-      "card_011",
-      "card_012",
-      "card_013",
-      "card_014",
-      "card_015",
-      "card_016",
-      "card_017",
-      "card_018",
-      "card_021",
-      "card_030",
-      "card_039",
-      "card_048"
-    ],
     "rareChanceLabel": "★3まで",
     "ruleGroup1": [],
     "ruleGroup2": [],
@@ -48,75 +24,93 @@ export const NPCS = [
         "count": 2
       }
     ],
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        1
       ],
-      "2": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018",
-        "card_021",
-        "card_030",
-        "card_039",
-        "card_048"
-      ],
-      "3": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018",
-        "card_021",
-        "card_030",
-        "card_039",
-        "card_048"
+      "fixedCardRefs": [
+        {
+          "name": "[血が見たい]",
+          "type": "もなタイプ",
+          "rarity": 2
+        },
+        {
+          "name": "[血が見たい]",
+          "type": "美雨タイプ",
+          "rarity": 2
+        },
+        {
+          "name": "[血が見たい]",
+          "type": "凛花タイプ",
+          "rarity": 2
+        },
+        {
+          "name": "[血が見たい]",
+          "type": "百花タイプ",
+          "rarity": 2
+        }
       ]
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          1
+        ],
+        "fixedCardRefs": [
+          {
+            "name": "[血が見たい]",
+            "type": "もなタイプ",
+            "rarity": 2
+          },
+          {
+            "name": "[血が見たい]",
+            "type": "美雨タイプ",
+            "rarity": 2
+          },
+          {
+            "name": "[血が見たい]",
+            "type": "凛花タイプ",
+            "rarity": 2
+          },
+          {
+            "name": "[血が見たい]",
+            "type": "百花タイプ",
+            "rarity": 2
+          }
+        ]
+      },
+      "3": {
+        "rarities": [
+          1
+        ],
+        "fixedCardRefs": [
+          {
+            "name": "[血が見たい]",
+            "type": "もなタイプ",
+            "rarity": 2
+          },
+          {
+            "name": "[血が見たい]",
+            "type": "美雨タイプ",
+            "rarity": 2
+          },
+          {
+            "name": "[血が見たい]",
+            "type": "凛花タイプ",
+            "rarity": 2
+          },
+          {
+            "name": "[血が見たい]",
+            "type": "百花タイプ",
+            "rarity": 2
+          }
+        ]
+      }
     }
   },
   {
@@ -126,63 +120,6 @@ export const NPCS = [
     "difficulty": "よわい",
     "entryFee": 50,
     "winMoney": 200,
-    "cardPool": [
-      "card_001",
-      "card_002",
-      "card_003",
-      "card_004",
-      "card_005",
-      "card_006",
-      "card_007",
-      "card_008",
-      "card_009",
-      "card_010",
-      "card_011",
-      "card_012",
-      "card_013",
-      "card_014",
-      "card_015",
-      "card_016",
-      "card_017",
-      "card_018",
-      "card_019",
-      "card_020",
-      "card_021",
-      "card_022",
-      "card_023",
-      "card_024",
-      "card_025",
-      "card_026",
-      "card_027",
-      "card_028",
-      "card_029",
-      "card_030",
-      "card_031",
-      "card_032",
-      "card_033",
-      "card_034",
-      "card_035",
-      "card_036",
-      "card_037",
-      "card_038",
-      "card_039",
-      "card_040",
-      "card_041",
-      "card_042",
-      "card_043",
-      "card_044",
-      "card_045",
-      "card_046",
-      "card_047",
-      "card_048",
-      "card_049",
-      "card_050",
-      "card_051",
-      "card_052",
-      "card_053",
-      "card_054",
-      "card_063"
-    ],
     "rareChanceLabel": "★3まで",
     "ruleGroup1": [],
     "ruleGroup2": [],
@@ -190,9 +127,6 @@ export const NPCS = [
       1,
       2,
       3
-    ],
-    "requiredCards": [
-      "card_063"
     ],
     "handPattern": [
       {
@@ -204,142 +138,51 @@ export const NPCS = [
         "count": 1
       }
     ],
-    "firstWinRewardCardId": "card_063",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        1,
+        2
       ],
-      "2": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018",
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027",
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036",
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045",
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054"
-      ],
-      "3": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018",
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027",
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036",
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045",
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054",
-        "card_063"
+      "fixedCardRefs": [
+        {
+          "name": "クラウドナイン",
+          "rarity": 3
+        }
       ]
-    }
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          1,
+          2
+        ]
+      },
+      "3": {
+        "rarities": [
+          1,
+          2
+        ],
+        "fixedCardRefs": [
+          {
+            "name": "クラウドナイン",
+            "rarity": 3
+          }
+        ]
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "クラウドナイン"
+    },
+    "requiredCardRefs": [
+      {
+        "name": "クラウドナイン"
+      }
+    ]
   },
   {
     "id": "npc_003",
@@ -348,32 +191,6 @@ export const NPCS = [
     "difficulty": "よわい",
     "entryFee": 100,
     "winMoney": 300,
-    "cardPool": [
-      "card_019",
-      "card_020",
-      "card_021",
-      "card_022",
-      "card_023",
-      "card_024",
-      "card_025",
-      "card_026",
-      "card_027",
-      "card_067",
-      "card_068",
-      "card_069",
-      "card_070",
-      "card_071",
-      "card_072",
-      "card_073",
-      "card_074",
-      "card_075",
-      "card_076",
-      "card_077",
-      "card_078",
-      "card_079",
-      "card_080",
-      "card_081"
-    ],
     "rareChanceLabel": "もなの★3",
     "ruleGroup1": [],
     "ruleGroup2": [],
@@ -381,7 +198,6 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "もなタイプ",
-    "firstWinRewardCardId": "card_062",
     "handPattern": [
       {
         "rarity": 2,
@@ -392,64 +208,35 @@ export const NPCS = [
         "count": 1
       }
     ],
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3
       ],
-      "2": [
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027"
-      ],
-      "3": [
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027",
-        "card_067",
-        "card_068",
-        "card_069",
-        "card_070",
-        "card_071",
-        "card_072",
-        "card_073",
-        "card_074",
-        "card_075",
-        "card_076",
-        "card_077",
-        "card_078",
-        "card_079",
-        "card_080",
-        "card_081"
-      ]
+      "type": "もなタイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "もなタイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "もなタイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "まーさ"
     }
   },
   {
@@ -459,32 +246,6 @@ export const NPCS = [
     "difficulty": "よわい",
     "entryFee": 100,
     "winMoney": 300,
-    "cardPool": [
-      "card_028",
-      "card_029",
-      "card_030",
-      "card_031",
-      "card_032",
-      "card_033",
-      "card_034",
-      "card_035",
-      "card_036",
-      "card_082",
-      "card_083",
-      "card_084",
-      "card_085",
-      "card_086",
-      "card_087",
-      "card_088",
-      "card_089",
-      "card_090",
-      "card_091",
-      "card_092",
-      "card_093",
-      "card_094",
-      "card_095",
-      "card_096"
-    ],
     "rareChanceLabel": "美雨の★3",
     "ruleGroup1": [],
     "ruleGroup2": [],
@@ -492,7 +253,6 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "美雨タイプ",
-    "firstWinRewardCardId": "card_066",
     "handPattern": [
       {
         "rarity": 2,
@@ -503,64 +263,35 @@ export const NPCS = [
         "count": 1
       }
     ],
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3
       ],
-      "2": [
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036"
-      ],
-      "3": [
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036",
-        "card_082",
-        "card_083",
-        "card_084",
-        "card_085",
-        "card_086",
-        "card_087",
-        "card_088",
-        "card_089",
-        "card_090",
-        "card_091",
-        "card_092",
-        "card_093",
-        "card_094",
-        "card_095",
-        "card_096"
-      ]
+      "type": "美雨タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "美雨タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "美雨タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "ぐるめ"
     }
   },
   {
@@ -570,32 +301,6 @@ export const NPCS = [
     "difficulty": "よわい",
     "entryFee": 100,
     "winMoney": 300,
-    "cardPool": [
-      "card_037",
-      "card_038",
-      "card_039",
-      "card_040",
-      "card_041",
-      "card_042",
-      "card_043",
-      "card_044",
-      "card_045",
-      "card_097",
-      "card_098",
-      "card_099",
-      "card_100",
-      "card_101",
-      "card_102",
-      "card_103",
-      "card_104",
-      "card_105",
-      "card_106",
-      "card_107",
-      "card_108",
-      "card_109",
-      "card_110",
-      "card_111"
-    ],
     "rareChanceLabel": "凛花の★3",
     "ruleGroup1": [],
     "ruleGroup2": [],
@@ -603,7 +308,6 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "凛花タイプ",
-    "firstWinRewardCardId": "card_181",
     "handPattern": [
       {
         "rarity": 2,
@@ -614,64 +318,35 @@ export const NPCS = [
         "count": 1
       }
     ],
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3
       ],
-      "2": [
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045"
-      ],
-      "3": [
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045",
-        "card_097",
-        "card_098",
-        "card_099",
-        "card_100",
-        "card_101",
-        "card_102",
-        "card_103",
-        "card_104",
-        "card_105",
-        "card_106",
-        "card_107",
-        "card_108",
-        "card_109",
-        "card_110",
-        "card_111"
-      ]
+      "type": "凛花タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "凛花タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "凛花タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "しおん"
     }
   },
   {
@@ -681,32 +356,6 @@ export const NPCS = [
     "difficulty": "よわい",
     "entryFee": 100,
     "winMoney": 300,
-    "cardPool": [
-      "card_046",
-      "card_047",
-      "card_048",
-      "card_049",
-      "card_050",
-      "card_051",
-      "card_052",
-      "card_053",
-      "card_054",
-      "card_112",
-      "card_113",
-      "card_114",
-      "card_115",
-      "card_116",
-      "card_117",
-      "card_118",
-      "card_119",
-      "card_120",
-      "card_121",
-      "card_122",
-      "card_123",
-      "card_124",
-      "card_125",
-      "card_126"
-    ],
     "rareChanceLabel": "百花の★3",
     "ruleGroup1": [],
     "ruleGroup2": [],
@@ -714,7 +363,6 @@ export const NPCS = [
       3
     ],
     "rareChanceType": "百花タイプ",
-    "firstWinRewardCardId": "card_182",
     "handPattern": [
       {
         "rarity": 2,
@@ -725,64 +373,35 @@ export const NPCS = [
         "count": 1
       }
     ],
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3
       ],
-      "2": [
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054"
-      ],
-      "3": [
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054",
-        "card_112",
-        "card_113",
-        "card_114",
-        "card_115",
-        "card_116",
-        "card_117",
-        "card_118",
-        "card_119",
-        "card_120",
-        "card_121",
-        "card_122",
-        "card_123",
-        "card_124",
-        "card_125",
-        "card_126"
-      ]
+      "type": "百花タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "百花タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "百花タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "もち"
     }
   },
   {
@@ -792,41 +411,6 @@ export const NPCS = [
     "difficulty": "ふつう",
     "entryFee": 1000,
     "winMoney": 2500,
-    "cardPool": [
-      "card_019",
-      "card_020",
-      "card_021",
-      "card_022",
-      "card_023",
-      "card_024",
-      "card_025",
-      "card_026",
-      "card_027",
-      "card_067",
-      "card_068",
-      "card_069",
-      "card_070",
-      "card_071",
-      "card_072",
-      "card_073",
-      "card_074",
-      "card_075",
-      "card_076",
-      "card_077",
-      "card_078",
-      "card_079",
-      "card_080",
-      "card_081",
-      "card_127",
-      "card_128",
-      "card_129",
-      "card_130",
-      "card_131",
-      "card_132",
-      "card_133",
-      "card_134",
-      "card_135"
-    ],
     "rareChanceLabel": "もなの★3か★4",
     "ruleGroup1": [
       "order",
@@ -849,65 +433,38 @@ export const NPCS = [
       4
     ],
     "rareChanceType": "もなタイプ",
-    "firstWinRewardCardId": "card_129",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4
       ],
-      "2": [
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027"
-      ],
-      "3": [
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027",
-        "card_067",
-        "card_068",
-        "card_069",
-        "card_070",
-        "card_071",
-        "card_072",
-        "card_073",
-        "card_074",
-        "card_075",
-        "card_076",
-        "card_077",
-        "card_078",
-        "card_079",
-        "card_080",
-        "card_081"
-      ]
+      "type": "もなタイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "もなタイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "もなタイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[キミ×]",
+      "type": "もなタイプ",
+      "rarity": 4
     }
   },
   {
@@ -917,41 +474,6 @@ export const NPCS = [
     "difficulty": "ふつう",
     "entryFee": 1000,
     "winMoney": 2500,
-    "cardPool": [
-      "card_028",
-      "card_029",
-      "card_030",
-      "card_031",
-      "card_032",
-      "card_033",
-      "card_034",
-      "card_035",
-      "card_036",
-      "card_082",
-      "card_083",
-      "card_084",
-      "card_085",
-      "card_086",
-      "card_087",
-      "card_088",
-      "card_089",
-      "card_090",
-      "card_091",
-      "card_092",
-      "card_093",
-      "card_094",
-      "card_095",
-      "card_096",
-      "card_136",
-      "card_137",
-      "card_138",
-      "card_139",
-      "card_140",
-      "card_141",
-      "card_142",
-      "card_143",
-      "card_144"
-    ],
     "rareChanceLabel": "美雨の★3か★4",
     "ruleGroup1": [
       "order",
@@ -974,65 +496,38 @@ export const NPCS = [
       4
     ],
     "rareChanceType": "美雨タイプ",
-    "firstWinRewardCardId": "card_138",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4
       ],
-      "2": [
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036"
-      ],
-      "3": [
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036",
-        "card_082",
-        "card_083",
-        "card_084",
-        "card_085",
-        "card_086",
-        "card_087",
-        "card_088",
-        "card_089",
-        "card_090",
-        "card_091",
-        "card_092",
-        "card_093",
-        "card_094",
-        "card_095",
-        "card_096"
-      ]
+      "type": "美雨タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "美雨タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "美雨タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[キミ×]",
+      "type": "美雨タイプ",
+      "rarity": 4
     }
   },
   {
@@ -1042,41 +537,6 @@ export const NPCS = [
     "difficulty": "ふつう",
     "entryFee": 1000,
     "winMoney": 2500,
-    "cardPool": [
-      "card_037",
-      "card_038",
-      "card_039",
-      "card_040",
-      "card_041",
-      "card_042",
-      "card_043",
-      "card_044",
-      "card_045",
-      "card_097",
-      "card_098",
-      "card_099",
-      "card_100",
-      "card_101",
-      "card_102",
-      "card_103",
-      "card_104",
-      "card_105",
-      "card_106",
-      "card_107",
-      "card_108",
-      "card_109",
-      "card_110",
-      "card_111",
-      "card_145",
-      "card_146",
-      "card_147",
-      "card_148",
-      "card_149",
-      "card_150",
-      "card_151",
-      "card_152",
-      "card_153"
-    ],
     "rareChanceLabel": "凛花の★3か★4",
     "ruleGroup1": [
       "order",
@@ -1099,65 +559,38 @@ export const NPCS = [
       4
     ],
     "rareChanceType": "凛花タイプ",
-    "firstWinRewardCardId": "card_148",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4
       ],
-      "2": [
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045"
-      ],
-      "3": [
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045",
-        "card_097",
-        "card_098",
-        "card_099",
-        "card_100",
-        "card_101",
-        "card_102",
-        "card_103",
-        "card_104",
-        "card_105",
-        "card_106",
-        "card_107",
-        "card_108",
-        "card_109",
-        "card_110",
-        "card_111"
-      ]
+      "type": "凛花タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "凛花タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "凛花タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[キミ×]",
+      "type": "凛花タイプ",
+      "rarity": 4
     }
   },
   {
@@ -1167,41 +600,6 @@ export const NPCS = [
     "difficulty": "ふつう",
     "entryFee": 1000,
     "winMoney": 2500,
-    "cardPool": [
-      "card_046",
-      "card_047",
-      "card_048",
-      "card_049",
-      "card_050",
-      "card_051",
-      "card_052",
-      "card_053",
-      "card_054",
-      "card_112",
-      "card_113",
-      "card_114",
-      "card_115",
-      "card_116",
-      "card_117",
-      "card_118",
-      "card_119",
-      "card_120",
-      "card_121",
-      "card_122",
-      "card_123",
-      "card_124",
-      "card_125",
-      "card_126",
-      "card_154",
-      "card_155",
-      "card_156",
-      "card_157",
-      "card_158",
-      "card_159",
-      "card_160",
-      "card_161",
-      "card_162"
-    ],
     "rareChanceLabel": "百花の★3か★4",
     "ruleGroup1": [
       "order",
@@ -1224,65 +622,38 @@ export const NPCS = [
       4
     ],
     "rareChanceType": "百花タイプ",
-    "firstWinRewardCardId": "card_157",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4
       ],
-      "2": [
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054"
-      ],
-      "3": [
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054",
-        "card_112",
-        "card_113",
-        "card_114",
-        "card_115",
-        "card_116",
-        "card_117",
-        "card_118",
-        "card_119",
-        "card_120",
-        "card_121",
-        "card_122",
-        "card_123",
-        "card_124",
-        "card_125",
-        "card_126"
-      ]
+      "type": "百花タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "百花タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "百花タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[キミ×]",
+      "type": "百花タイプ",
+      "rarity": 4
     }
   },
   {
@@ -1292,45 +663,6 @@ export const NPCS = [
     "difficulty": "つよい",
     "entryFee": 10000,
     "winMoney": 20000,
-    "cardPool": [
-      "card_019",
-      "card_020",
-      "card_021",
-      "card_022",
-      "card_023",
-      "card_024",
-      "card_025",
-      "card_026",
-      "card_027",
-      "card_067",
-      "card_068",
-      "card_069",
-      "card_070",
-      "card_071",
-      "card_072",
-      "card_073",
-      "card_074",
-      "card_075",
-      "card_076",
-      "card_077",
-      "card_078",
-      "card_079",
-      "card_080",
-      "card_081",
-      "card_127",
-      "card_128",
-      "card_129",
-      "card_130",
-      "card_131",
-      "card_132",
-      "card_133",
-      "card_134",
-      "card_135",
-      "card_163",
-      "card_164",
-      "card_165",
-      "card_166"
-    ],
     "rareChanceLabel": "もなの★4か★5",
     "ruleGroup1": [
       "order",
@@ -1355,69 +687,47 @@ export const NPCS = [
       5
     ],
     "rareChanceType": "もなタイプ",
-    "requiredCards": [
-      "card_166"
-    ],
-    "firstWinRewardCardId": "card_166",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4,
+        5
       ],
-      "2": [
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027"
-      ],
-      "3": [
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027",
-        "card_067",
-        "card_068",
-        "card_069",
-        "card_070",
-        "card_071",
-        "card_072",
-        "card_073",
-        "card_074",
-        "card_075",
-        "card_076",
-        "card_077",
-        "card_078",
-        "card_079",
-        "card_080",
-        "card_081"
-      ]
-    }
+      "type": "もなタイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "もなタイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "もなタイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[ホラークイーン]",
+      "type": "もなタイプ",
+      "rarity": 5
+    },
+    "requiredCardRefs": [
+      {
+        "name": "[ホラークイーン]",
+        "type": "もなタイプ",
+        "rarity": 5
+      }
+    ]
   },
   {
     "id": "npc_012",
@@ -1426,45 +736,6 @@ export const NPCS = [
     "difficulty": "つよい",
     "entryFee": 10000,
     "winMoney": 20000,
-    "cardPool": [
-      "card_028",
-      "card_029",
-      "card_030",
-      "card_031",
-      "card_032",
-      "card_033",
-      "card_034",
-      "card_035",
-      "card_036",
-      "card_082",
-      "card_083",
-      "card_084",
-      "card_085",
-      "card_086",
-      "card_087",
-      "card_088",
-      "card_089",
-      "card_090",
-      "card_091",
-      "card_092",
-      "card_093",
-      "card_094",
-      "card_095",
-      "card_096",
-      "card_136",
-      "card_137",
-      "card_138",
-      "card_139",
-      "card_140",
-      "card_141",
-      "card_142",
-      "card_143",
-      "card_144",
-      "card_167",
-      "card_168",
-      "card_169",
-      "card_170"
-    ],
     "rareChanceLabel": "美雨の★4か★5",
     "ruleGroup1": [
       "order",
@@ -1489,69 +760,47 @@ export const NPCS = [
       5
     ],
     "rareChanceType": "美雨タイプ",
-    "requiredCards": [
-      "card_170"
-    ],
-    "firstWinRewardCardId": "card_170",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4,
+        5
       ],
-      "2": [
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036"
-      ],
-      "3": [
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036",
-        "card_082",
-        "card_083",
-        "card_084",
-        "card_085",
-        "card_086",
-        "card_087",
-        "card_088",
-        "card_089",
-        "card_090",
-        "card_091",
-        "card_092",
-        "card_093",
-        "card_094",
-        "card_095",
-        "card_096"
-      ]
-    }
+      "type": "美雨タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "美雨タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "美雨タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[ホラークイーン]",
+      "type": "美雨タイプ",
+      "rarity": 5
+    },
+    "requiredCardRefs": [
+      {
+        "name": "[ホラークイーン]",
+        "type": "美雨タイプ",
+        "rarity": 5
+      }
+    ]
   },
   {
     "id": "npc_013",
@@ -1560,45 +809,6 @@ export const NPCS = [
     "difficulty": "つよい",
     "entryFee": 10000,
     "winMoney": 20000,
-    "cardPool": [
-      "card_037",
-      "card_038",
-      "card_039",
-      "card_040",
-      "card_041",
-      "card_042",
-      "card_043",
-      "card_044",
-      "card_045",
-      "card_097",
-      "card_098",
-      "card_099",
-      "card_100",
-      "card_101",
-      "card_102",
-      "card_103",
-      "card_104",
-      "card_105",
-      "card_106",
-      "card_107",
-      "card_108",
-      "card_109",
-      "card_110",
-      "card_111",
-      "card_145",
-      "card_146",
-      "card_147",
-      "card_148",
-      "card_149",
-      "card_150",
-      "card_151",
-      "card_152",
-      "card_153",
-      "card_171",
-      "card_172",
-      "card_173",
-      "card_174"
-    ],
     "rareChanceLabel": "凛花の★4か★5",
     "ruleGroup1": [
       "order",
@@ -1623,69 +833,47 @@ export const NPCS = [
       5
     ],
     "rareChanceType": "凛花タイプ",
-    "requiredCards": [
-      "card_174"
-    ],
-    "firstWinRewardCardId": "card_174",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4,
+        5
       ],
-      "2": [
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045"
-      ],
-      "3": [
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045",
-        "card_097",
-        "card_098",
-        "card_099",
-        "card_100",
-        "card_101",
-        "card_102",
-        "card_103",
-        "card_104",
-        "card_105",
-        "card_106",
-        "card_107",
-        "card_108",
-        "card_109",
-        "card_110",
-        "card_111"
-      ]
-    }
+      "type": "凛花タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "凛花タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "凛花タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[ホラークイーン]",
+      "type": "凛花タイプ",
+      "rarity": 5
+    },
+    "requiredCardRefs": [
+      {
+        "name": "[ホラークイーン]",
+        "type": "凛花タイプ",
+        "rarity": 5
+      }
+    ]
   },
   {
     "id": "npc_014",
@@ -1694,45 +882,6 @@ export const NPCS = [
     "difficulty": "つよい",
     "entryFee": 10000,
     "winMoney": 20000,
-    "cardPool": [
-      "card_046",
-      "card_047",
-      "card_048",
-      "card_049",
-      "card_050",
-      "card_051",
-      "card_052",
-      "card_053",
-      "card_054",
-      "card_112",
-      "card_113",
-      "card_114",
-      "card_115",
-      "card_116",
-      "card_117",
-      "card_118",
-      "card_119",
-      "card_120",
-      "card_121",
-      "card_122",
-      "card_123",
-      "card_124",
-      "card_125",
-      "card_126",
-      "card_154",
-      "card_155",
-      "card_156",
-      "card_157",
-      "card_158",
-      "card_159",
-      "card_160",
-      "card_161",
-      "card_162",
-      "card_175",
-      "card_176",
-      "card_177",
-      "card_178"
-    ],
     "rareChanceLabel": "百花の★4か★5",
     "ruleGroup1": [
       "order",
@@ -1757,69 +906,47 @@ export const NPCS = [
       5
     ],
     "rareChanceType": "百花タイプ",
-    "requiredCards": [
-      "card_178"
-    ],
-    "firstWinRewardCardId": "card_178",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
+    "cardPoolSpec": {
+      "rarities": [
+        2,
+        3,
+        4,
+        5
       ],
-      "2": [
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054"
-      ],
-      "3": [
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054",
-        "card_112",
-        "card_113",
-        "card_114",
-        "card_115",
-        "card_116",
-        "card_117",
-        "card_118",
-        "card_119",
-        "card_120",
-        "card_121",
-        "card_122",
-        "card_123",
-        "card_124",
-        "card_125",
-        "card_126"
-      ]
-    }
+      "type": "百花タイプ"
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          2
+        ],
+        "type": "百花タイプ"
+      },
+      "3": {
+        "rarities": [
+          2,
+          3
+        ],
+        "type": "百花タイプ"
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "[ホラークイーン]",
+      "type": "百花タイプ",
+      "rarity": 5
+    },
+    "requiredCardRefs": [
+      {
+        "name": "[ホラークイーン]",
+        "type": "百花タイプ",
+        "rarity": 5
+      }
+    ]
   },
   {
     "id": "npc_015",
@@ -1828,21 +955,6 @@ export const NPCS = [
     "difficulty": "つよい",
     "entryFee": 100000,
     "winMoney": 200000,
-    "cardPool": [
-      "card_055",
-      "card_056",
-      "card_057",
-      "card_058",
-      "card_059",
-      "card_063",
-      "card_064",
-      "card_065",
-      "card_129",
-      "card_138",
-      "card_148",
-      "card_157",
-      "card_180"
-    ],
     "rareChanceLabel": "必ず★5",
     "ruleGroup1": [
       "order",
@@ -1857,102 +969,187 @@ export const NPCS = [
       "little_3"
     ],
     "ruleGroup2": [
-      "combo",
+      "combo"
     ],
     "rareChanceRarities": [
       5
     ],
-    "requiredCards": [
-      "card_180"
+    "fixedCardRefs": [
+      {
+        "name": "Moth ti a flame",
+        "rarity": 3
+      },
+      {
+        "name": "フレイム・メドゥーサ",
+        "rarity": 3
+      },
+      {
+        "name": "百鬼夜行",
+        "rarity": 3
+      },
+      {
+        "name": "ふぁんとむ♡らんど",
+        "rarity": 3
+      },
+      {
+        "name": "Horror Reading Musical",
+        "rarity": 3
+      },
+      {
+        "name": "クラウドナイン",
+        "rarity": 3
+      },
+      {
+        "name": "怪忌蝶寫眞集 Maze EP.0",
+        "rarity": 3
+      },
+      {
+        "name": "CABINET OF DOLLS 人形蒐集",
+        "rarity": 3
+      },
+      {
+        "name": "[キミ×]",
+        "type": "もなタイプ",
+        "rarity": 4
+      },
+      {
+        "name": "[キミ×]",
+        "type": "美雨タイプ",
+        "rarity": 4
+      },
+      {
+        "name": "[キミ×]",
+        "type": "凛花タイプ",
+        "rarity": 4
+      },
+      {
+        "name": "[キミ×]",
+        "type": "百花タイプ",
+        "rarity": 4
+      },
+      {
+        "name": "Ado",
+        "rarity": 5
+      }
     ],
-    "firstWinRewardCardId": "card_180",
-    "littlePools": {
-      "1": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018"
-      ],
-      "2": [
-        "card_001",
-        "card_002",
-        "card_003",
-        "card_004",
-        "card_005",
-        "card_006",
-        "card_007",
-        "card_008",
-        "card_009",
-        "card_010",
-        "card_011",
-        "card_012",
-        "card_013",
-        "card_014",
-        "card_015",
-        "card_016",
-        "card_017",
-        "card_018",
-        "card_019",
-        "card_020",
-        "card_021",
-        "card_022",
-        "card_023",
-        "card_024",
-        "card_025",
-        "card_026",
-        "card_027",
-        "card_028",
-        "card_029",
-        "card_030",
-        "card_031",
-        "card_032",
-        "card_033",
-        "card_034",
-        "card_035",
-        "card_036",
-        "card_037",
-        "card_038",
-        "card_039",
-        "card_040",
-        "card_041",
-        "card_042",
-        "card_043",
-        "card_044",
-        "card_045",
-        "card_046",
-        "card_047",
-        "card_048",
-        "card_049",
-        "card_050",
-        "card_051",
-        "card_052",
-        "card_053",
-        "card_054"
-      ],
-      "3": [
-        "card_055",
-        "card_056",
-        "card_057",
-        "card_058",
-        "card_059",
-        "card_063",
-        "card_064",
-        "card_065"
+    "cardPoolSpec": {
+      "fixedCardRefs": [
+        {
+          "name": "Moth ti a flame",
+          "rarity": 3
+        },
+        {
+          "name": "フレイム・メドゥーサ",
+          "rarity": 3
+        },
+        {
+          "name": "百鬼夜行",
+          "rarity": 3
+        },
+        {
+          "name": "ふぁんとむ♡らんど",
+          "rarity": 3
+        },
+        {
+          "name": "Horror Reading Musical",
+          "rarity": 3
+        },
+        {
+          "name": "クラウドナイン",
+          "rarity": 3
+        },
+        {
+          "name": "怪忌蝶寫眞集 Maze EP.0",
+          "rarity": 3
+        },
+        {
+          "name": "CABINET OF DOLLS 人形蒐集",
+          "rarity": 3
+        },
+        {
+          "name": "[キミ×]",
+          "type": "もなタイプ",
+          "rarity": 4
+        },
+        {
+          "name": "[キミ×]",
+          "type": "美雨タイプ",
+          "rarity": 4
+        },
+        {
+          "name": "[キミ×]",
+          "type": "凛花タイプ",
+          "rarity": 4
+        },
+        {
+          "name": "[キミ×]",
+          "type": "百花タイプ",
+          "rarity": 4
+        },
+        {
+          "name": "Ado",
+          "rarity": 5
+        }
       ]
-    }
+    },
+    "littlePoolSpecs": {
+      "1": {
+        "rarities": [
+          1
+        ]
+      },
+      "2": {
+        "rarities": [
+          1,
+          2
+        ]
+      },
+      "3": {
+        "fixedCardRefs": [
+          {
+            "name": "Moth ti a flame",
+            "rarity": 3
+          },
+          {
+            "name": "フレイム・メドゥーサ",
+            "rarity": 3
+          },
+          {
+            "name": "百鬼夜行",
+            "rarity": 3
+          },
+          {
+            "name": "ふぁんとむ♡らんど",
+            "rarity": 3
+          },
+          {
+            "name": "Horror Reading Musical",
+            "rarity": 3
+          },
+          {
+            "name": "クラウドナイン",
+            "rarity": 3
+          },
+          {
+            "name": "怪忌蝶寫眞集 Maze EP.0",
+            "rarity": 3
+          },
+          {
+            "name": "CABINET OF DOLLS 人形蒐集",
+            "rarity": 3
+          }
+        ]
+      }
+    },
+    "firstWinRewardCardRef": {
+      "name": "Ado",
+      "rarity": 5
+    },
+    "requiredCardRefs": [
+      {
+        "name": "Ado",
+        "rarity": 5
+      }
+    ]
   }
 ];
