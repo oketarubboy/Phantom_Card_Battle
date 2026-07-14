@@ -34,7 +34,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.42</span>
+          <span id="versionLabel">v0.1.43</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -173,6 +173,12 @@
               <h3>手持ちカード</h3>
               <div class="deck-filter-row">
                 <input id="cardSearch" class="search" placeholder="カード名で検索" />
+                <select id="deckRarityFilter" class="sort-select" aria-label="★で絞り込み">
+                  <option value="all">★すべて</option><option value="1">★1</option><option value="2">★2</option><option value="3">★3</option><option value="4">★4</option><option value="5">★5</option>
+                </select>
+                <select id="deckAttributeFilter" class="sort-select" aria-label="属性で絞り込み">
+                  <option value="all">属性すべて</option><option value="mona">もな</option><option value="miu">美雨</option><option value="rinka">凛花</option><option value="momoka">百花</option><option value="other">その他</option>
+                </select>
                 <select id="deckSortField" class="sort-select" aria-label="並び替え項目">
                   <option value="name">名前順</option>
                   <option value="rarity">レアリティ順</option>
@@ -203,7 +209,21 @@
           <h2>図鑑</h2>
           <p class="muted">取得したカードを確認できます。未取得カードは「???」で表示されます。</p>
           <div id="collectionSummary" class="summary"></div>
-          <input id="collectionSearch" class="search" placeholder="カード名で検索" />
+          <div class="collection-filter-row">
+            <input id="collectionSearch" class="search" placeholder="カード名で検索" />
+            <select id="collectionRarityFilter" class="sort-select" aria-label="★で絞り込み">
+              <option value="all">★すべて</option><option value="1">★1</option><option value="2">★2</option><option value="3">★3</option><option value="4">★4</option><option value="5">★5</option>
+            </select>
+            <select id="collectionAttributeFilter" class="sort-select" aria-label="属性で絞り込み">
+              <option value="all">属性すべて</option><option value="mona">もな</option><option value="miu">美雨</option><option value="rinka">凛花</option><option value="momoka">百花</option><option value="other">その他</option>
+            </select>
+            <select id="collectionSortField" class="sort-select" aria-label="並び替え">
+              <option value="number">番号順</option><option value="name">名前順</option><option value="rarity">レアリティ順</option>
+            </select>
+            <select id="collectionSortOrder" class="sort-select" aria-label="昇順・降順">
+              <option value="asc">昇順</option><option value="desc">降順</option>
+            </select>
+          </div>
           <div id="collectionGrid" class="collection-grid"></div>
         </div>
       </section>

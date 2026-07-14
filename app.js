@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.42";
+const VERSION = "0.1.43";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -22,6 +22,8 @@ const state = {
     sortField: "number",
     sortOrder: "asc"
   },
+  deckFilter: { rarity: "all", attribute: "all" },
+  collectionFilter: { rarity: "all", attribute: "all", sortField: "number", sortOrder: "asc" },
   shopStock: [],
   shopInitialized: false,
   online: {
@@ -1510,6 +1512,35 @@ function renderCurrentDeck() {
   $("deckMessage").style.color = error ? "var(--danger)" : "var(--good)";
 }
 
+function matchesCardRarityFilter(card, value) {
+  return value === "all" || Number(card?.rarity) === Number(value);
+}
+
+function matchesCardAttributeFilter(card, value) {
+  if (value === "all") return true;
+  const type = getCardType(card);
+  if (value === "mona") return type === "もなタイプ";
+  if (value === "miu") return type === "美雨タイプ";
+  if (value === "rinka") return type === "凛花タイプ";
+  if (value === "momoka") return type === "百花タイプ";
+  if (value === "other") return !type;
+  return true;
+}
+
+function compareCollectionCards(a, b) {
+  const field = state.collectionFilter.sortField;
+  let result = 0;
+  if (field === "name") {
+    result = String(a.name).localeCompare(String(b.name), "ja");
+  } else if (field === "rarity") {
+    result = Number(a.rarity) - Number(b.rarity);
+  } else {
+    result = Number(String(a.no).replace(/\D/g, "")) - Number(String(b.no).replace(/\D/g, ""));
+  }
+  if (result === 0) result = String(a.id).localeCompare(String(b.id));
+  return state.collectionFilter.sortOrder === "desc" ? -result : result;
+}
+
 function renderOwnedCardList() {
   const query = $("cardSearch").value.trim().toLowerCase();
   const list = $("ownedCardList");
@@ -1520,6 +1551,8 @@ function renderOwnedCardList() {
   const owned = CARDS
     .filter((card) => getOwnedCount(card.id) > 0)
     .filter((card) => !query || card.name.toLowerCase().includes(query))
+    .filter((card) => matchesCardRarityFilter(card, state.deckFilter.rarity))
+    .filter((card) => matchesCardAttributeFilter(card, state.deckFilter.attribute))
     .sort(compareOwnedCards);
 
   for (const card of owned) {
@@ -1556,6 +1589,10 @@ function renderOwnedCardList() {
 
 function renderCollectionScreen() {
   const query = $("collectionSearch").value.trim().toLowerCase();
+  if ($("collectionRarityFilter")) $("collectionRarityFilter").value = state.collectionFilter.rarity;
+  if ($("collectionAttributeFilter")) $("collectionAttributeFilter").value = state.collectionFilter.attribute;
+  if ($("collectionSortField")) $("collectionSortField").value = state.collectionFilter.sortField;
+  if ($("collectionSortOrder")) $("collectionSortOrder").value = state.collectionFilter.sortOrder;
   const obtained = CARDS.filter((card) => state.save.discoveredCards[card.id]).length;
   $("collectionSummary").textContent = `取得済み：${obtained} / ${CARDS.length} 枚`;
 
@@ -1564,7 +1601,9 @@ function renderCollectionScreen() {
 
   const cards = CARDS
     .filter((card) => !query || card.name.toLowerCase().includes(query))
-    .sort((a, b) => Number(String(a.no).replace(/\D/g, "")) - Number(String(b.no).replace(/\D/g, "")));
+    .filter((card) => matchesCardRarityFilter(card, state.collectionFilter.rarity))
+    .filter((card) => matchesCardAttributeFilter(card, state.collectionFilter.attribute))
+    .sort(compareCollectionCards);
 
   for (const card of cards) {
     const owned = getOwnedCount(card.id);
@@ -2160,7 +2199,24 @@ function rollOnlineAdditionalRules() {
   return picked ? [picked] : [];
 }
 
+function ensureNpcFeeAvailable(npc, amount, title = "所持金不足") {
+  if (Number(state.save.money ?? 0) >= amount) return true;
+  showModal(title, `<p>必要金額は${formatMoney(amount)}です。</p><p>現在の所持金：${formatMoney(state.save.money)}</p>`, [
+    { label: "ショップへ", onClick: () => { closeModal(); showScreen("shop"); } },
+    { label: "閉じる", className: "ghost", onClick: closeModal }
+  ]);
+  return false;
+}
+
+function chargeNpcChallengeFee(npc) {
+  const entryFee = getNpcEntryFee(npc);
+  if (!ensureNpcFeeAvailable(npc, entryFee)) return false;
+  if (entryFee > 0) spendMoney(entryFee);
+  return true;
+}
+
 function showWeakRuleSelection(npc) {
+  if (!chargeNpcChallengeFee(npc)) return;
   state.selectedRuleIds = [];
   showModal(
     "追加ルール設定",
@@ -2168,29 +2224,48 @@ function showWeakRuleSelection(npc) {
       <p><strong>${escapeHtml(npc.name)}</strong>は難易度「よわい」のため、追加ルールを自由に設定できます。</p>
       <p class="muted">オーダーとカオス、リバースとエースキラーは同時に付けられません。</p>
       <div id="weakRuleList" class="rule-list"></div>
-      <p class="muted">挑戦料：${formatMoney(getNpcEntryFee(npc))} / 勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
+      <p class="muted">挑戦料${formatMoney(getNpcEntryFee(npc))}は支払い済みです。キャンセル・棄権時も返金されません。</p>
+      <p class="muted">勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
     `,
     [
-      { label: "このルールで対戦開始", onClick: () => { const scope = $("weakRuleList"); const rules = getSelectedRuleIds(scope); closeModal(); startBattle(npc.id, rules); } },
+      { label: "このルールで対戦開始", onClick: () => { const scope = $("weakRuleList"); const rules = getSelectedRuleIds(scope); closeModal(); startBattle(npc.id, rules, { entryFeePaid: true }); } },
       { label: "キャンセル", className: "ghost", onClick: closeModal }
     ]
   );
   renderRuleSelector("weakRuleList", RULES.map((rule) => rule.id), []);
 }
 
-function showRuleLottery(npc) {
+function showRuleLottery(npc, options = {}) {
+  const initial = options.initial !== false;
+  if (initial && !chargeNpcChallengeFee(npc)) return;
+
   const rules = rollNpcAdditionalRules(npc);
+  const rerollFee = Math.ceil(getNpcEntryFee(npc) / 2);
+  const actions = [
+    { label: "対戦開始", onClick: () => { closeModal(); startBattle(npc.id, rules, { entryFeePaid: true }); } }
+  ];
+  actions.push({
+    label: `再抽選（${formatMoney(rerollFee)}）`,
+    className: "ghost",
+    onClick: () => {
+      if (!ensureNpcFeeAvailable(npc, rerollFee, "再抽選できません")) return;
+      if (rerollFee > 0) spendMoney(rerollFee);
+      closeModal();
+      showRuleLottery(npc, { initial: false });
+    }
+  });
+
   showModal(
     "追加ルール抽選",
     `
       <p><strong>${escapeHtml(npc.name)}</strong>との対戦では、追加ルールが自動で決まります。</p>
       <p class="rule-result-text">追加ルールは <strong>${escapeHtml(getRuleSummary(rules))}</strong> です。</p>
       ${getRuleDescriptionHtml(rules)}
-      <p class="muted">挑戦料：${formatMoney(getNpcEntryFee(npc))} / 勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
+      <p class="muted">挑戦料${formatMoney(getNpcEntryFee(npc))}は支払い済みです。</p>
+      <p class="muted">再抽選には挑戦料の半額 ${formatMoney(rerollFee)} が必要です。再抽選料は返金されません。</p>
+      <p class="muted">勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
     `,
-    [
-      { label: "対戦開始", onClick: () => { closeModal(); startBattle(npc.id, rules); } }
-    ]
+    actions
   );
 }
 
@@ -2958,7 +3033,7 @@ function confirmOnlineExit(destination = "onlineBattle") {
     ]
   );
 }
-async function startBattle(npcId, selectedRules = null) {
+async function startBattle(npcId, selectedRules = null, options = {}) {
   const npc = npcById.get(npcId);
   if (!npc) return;
   if (!isNpcUnlocked(npc)) {
@@ -2994,14 +3069,10 @@ async function startBattle(npcId, selectedRules = null) {
   }
 
   const entryFee = getNpcEntryFee(npc);
-  if (Number(state.save.money ?? 0) < entryFee) {
-    showModal("所持金不足", `<p>${escapeHtml(npc.name)}への挑戦料は${formatMoney(entryFee)}です。</p><p>現在の所持金：${formatMoney(state.save.money)}</p>`, [
-      { label: "ショップへ", onClick: () => { closeModal(); showScreen("shop"); } },
-      { label: "閉じる", className: "ghost", onClick: closeModal }
-    ]);
-    return;
+  if (!options.entryFeePaid) {
+    // 直接開始経路が残っていた場合の安全策。通常は追加ルール表示時に支払い済み。
+    if (!chargeNpcChallengeFee(npc)) return;
   }
-  spendMoney(entryFee);
 
   const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
   const npcDeck = buildNpcHand(npc, selectedRules);
@@ -3054,7 +3125,7 @@ async function startBattle(npcId, selectedRules = null) {
   $("battleNpcName").textContent = `${npc.name} / ${npc.difficulty}`;
   $("battleLog").innerHTML = "";
   addBattleLog(`${npc.name}との対戦を開始しました。`);
-  addBattleLog(`挑戦料として${formatMoney(entryFee)}を支払いました。敗北・棄権時は返金されません。`);
+  addBattleLog(`挑戦料${formatMoney(entryFee)}は追加ルール決定時に支払い済みです。敗北・棄権時は返金されません。`);
   addBattleLog(`勝利報酬：${formatMoney(getNpcWinMoney(npc))}`);
   addBattleLog(`追加ルール：${getRuleSummary(selectedRules)}`);
   addBattleLog(`使用デッキ：${getDeckDisplayName(deckIndex)}`);
@@ -3225,6 +3296,11 @@ async function playCard(owner, handIndex, boardIndex) {
   renderBattleAll();
 }
 
+function getResolvedComparisonValue(card, side, battle, board, boardIndex) {
+  // 処理順：フィールド効果 → 1〜Aへ丸める → 通常・セイム・プラス判定。
+  return clamp(getEffectiveCardValue(card, side, battle, board, boardIndex), 1, 10);
+}
+
 function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = battle?.typeBoosts ?? {}) {
   const placed = board[boardIndex];
   if (!placed) return { indexes: [], reasons: [] };
@@ -3238,8 +3314,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
   if (hasRule("plus", battle)) {
     const sums = new Map();
     for (const item of neighbors) {
-      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board, boardIndex);
-      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board, item.index);
+      const placedValue = getResolvedComparisonValue(placed.card, item.side, battle, board, boardIndex);
+      const targetValue = getResolvedComparisonValue(item.target.card, item.opposite, battle, board, item.index);
       const sum = placedValue + targetValue;
       if (!sums.has(sum)) sums.set(sum, []);
       sums.get(sum).push(item);
@@ -3261,8 +3337,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
   if (hasRule("same", battle)) {
     const sameItems = [];
     for (const item of neighbors) {
-      const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board, boardIndex);
-      const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board, item.index);
+      const placedValue = getResolvedComparisonValue(placed.card, item.side, battle, board, boardIndex);
+      const targetValue = getResolvedComparisonValue(item.target.card, item.opposite, battle, board, item.index);
       if (placedValue === targetValue) sameItems.push(item);
     }
     if (sameItems.length >= 2) {
@@ -3279,8 +3355,8 @@ function getCapturePlan(board, boardIndex, battle = state.battle, typeBoosts = b
 
   for (const item of neighbors) {
     if (item.target.owner === owner || item.target.locked) continue;
-    const placedValue = getEffectiveCardValue(placed.card, item.side, battle, board, boardIndex);
-    const targetValue = getEffectiveCardValue(item.target.card, item.opposite, battle, board, item.index);
+    const placedValue = getResolvedComparisonValue(placed.card, item.side, battle, board, boardIndex);
+    const targetValue = getResolvedComparisonValue(item.target.card, item.opposite, battle, board, item.index);
     if (sideBeats(placedValue, targetValue, battle)) {
       indexes.add(item.index);
     }
@@ -3948,6 +4024,22 @@ function bindEvents() {
     renderOwnedCardList();
   });
   $("collectionSearch").addEventListener("input", renderCollectionScreen);
+
+  [
+    ["deckRarityFilter", state.deckFilter, "rarity", renderOwnedCardList],
+    ["deckAttributeFilter", state.deckFilter, "attribute", renderOwnedCardList],
+    ["collectionRarityFilter", state.collectionFilter, "rarity", renderCollectionScreen],
+    ["collectionAttributeFilter", state.collectionFilter, "attribute", renderCollectionScreen],
+    ["collectionSortField", state.collectionFilter, "sortField", renderCollectionScreen],
+    ["collectionSortOrder", state.collectionFilter, "sortOrder", renderCollectionScreen]
+  ].forEach(([id, target, key, render]) => {
+    const control = $(id);
+    if (!control) return;
+    control.addEventListener("change", (event) => {
+      target[key] = event.target.value;
+      render();
+    });
+  });
 
   [
     ["npcFilterDifficulty", "difficulty"],

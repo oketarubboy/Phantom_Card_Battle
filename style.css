@@ -2131,3 +2131,21 @@ body.is-battle-screen .battle-screen {
 .npc-list-controls label{display:grid;gap:4px;flex:1 1 116px;min-width:0;font-size:11px;color:var(--muted)}
 .npc-list-controls select{width:100%;min-width:0;height:36px;padding:5px 8px;font-size:13px}
 @media(max-width:520px){.npc-list-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px}.npc-list-controls label{font-size:10px}.npc-list-controls select{height:34px;padding:4px;font-size:11px}}
+
+
+/* v0.1.43: deck/collection filters and rule reroll */
+.collection-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.collection-filter-row .search { flex: 1 1 220px; min-width: 160px; }
+.collection-filter-row .sort-select { flex: 0 1 auto; min-width: 105px; }
+.deck-filter-row { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .deck-filter-row, .collection-filter-row { gap: 6px; }
+  .deck-filter-row .search, .collection-filter-row .search { flex-basis: 100%; }
+  .deck-filter-row .sort-select, .collection-filter-row .sort-select { flex: 1 1 calc(50% - 6px); min-width: 0; }
+}
