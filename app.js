@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.48";
+const VERSION = "0.1.49";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -698,19 +698,64 @@ function getPendingNpcItemStatus(itemId, npcId) {
   return false;
 }
 
-function consumeBattlePrepItem(itemId, npcId) {
+function getBattlePrepItemFlag(itemId) {
+  if (itemId === "lock_detector") return "lockDetectorUsed";
+  if (itemId === "miracle_charm") return "miracleCharmUsed";
+  return null;
+}
+
+function toggleBattlePrepItem(itemId, npcId) {
   const item = SHOP_ITEM_BY_ID.get(itemId);
   if (!item) return { ok: false, message: "アイテムが見つかりません。" };
   const pending = ensurePendingNpcItems(npcId);
-  const flag = itemId === "lock_detector" ? "lockDetectorUsed" : itemId === "miracle_charm" ? "miracleCharmUsed" : null;
+  const flag = getBattlePrepItemFlag(itemId);
   if (!flag) return { ok: false, message: "このアイテムは使用できません。" };
-  if (pending[flag]) return { ok: false, message: `${item.name}はこの対戦で使用済みです。` };
+
+  const nextEnabled = !Boolean(pending[flag]);
+  if (nextEnabled && getOwnedItemCount(itemId) <= 0) {
+    return { ok: false, message: `${item.name}を所持していません。` };
+  }
+
+  pending[flag] = nextEnabled;
+  return {
+    ok: true,
+    enabled: nextEnabled,
+    message: `${item.name}を${nextEnabled ? "ON" : "OFF"}にしました。`
+  };
+}
+
+function consumeOwnedBattleItem(itemId) {
   const owned = getOwnedItemCount(itemId);
-  if (owned <= 0) return { ok: false, message: `${item.name}を所持していません。` };
+  if (owned <= 0) return false;
   state.save.items[itemId] = owned - 1;
-  pending[flag] = true;
-  save();
-  return { ok: true, message: `${item.name}を使用しました。` };
+  return true;
+}
+
+function finalizeBattlePrepItems(pendingItems, lockCells) {
+  const hasLockCell = Object.keys(lockCells ?? {}).length > 0;
+  const result = {
+    lockDetectorRequested: Boolean(pendingItems?.lockDetectorUsed),
+    miracleCharmRequested: Boolean(pendingItems?.miracleCharmUsed),
+    lockDetectorConsumed: false,
+    miracleCharmConsumed: false,
+    lockDetectorReturned: false
+  };
+
+  if (result.lockDetectorRequested) {
+    if (hasLockCell) {
+      result.lockDetectorConsumed = consumeOwnedBattleItem("lock_detector");
+    } else {
+      // ロックマスが存在しない対戦では消費しない。
+      result.lockDetectorReturned = true;
+    }
+  }
+
+  if (result.miracleCharmRequested) {
+    result.miracleCharmConsumed = consumeOwnedBattleItem("miracle_charm");
+  }
+
+  if (result.lockDetectorConsumed || result.miracleCharmConsumed) save();
+  return result;
 }
 
 function getTotalInAllDecks(cardId) {
@@ -2727,26 +2772,26 @@ function showRuleLottery(npc, options = {}) {
       }
     },
     {
-      label: pending.lockDetectorUsed ? "鍵探知機：使用済み" : `鍵探知機を使用（所持${lockOwned}）`,
-      className: "ghost item-use-button",
-      disabled: pending.lockDetectorUsed || lockOwned <= 0,
+      label: `鍵探知機：${pending.lockDetectorUsed ? "ON" : "OFF"}（所持${lockOwned}）`,
+      className: `ghost item-use-button ${pending.lockDetectorUsed ? "active" : ""}`,
+      disabled: !pending.lockDetectorUsed && lockOwned <= 0,
       onClick: () => {
-        const result = consumeBattlePrepItem("lock_detector", npc.id);
+        const result = toggleBattlePrepItem("lock_detector", npc.id);
         if (!result.ok) {
-          showModal("アイテム使用", `<p>${escapeHtml(result.message)}</p>`, [{ label: "閉じる", onClick: reopenWithSameRules }]);
+          showModal("アイテム設定", `<p>${escapeHtml(result.message)}</p>`, [{ label: "閉じる", onClick: reopenWithSameRules }]);
           return;
         }
         reopenWithSameRules();
       }
     },
     {
-      label: pending.miracleCharmUsed ? "奇跡の御守り：使用済み" : `奇跡の御守りを使用（所持${charmOwned}）`,
-      className: "ghost item-use-button",
-      disabled: pending.miracleCharmUsed || charmOwned <= 0,
+      label: `奇跡の御守り：${pending.miracleCharmUsed ? "ON" : "OFF"}（所持${charmOwned}）`,
+      className: `ghost item-use-button ${pending.miracleCharmUsed ? "active" : ""}`,
+      disabled: !pending.miracleCharmUsed && charmOwned <= 0,
       onClick: () => {
-        const result = consumeBattlePrepItem("miracle_charm", npc.id);
+        const result = toggleBattlePrepItem("miracle_charm", npc.id);
         if (!result.ok) {
-          showModal("アイテム使用", `<p>${escapeHtml(result.message)}</p>`, [{ label: "閉じる", onClick: reopenWithSameRules }]);
+          showModal("アイテム設定", `<p>${escapeHtml(result.message)}</p>`, [{ label: "閉じる", onClick: reopenWithSameRules }]);
           return;
         }
         reopenWithSameRules();
@@ -2763,8 +2808,8 @@ function showRuleLottery(npc, options = {}) {
       ${getRuleDescriptionHtml(rules)}
       <div class="battle-item-status">
         <strong>使用アイテム</strong><br>
-        鍵探知機：${pending.lockDetectorUsed ? "使用済み（ロックマスを事前表示）" : "未使用"}<br>
-        奇跡の御守り：${pending.miracleCharmUsed ? `使用済み（レアチャンス ${getRareChanceRate(npc)}% → ${effectiveRareRate}%）` : "未使用"}
+        鍵探知機：${pending.lockDetectorUsed ? "ON（対戦開始時に使用。ロックマスがなければ消費しません）" : "OFF"}<br>
+        奇跡の御守り：${pending.miracleCharmUsed ? `ON（対戦開始時に使用。レアチャンス ${getRareChanceRate(npc)}% → ${effectiveRareRate}%）` : "OFF"}
       </div>
       <p class="muted">挑戦料${formatMoney(getNpcEntryFee(npc))}は支払い済みです。</p>
       <p class="muted">再抽選には挑戦料の半額 ${formatMoney(rerollFee)} が必要です。再抽選料は返金されません。</p>
@@ -3614,6 +3659,9 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     npcHandCards = wild.npcCards;
   }
 
+  const lockCells = createLockCellsForBattle(npc);
+  const finalizedItems = finalizeBattlePrepItems(pendingItems, lockCells);
+
   state.battle = {
     npc,
     rules: selectedRules,
@@ -3628,13 +3676,14 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     forcedNpcHandIndex: null,
     typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
     fieldEffects: createFieldEffectsForBattle(npc),
-    lockCells: createLockCellsForBattle(npc),
-    revealLockCells: Boolean(pendingItems.lockDetectorUsed),
-    rareChanceMultiplier: pendingItems.miracleCharmUsed ? 2 : 1,
+    lockCells,
+    revealLockCells: finalizedItems.lockDetectorConsumed,
+    rareChanceMultiplier: finalizedItems.miracleCharmConsumed ? 2 : 1,
     usedBattleItems: {
-      lockDetector: Boolean(pendingItems.lockDetectorUsed),
-      miracleCharm: Boolean(pendingItems.miracleCharmUsed)
+      lockDetector: finalizedItems.lockDetectorConsumed,
+      miracleCharm: finalizedItems.miracleCharmConsumed
     },
+    battleItemResult: finalizedItems,
     entryFee,
     winMoney: getNpcWinMoney(npc),
     swapInfo
@@ -3658,9 +3707,13 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
   const fieldEntries = Object.entries(state.battle.fieldEffects ?? {});
   if (fieldEntries.length) addBattleLog(`フィールド効果：${fieldEntries.length}マスに効果が発生しました。`);
   if (["ふつう", "つよい"].includes(npc.difficulty)) {
-    addBattleLog(state.battle.revealLockCells
-      ? "鍵探知機：ロックマスの場所を事前に表示します。"
-      : "ロック：0〜1マスに隠しロックマスが発生する可能性があります。");
+    if (state.battle.revealLockCells) {
+      addBattleLog("鍵探知機：ロックマスの場所を事前に表示します。");
+    } else if (state.battle.battleItemResult?.lockDetectorReturned) {
+      addBattleLog("鍵探知機：ロックマスがなかったため使用されず、所持数は減りませんでした。");
+    } else {
+      addBattleLog("ロック：0〜1マスに隠しロックマスが発生する可能性があります。");
+    }
   }
   if (state.battle.rareChanceMultiplier > 1) {
     addBattleLog(`奇跡の御守り：レアチャンス率が${getRareChanceRate(npc)}%から${Math.min(100, getRareChanceRate(npc) * state.battle.rareChanceMultiplier)}%になりました。`);
@@ -4224,6 +4277,11 @@ function checkBattleEnd() {
       addBattleLog(`初回勝利報酬として「${firstWinCard.name}」を獲得しました。`);
     }
     state.save.npcWins[battle.npc.id] = previousWins + 1;
+    battle.finalScore = { ...score };
+    battle.overwhelmingVictoryBonus = score.player === 8 || score.player === 9;
+    if (battle.overwhelmingVictoryBonus) {
+      addBattleLog(`圧勝ボーナス！ 最終スコア${score.player}のためレアチャンスが確定しました。`);
+    }
     save();
     handleReward();
   } else if (score.player < score.npc) {
@@ -4340,6 +4398,7 @@ function getVictoryMoneyHtml(battle) {
 }
 
 function rollRewardRule(npc, battle = state.battle) {
+  if (battle?.overwhelmingVictoryBonus) return "rare_chance";
   const weights = getRewardWeights(npc, battle);
   const total = Object.values(weights).reduce((sum, value) => sum + value, 0);
   let roll = Math.random() * total;
@@ -4411,7 +4470,10 @@ function handleReward() {
     }
     addOwnedCard(card.id);
     const effectiveRate = Math.min(100, getRareChanceRate(battle.npc) * Math.max(1, Number(battle.rareChanceMultiplier ?? 1)));
-    showRewardResult(card, `レアチャンス ${effectiveRate}% に当選しました。対象：${getRareChanceLabel(battle.npc)}`);
+    const rewardMessage = battle.overwhelmingVictoryBonus
+      ? `圧勝ボーナス！ 最終スコア${battle.finalScore?.player ?? "8または9"}のためレアチャンス確定。対象：${getRareChanceLabel(battle.npc)}`
+      : `レアチャンス ${effectiveRate}% に当選しました。対象：${getRareChanceLabel(battle.npc)}`;
+    showRewardResult(card, rewardMessage);
     return;
   }
 

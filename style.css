@@ -2517,3 +2517,11 @@ body.is-battle-screen .battle-screen {
     flex: 1;
   }
 }
+
+
+/* v0.1.49: 対戦前アイテムON/OFF */
+.item-use-button.active {
+  border-color: #f6c85f;
+  box-shadow: 0 0 0 2px rgba(246, 200, 95, 0.18) inset;
+  font-weight: 700;
+}
