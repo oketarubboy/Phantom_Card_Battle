@@ -957,6 +957,8 @@ export const NPCS = [
     "winMoney": 200000,
     "rareChanceLabel": "必ず★5",
     "ruleGroup1": [
+      "order",
+      "chaos",
       "ace_killer",
       "type_ascend",
       "type_descend",
@@ -967,12 +969,24 @@ export const NPCS = [
       "little_3"
     ],
     "ruleGroup2": [
-      "order",
-      "chaos",
       "combo"
     ],
     "rareChanceRarities": [
       5
+    ],
+    "handPattern": [
+      {
+        "rarity": 5,
+        "count": 1
+      },
+      {
+        "rarity": 4,
+        "count": 2
+      },
+      {
+        "rarity": 3,
+        "count": 1
+      }
     ],
     "fixedCardRefs": [
       {
@@ -1033,6 +1047,10 @@ export const NPCS = [
       }
     ],
     "cardPoolSpec": {
+      "rarities": [
+        4,
+        5
+      ],
       "fixedCardRefs": [
         {
           "name": "Moth ti a flame",
@@ -1065,30 +1083,6 @@ export const NPCS = [
         {
           "name": "CABINET OF DOLLS 人形蒐集",
           "rarity": 3
-        },
-        {
-          "name": "[キミ×]",
-          "type": "もなタイプ",
-          "rarity": 4
-        },
-        {
-          "name": "[キミ×]",
-          "type": "美雨タイプ",
-          "rarity": 4
-        },
-        {
-          "name": "[キミ×]",
-          "type": "凛花タイプ",
-          "rarity": 4
-        },
-        {
-          "name": "[キミ×]",
-          "type": "百花タイプ",
-          "rarity": 4
-        },
-        {
-          "name": "Ado",
-          "rarity": 5
         }
       ]
     },
