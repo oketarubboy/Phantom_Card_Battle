@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.45";
+const VERSION = "0.1.46";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -125,6 +125,8 @@ const state = {
     cachedProfile: null
   },
   battle: null,
+  currentModalSpec: null,
+  lastResultModalSpec: null,
   pixi: {
     app: null,
     boardLayer: null,
@@ -1185,7 +1187,14 @@ function cardValuesHtml(card, center = "", values = null) {
 }
 
 function cardMiniHtml(card, extra = "", options = {}) {
-  const values = options.effective ? getCardValueSet(card) : { up: card.up, right: card.right, down: card.down, left: card.left };
+  const values = options.values ?? (options.effective
+    ? getCardValueSet(
+        card,
+        options.battle ?? state.battle,
+        options.board ?? null,
+        Number.isInteger(options.boardIndex) ? options.boardIndex : null
+      )
+    : { up: card.up, right: card.right, down: card.down, left: card.left });
   const typeMeta = getCardTypeMeta(card);
   const centerLabel = extra ? escapeHtml(extra) : "";
   const showName = options.showName !== false;
@@ -1865,6 +1874,9 @@ function renderSettingsScreen() {
 }
 
 function showModal(title, bodyHtml, actions = []) {
+  const modal = $("modal");
+  modal.classList.remove("final-board-modal");
+  state.currentModalSpec = { title, bodyHtml, actions };
   $("modalTitle").textContent = title;
   $("modalBody").innerHTML = bodyHtml;
   const actionBox = $("modalActions");
@@ -1876,14 +1888,168 @@ function showModal(title, bodyHtml, actions = []) {
     button.addEventListener("click", action.onClick);
     actionBox.appendChild(button);
   }
-  $("modal").classList.remove("hidden");
+  modal.classList.remove("hidden");
 }
 
 function closeModal() {
   const modal = $("modal");
   modal.classList.add("hidden");
+  modal.classList.remove("final-board-modal");
   delete modal.dataset.onlineWaiting;
   delete modal.dataset.onlineRematchWaiting;
+}
+
+function cloneReviewCard(card) {
+  if (!card) return null;
+  return {
+    ...card,
+    battleValues: card.battleValues ? { ...card.battleValues } : undefined,
+    wildChanges: card.wildChanges ? { ...card.wildChanges } : undefined
+  };
+}
+
+function captureFinalBattleSnapshot(battle = state.battle) {
+  if (!battle || !Array.isArray(battle.board)) return null;
+  const board = battle.board.map((cell) => cell ? {
+    card: cloneReviewCard(cell.card),
+    owner: cell.owner,
+    locked: Boolean(cell.locked)
+  } : null);
+  const playerHand = (battle.playerHand ?? []).map((entry) => ({
+    card: cloneReviewCard(entry.card),
+    used: Boolean(entry.used)
+  }));
+  const npcHand = (battle.npcHand ?? []).map((entry) => ({
+    card: cloneReviewCard(entry.card),
+    used: Boolean(entry.used)
+  }));
+  const playerRemaining = playerHand.filter((entry) => !entry.used).length;
+  const npcRemaining = npcHand.filter((entry) => !entry.used).length;
+  const playerBoardCount = board.filter((cell) => cell?.owner === "player").length;
+  const npcBoardCount = board.filter((cell) => cell?.owner === "npc").length;
+
+  return {
+    mode: battle.mode,
+    npc: battle.npc ? { ...battle.npc } : null,
+    rules: [...(battle.rules ?? [])],
+    fieldEffects: { ...(battle.fieldEffects ?? {}) },
+    lockCells: { ...(battle.lockCells ?? {}) },
+    typeBoosts: { ...(battle.typeBoosts ?? {}) },
+    board,
+    playerHand,
+    npcHand,
+    score: {
+      player: playerBoardCount + playerRemaining,
+      npc: npcBoardCount + npcRemaining
+    }
+  };
+}
+
+function finalReviewCardHtml(cell, index, snapshot) {
+  if (!cell?.card) return "";
+  const typeMeta = getCardTypeMeta(cell.card);
+  const values = getCardValueSet(cell.card, snapshot, snapshot.board, index);
+  return `
+    <div class="final-review-card owner-${cell.owner}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
+      ${cardMiniHtml(cell.card, "", {
+        values,
+        squareArt: true,
+        detail: true,
+        showName: false,
+        battle: snapshot,
+        board: snapshot.board,
+        boardIndex: index
+      })}
+    </div>
+  `;
+}
+
+function finalReviewHandHtml(entries, snapshot) {
+  const remaining = (entries ?? []).filter((entry) => !entry.used && entry.card);
+  if (!remaining.length) return '<p class="muted final-review-empty">残り手札なし</p>';
+  return `
+    <div class="final-review-hand-grid">
+      ${remaining.map((entry) => {
+        const typeMeta = getCardTypeMeta(entry.card);
+        return `
+          <div class="final-review-hand-card" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
+            ${cardMiniHtml(entry.card, "", { squareArt: true, detail: true, showName: false, battle: snapshot })}
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function finalBoardReviewHtml(snapshot) {
+  const ruleText = snapshot.rules?.length ? getRuleSummary(snapshot.rules) : "なし";
+  const opponentName = snapshot.npc?.name ?? "相手";
+  const boardHtml = snapshot.board.map((cell, index) => {
+    const fieldValue = getFieldEffectAt(index, snapshot);
+    const fieldBadge = fieldValue
+      ? `<span class="final-field-badge ${fieldValue > 0 ? "positive" : "negative"}">${fieldValue > 0 ? "+" : ""}${fieldValue}</span>`
+      : "";
+    const lockBadge = cell?.locked ? '<span class="final-lock-badge" aria-label="ロック">🔒</span>' : "";
+    return `
+      <div class="final-board-cell ${cell ? `has-card owner-${cell.owner}` : "empty"}">
+        ${fieldBadge}
+        ${cell ? finalReviewCardHtml(cell, index, snapshot) : '<span class="final-empty-cell">空き</span>'}
+        ${lockBadge}
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div class="final-board-review">
+      <div class="final-review-summary">
+        <strong>自分 ${snapshot.score.player} - ${snapshot.score.npc} ${escapeHtml(opponentName)}</strong>
+        <span>追加ルール：${escapeHtml(ruleText)}</span>
+      </div>
+      <section class="final-review-hand-section">
+        <h3>相手の残り手札</h3>
+        ${finalReviewHandHtml(snapshot.npcHand, snapshot)}
+      </section>
+      <div class="final-board-grid" aria-label="最終盤面">
+        ${boardHtml}
+      </div>
+      <section class="final-review-hand-section">
+        <h3>自分の残り手札</h3>
+        ${finalReviewHandHtml(snapshot.playerHand, snapshot)}
+      </section>
+      <div class="final-review-legend">
+        <span class="legend-player">青枠：自分</span>
+        <span class="legend-npc">赤枠：相手</span>
+      </div>
+    </div>
+  `;
+}
+
+function reopenLastResultModal() {
+  const spec = state.lastResultModalSpec;
+  if (!spec) {
+    closeModal();
+    return;
+  }
+  showModal(spec.title, spec.bodyHtml, spec.actions);
+}
+
+function showFinalBoardReview() {
+  const snapshot = captureFinalBattleSnapshot();
+  if (!snapshot) {
+    showModal("盤面確認", "<p>確認できる最終盤面がありません。</p>", [
+      { label: "閉じる", onClick: closeModal }
+    ]);
+    return;
+  }
+  state.lastResultModalSpec = state.currentModalSpec;
+  showModal("最終盤面", finalBoardReviewHtml(snapshot), [
+    { label: "リザルト画面に戻る", onClick: reopenLastResultModal }
+  ]);
+  $("modal").classList.add("final-board-modal");
+}
+
+function finalBoardAction() {
+  return { label: "盤面確認", className: "ghost", onClick: showFinalBoardReview };
 }
 
 function getCardDetailHtml(card, options = {}) {
@@ -3009,6 +3175,7 @@ function showOnlineResult(room) {
     `オンライン対戦：${title}`,
     `<p>オンライン対戦は報酬なしです。</p><p>スコア：自分 ${myScore} - ${opponentScore} 相手</p>${ratingHtml}`,
     [
+      finalBoardAction(),
       { label: "もう一度対戦する", onClick: () => { closeModal(); requestOnlineRematch(); } },
       { label: "オンライン対戦へ", onClick: () => { closeModal(); detachOnlineRoom(); state.battle = null; showScreen("onlineBattle"); } },
       { label: "ランキングを見る", className: "ghost", onClick: () => { closeModal(); detachOnlineRoom(); state.battle = null; showScreen("rankings"); } },
@@ -3825,6 +3992,7 @@ function checkBattleEnd() {
   } else if (score.player < score.npc) {
     addBattleLog(`敗北... ${score.player} - ${score.npc}`);
     showModal("敗北", `<p>今回はカードを獲得できませんでした。</p><p>挑戦料${formatMoney(battle.entryFee)}は返金されません。</p><p>スコア：自分 ${score.player} - ${score.npc} 相手</p>`, [
+      finalBoardAction(),
       { label: "再戦", onClick: () => { closeModal(); startBattle(battle.npc.id); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } }
     ]);
@@ -3836,6 +4004,7 @@ function checkBattleEnd() {
       addBattleLog(`引き分けのため挑戦料${formatMoney(refundMoney)}が返金されました。`);
     }
     showModal("引き分け", `<p>引き分けのためカード獲得はありません。</p><p>挑戦料${formatMoney(battle.entryFee)}は返金されました。</p><p>スコア：自分 ${score.player} - ${score.npc} 相手</p>`, [
+      finalBoardAction(),
       { label: "再戦", onClick: () => { closeModal(); startBattle(battle.npc.id); } },
       { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
       { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); showScreen("title"); } }
@@ -3876,6 +4045,7 @@ async function handleOnlineNpcResult(score) {
     addBattleLog(`レート反映エラー：${error.message ?? error}`);
   }
   showModal(`ランダムNPC戦：${title}`, `<p>スコア：自分 ${score.player} - ${score.npc} 相手</p><p>レート：${oldRating} → <strong>${newRating}</strong>（${newRating - oldRating >= 0 ? "+" : ""}${newRating - oldRating}）</p>`, [
+    finalBoardAction(),
     { label: "もう一度ランダムマッチ", onClick: () => { closeModal(); state.battle = null; showScreen("onlineBattle"); startRandomOnlineMatch(); } },
     { label: "オンライン対戦へ", className: "ghost", onClick: () => { closeModal(); state.battle = null; showScreen("onlineBattle"); } },
     { label: "タイトルへ戻る", className: "ghost", onClick: () => { closeModal(); state.battle = null; showScreen("title"); } }
@@ -4051,6 +4221,7 @@ function rewardCardHtml(card) {
 
 function postVictoryActions() {
   return [
+    finalBoardAction(),
     { label: "再戦", onClick: () => { const npcId = state.battle?.npc?.id; closeModal(); if (npcId) startBattle(npcId); } },
     { label: "対戦相手選択", className: "ghost", onClick: () => { closeModal(); showScreen("battleMenu"); } },
     { label: "デッキ画面", className: "ghost", onClick: () => { closeModal(); showScreen("deck"); } },
