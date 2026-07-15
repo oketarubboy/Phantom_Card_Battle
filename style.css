@@ -2426,3 +2426,94 @@ body.is-battle-screen .battle-screen {
     font-size: 13px;
   }
 }
+
+
+/* v0.1.47: 常設アイテム・対戦前アイテム */
+.shop-items-section {
+  margin: 16px 0 22px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.shop-item-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.shop-item-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 2px solid rgba(255, 214, 107, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.shop-item-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: rgba(11, 16, 32, 0.72);
+  font-size: 26px;
+}
+
+.shop-item-info {
+  min-width: 0;
+}
+
+.shop-item-info p {
+  margin: 4px 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.shop-item-purchase {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shop-item-purchase select {
+  min-width: 74px;
+}
+
+.battle-item-status {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 214, 107, 0.28);
+  background: rgba(255, 214, 107, 0.08);
+  line-height: 1.6;
+}
+
+.modal-actions .item-use-button {
+  border-color: rgba(255, 214, 107, 0.55);
+}
+
+@media (max-width: 760px) {
+  .shop-item-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .shop-item-card {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .shop-item-purchase {
+    grid-column: 1 / -1;
+  }
+
+  .shop-item-purchase select,
+  .shop-item-purchase button {
+    flex: 1;
+  }
+}

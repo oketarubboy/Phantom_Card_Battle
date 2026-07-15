@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.46";
+const VERSION = "0.1.47";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -114,6 +114,11 @@ const state = {
   collectionFilter: { rarity: "all", attribute: "all", sortField: "number", sortOrder: "asc" },
   shopStock: [],
   shopInitialized: false,
+  pendingNpcItems: {
+    npcId: null,
+    lockDetectorUsed: false,
+    miracleCharmUsed: false
+  },
   online: {
     firebase: null,
     roomId: null,
@@ -187,6 +192,23 @@ const LITTLE_DECKS = [
 const TOTAL_DECK_COUNT = NORMAL_DECK_COUNT + LITTLE_DECKS.length;
 const LITTLE_RULE_IDS = ["little_1", "little_2", "little_3"];
 const SHOP_PRICES = { 1: 100, 2: 500, 3: 5000 };
+const SHOP_ITEMS = [
+  {
+    id: "lock_detector",
+    name: "鍵探知機",
+    price: 50000,
+    maxOwned: 5,
+    description: "追加ルール決定時に使用すると、対戦開始前からロックマスの場所が表示されます。"
+  },
+  {
+    id: "miracle_charm",
+    name: "奇跡の御守り",
+    price: 100000,
+    maxOwned: 5,
+    description: "追加ルール決定時に使用すると、その対戦だけレアチャンス率が2倍になります。"
+  }
+];
+const SHOP_ITEM_BY_ID = new Map(SHOP_ITEMS.map((item) => [item.id, item]));
 const SHOP_GRADE_SETTINGS = [
   { grade: 1, required: 0, refreshFee: 100, stock: { 1: 7, 2: 2, 3: 1 } },
   { grade: 2, required: 1000, refreshFee: 200, stock: { 1: 4, 2: 3, 3: 3 } },
@@ -649,6 +671,48 @@ function getCardSellPrice(card) {
   return Math.floor(price / 2);
 }
 
+function getOwnedItemCount(itemId) {
+  return Math.max(0, Math.floor(Number(state.save?.items?.[itemId] ?? 0)));
+}
+
+function getRemainingItemCapacity(itemId) {
+  const item = SHOP_ITEM_BY_ID.get(itemId);
+  if (!item) return 0;
+  return Math.max(0, item.maxOwned - getOwnedItemCount(itemId));
+}
+
+function ensurePendingNpcItems(npcId) {
+  if (state.pendingNpcItems?.npcId === npcId) return state.pendingNpcItems;
+  state.pendingNpcItems = {
+    npcId,
+    lockDetectorUsed: false,
+    miracleCharmUsed: false
+  };
+  return state.pendingNpcItems;
+}
+
+function getPendingNpcItemStatus(itemId, npcId) {
+  const pending = ensurePendingNpcItems(npcId);
+  if (itemId === "lock_detector") return Boolean(pending.lockDetectorUsed);
+  if (itemId === "miracle_charm") return Boolean(pending.miracleCharmUsed);
+  return false;
+}
+
+function consumeBattlePrepItem(itemId, npcId) {
+  const item = SHOP_ITEM_BY_ID.get(itemId);
+  if (!item) return { ok: false, message: "アイテムが見つかりません。" };
+  const pending = ensurePendingNpcItems(npcId);
+  const flag = itemId === "lock_detector" ? "lockDetectorUsed" : itemId === "miracle_charm" ? "miracleCharmUsed" : null;
+  if (!flag) return { ok: false, message: "このアイテムは使用できません。" };
+  if (pending[flag]) return { ok: false, message: `${item.name}はこの対戦で使用済みです。` };
+  const owned = getOwnedItemCount(itemId);
+  if (owned <= 0) return { ok: false, message: `${item.name}を所持していません。` };
+  state.save.items[itemId] = owned - 1;
+  pending[flag] = true;
+  save();
+  return { ok: true, message: `${item.name}を使用しました。` };
+}
+
 function getTotalInAllDecks(cardId) {
   return (state.save?.decks ?? []).reduce((sum, deck) => sum + countInDeck(deck, cardId), 0);
 }
@@ -955,14 +1019,26 @@ function getNpcWinMoney(npc) {
   return fee === 0 ? 100 : fee * 2;
 }
 
-function getRewardWeights(npc) {
+function getRewardWeights(npc, battle = state.battle) {
   const number = getNpcNumber(npc);
-  if (number >= 1 && number <= 6) return { random_one: 80, choose_one: 17, rare_chance: 3 };
-  if (number >= 7 && number <= 10) return { random_one: 80, choose_one: 15, rare_chance: 5 };
-  if (number >= 11 && number <= 14) return { random_one: 72, choose_one: 20, rare_chance: 8 };
-  if (number === 15) return { random_one: 70, choose_one: 20, rare_chance: 10 };
-  const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 20);
-  return { random_one: Math.max(0, 20 - rare), choose_one: 80, rare_chance: rare };
+  let base;
+  if (number >= 1 && number <= 6) base = { random_one: 80, choose_one: 17, rare_chance: 3 };
+  else if (number >= 7 && number <= 10) base = { random_one: 80, choose_one: 15, rare_chance: 5 };
+  else if (number >= 11 && number <= 14) base = { random_one: 72, choose_one: 20, rare_chance: 8 };
+  else if (number === 15) base = { random_one: 70, choose_one: 20, rare_chance: 10 };
+  else {
+    const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 20);
+    base = { random_one: Math.max(0, 20 - rare), choose_one: 80, rare_chance: rare };
+  }
+
+  const multiplier = Math.max(1, Number(battle?.rareChanceMultiplier ?? 1));
+  if (multiplier <= 1) return base;
+  const rare = Math.min(100 - base.choose_one, base.rare_chance * multiplier);
+  return {
+    random_one: Math.max(0, 100 - base.choose_one - rare),
+    choose_one: base.choose_one,
+    rare_chance: rare
+  };
 }
 
 function shuffle(array) {
@@ -1021,6 +1097,10 @@ function createInitialSave() {
     money: 100,
     totalEarnedMoney: 0,
     shopPurchaseTotal: 0,
+    items: {
+      lock_detector: 0,
+      miracle_charm: 0
+    },
     settings: {
       effects: true,
       ownedCardView: "vertical",
@@ -1068,6 +1148,11 @@ function normalizeSave(save) {
   });
   normalized.shopPurchaseTotal = Number.isFinite(Number(normalized.shopPurchaseTotal)) ? Number(normalized.shopPurchaseTotal) : 0;
   normalized.totalEarnedMoney = Number.isFinite(Number(normalized.totalEarnedMoney)) ? Number(normalized.totalEarnedMoney) : 0;
+  normalized.items = { ...fresh.items, ...(save?.items ?? {}) };
+  for (const item of SHOP_ITEMS) {
+    const count = Math.floor(Number(normalized.items[item.id] ?? 0));
+    normalized.items[item.id] = Math.min(item.maxOwned, Math.max(0, Number.isFinite(count) ? count : 0));
+  }
   normalized.activeDeckIndex = Number.isInteger(normalized.activeDeckIndex) ? Math.min(Math.max(normalized.activeDeckIndex, 0), NORMAL_DECK_COUNT - 1) : 0;
   normalized.selectedDeckIndex = Number.isInteger(normalized.selectedDeckIndex) ? Math.min(Math.max(normalized.selectedDeckIndex, 0), TOTAL_DECK_COUNT - 1) : 0;
 
@@ -1447,6 +1532,7 @@ function renderShopScreen() {
   updateMoneyDisplays();
   const stockList = $("shopStockList");
   const sellList = $("shopSellList");
+  const itemList = $("shopItemList");
   const message = $("shopMessage");
   const refreshButton = $("refreshShop");
   const money = Number(state.save.money ?? 0);
@@ -1495,6 +1581,42 @@ function renderShopScreen() {
     button.addEventListener("click", () => buyShopCard(Number(button.getAttribute("data-buy-index"))));
   });
 
+  if (itemList) {
+    itemList.innerHTML = SHOP_ITEMS.map((item) => {
+      const owned = getOwnedItemCount(item.id);
+      const remaining = getRemainingItemCapacity(item.id);
+      const maxAffordable = item.price > 0 ? Math.floor(Number(state.save.money ?? 0) / item.price) : remaining;
+      const maxQuantity = Math.max(0, Math.min(remaining, maxAffordable));
+      const options = Array.from({ length: remaining }, (_, index) => index + 1)
+        .map((quantity) => `<option value="${quantity}">${quantity}個</option>`)
+        .join("");
+      const canBuy = remaining > 0 && Number(state.save.money ?? 0) >= item.price;
+      const buttonText = remaining <= 0 ? "所持上限" : canBuy ? "購入" : "所持金不足";
+      return `
+        <div class="shop-item-card" data-shop-item-id="${item.id}">
+          <div class="shop-item-icon" aria-hidden="true">${item.id === "lock_detector" ? "🔑" : "✨"}</div>
+          <div class="shop-item-info">
+            <strong>${escapeHtml(item.name)}</strong>
+            <p>${escapeHtml(item.description)}</p>
+            <small>価格：${formatMoney(item.price)} / 所持 ${owned}個 / 最大 ${item.maxOwned}個</small>
+          </div>
+          <div class="shop-item-purchase">
+            <select data-item-quantity="${item.id}" ${remaining > 0 ? "" : "disabled"}>${options || '<option value="0">0個</option>'}</select>
+            <button data-buy-item-id="${item.id}" ${canBuy ? "" : "disabled"}>${buttonText}</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    itemList.querySelectorAll("[data-buy-item-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const itemId = button.getAttribute("data-buy-item-id");
+        const select = itemList.querySelector(`[data-item-quantity="${itemId}"]`);
+        buyShopItem(itemId, Number(select?.value ?? 1));
+      });
+    });
+  }
+
   const ownedCards = CARDS
     .filter((card) => getOwnedCount(card.id) > 0)
     .sort((a, b) => a.rarity - b.rarity || Number(a.no) - Number(b.no));
@@ -1542,6 +1664,34 @@ function buyShopCard(index) {
   save();
   state.shopStock.splice(index, 1);
   showShopMessage(`「${card.name}」を${formatMoney(price)}で購入しました。`);
+  renderShopScreen();
+}
+
+function buyShopItem(itemId, quantity) {
+  const item = SHOP_ITEM_BY_ID.get(itemId);
+  if (!item) return;
+  const amount = Math.max(1, Math.floor(Number(quantity) || 1));
+  const remaining = getRemainingItemCapacity(itemId);
+  if (remaining <= 0) {
+    showShopMessage(`${item.name}は最大${item.maxOwned}個までです。`, true);
+    renderShopScreen();
+    return;
+  }
+  if (amount > remaining) {
+    showShopMessage(`購入できるのはあと${remaining}個までです。`, true);
+    renderShopScreen();
+    return;
+  }
+  const totalPrice = item.price * amount;
+  if (!spendMoney(totalPrice)) {
+    showShopMessage("所持金が足りません。", true);
+    renderShopScreen();
+    return;
+  }
+  state.save.items[itemId] = getOwnedItemCount(itemId) + amount;
+  state.save.shopPurchaseTotal = Number(state.save.shopPurchaseTotal ?? 0) + totalPrice;
+  save();
+  showShopMessage(`${item.name}を${amount}個、${formatMoney(totalPrice)}で購入しました。`);
   renderShopScreen();
 }
 
@@ -1885,6 +2035,7 @@ function showModal(title, bodyHtml, actions = []) {
     const button = document.createElement("button");
     button.textContent = action.label;
     button.className = action.className ?? "";
+    button.disabled = Boolean(action.disabled);
     button.addEventListener("click", action.onClick);
     actionBox.appendChild(button);
   }
@@ -2208,6 +2359,24 @@ function renderBoard() {
     }
 
     const placed = state.battle?.board[index];
+    if (!placed && state.battle?.revealLockCells && isLockCell(index, state.battle)) {
+      const detectorBg = new PIXI.Graphics();
+      detectorBg.beginFill(0x101626, 0.82);
+      detectorBg.lineStyle(3, 0xffd66b, 0.95);
+      detectorBg.drawRoundedRect(pos.x + 8, pos.y + 8, cellSize - 16, cellSize - 16, 14);
+      detectorBg.endFill();
+      boardLayer.addChild(detectorBg);
+
+      const detectorText = new PIXI.Text("🔒", {
+        fontFamily: "Arial",
+        fontSize: Math.max(26, Math.round(cellSize * 0.25)),
+        fill: 0xffd66b
+      });
+      detectorText.anchor.set(0.5);
+      detectorText.x = pos.x + cellSize / 2;
+      detectorText.y = pos.y + cellSize / 2;
+      boardLayer.addChild(detectorText);
+    }
     if (placed) {
       boardLayer.addChild(createPixiCard(placed.card, placed.owner, pos.x + 8, pos.y + 8, index));
       if (placed.locked) {
@@ -2534,28 +2703,69 @@ function showRuleLottery(npc, options = {}) {
   const initial = options.initial !== false;
   if (initial && !chargeNpcChallengeFee(npc)) return;
 
-  const rules = rollNpcAdditionalRules(npc);
+  const rules = Array.isArray(options.rules) ? sanitizeRuleIds(options.rules) : rollNpcAdditionalRules(npc);
   const rerollFee = Math.ceil(getNpcEntryFee(npc) / 2);
-  const actions = [
-    { label: "対戦開始", onClick: () => { closeModal(); startBattle(npc.id, rules, { entryFeePaid: true }); } }
-  ];
-  actions.push({
-    label: `再抽選（${formatMoney(rerollFee)}）`,
-    className: "ghost",
-    onClick: () => {
-      if (!ensureNpcFeeAvailable(npc, rerollFee, "再抽選できません")) return;
-      if (rerollFee > 0) spendMoney(rerollFee);
-      closeModal();
-      showRuleLottery(npc, { initial: false });
-    }
-  });
+  const pending = ensurePendingNpcItems(npc.id);
+  const lockOwned = getOwnedItemCount("lock_detector");
+  const charmOwned = getOwnedItemCount("miracle_charm");
 
+  const reopenWithSameRules = () => {
+    closeModal();
+    showRuleLottery(npc, { initial: false, rules });
+  };
+
+  const actions = [
+    { label: "対戦開始", onClick: () => { closeModal(); startBattle(npc.id, rules, { entryFeePaid: true }); } },
+    {
+      label: `再抽選（${formatMoney(rerollFee)}）`,
+      className: "ghost",
+      onClick: () => {
+        if (!ensureNpcFeeAvailable(npc, rerollFee, "再抽選できません")) return;
+        if (rerollFee > 0) spendMoney(rerollFee);
+        closeModal();
+        showRuleLottery(npc, { initial: false });
+      }
+    },
+    {
+      label: pending.lockDetectorUsed ? "鍵探知機：使用済み" : `鍵探知機を使用（所持${lockOwned}）`,
+      className: "ghost item-use-button",
+      disabled: pending.lockDetectorUsed || lockOwned <= 0,
+      onClick: () => {
+        const result = consumeBattlePrepItem("lock_detector", npc.id);
+        if (!result.ok) {
+          showModal("アイテム使用", `<p>${escapeHtml(result.message)}</p>`, [{ label: "閉じる", onClick: reopenWithSameRules }]);
+          return;
+        }
+        reopenWithSameRules();
+      }
+    },
+    {
+      label: pending.miracleCharmUsed ? "奇跡の御守り：使用済み" : `奇跡の御守りを使用（所持${charmOwned}）`,
+      className: "ghost item-use-button",
+      disabled: pending.miracleCharmUsed || charmOwned <= 0,
+      onClick: () => {
+        const result = consumeBattlePrepItem("miracle_charm", npc.id);
+        if (!result.ok) {
+          showModal("アイテム使用", `<p>${escapeHtml(result.message)}</p>`, [{ label: "閉じる", onClick: reopenWithSameRules }]);
+          return;
+        }
+        reopenWithSameRules();
+      }
+    }
+  ];
+
+  const effectiveRareRate = Math.min(100, getRareChanceRate(npc) * (pending.miracleCharmUsed ? 2 : 1));
   showModal(
     "追加ルール抽選",
     `
       <p><strong>${escapeHtml(npc.name)}</strong>との対戦では、追加ルールが自動で決まります。</p>
       <p class="rule-result-text">追加ルールは <strong>${escapeHtml(getRuleSummary(rules))}</strong> です。</p>
       ${getRuleDescriptionHtml(rules)}
+      <div class="battle-item-status">
+        <strong>使用アイテム</strong><br>
+        鍵探知機：${pending.lockDetectorUsed ? "使用済み（ロックマスを事前表示）" : "未使用"}<br>
+        奇跡の御守り：${pending.miracleCharmUsed ? `使用済み（レアチャンス ${getRareChanceRate(npc)}% → ${effectiveRareRate}%）` : "未使用"}
+      </div>
       <p class="muted">挑戦料${formatMoney(getNpcEntryFee(npc))}は支払い済みです。</p>
       <p class="muted">再抽選には挑戦料の半額 ${formatMoney(rerollFee)} が必要です。再抽選料は返金されません。</p>
       <p class="muted">勝利報酬：${formatMoney(getNpcWinMoney(npc))}</p>
@@ -2567,6 +2777,11 @@ function showRuleLottery(npc, options = {}) {
 function prepareBattleStart(npcId) {
   const npc = npcById.get(npcId);
   if (!npc) return;
+  state.pendingNpcItems = {
+    npcId: npc.id,
+    lockDetectorUsed: false,
+    miracleCharmUsed: false
+  };
   if (npc.difficulty === "よわい") {
     showWeakRuleSelection(npc);
   } else {
@@ -3370,6 +3585,10 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     if (!chargeNpcChallengeFee(npc)) return;
   }
 
+  const pendingItems = state.pendingNpcItems?.npcId === npc.id
+    ? { ...state.pendingNpcItems }
+    : { npcId: npc.id, lockDetectorUsed: false, miracleCharmUsed: false };
+
   const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
   const npcDeck = buildNpcHand(npc, selectedRules);
   let playerHandCards = [...playerBattleDeck];
@@ -3410,9 +3629,20 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     typeBoosts: Object.fromEntries(CARD_TYPES.map((type) => [type, 0])),
     fieldEffects: createFieldEffectsForBattle(npc),
     lockCells: createLockCellsForBattle(npc),
+    revealLockCells: Boolean(pendingItems.lockDetectorUsed),
+    rareChanceMultiplier: pendingItems.miracleCharmUsed ? 2 : 1,
+    usedBattleItems: {
+      lockDetector: Boolean(pendingItems.lockDetectorUsed),
+      miracleCharm: Boolean(pendingItems.miracleCharmUsed)
+    },
     entryFee,
     winMoney: getNpcWinMoney(npc),
     swapInfo
+  };
+  state.pendingNpcItems = {
+    npcId: null,
+    lockDetectorUsed: false,
+    miracleCharmUsed: false
   };
   const battleToken = state.battle;
   state.selectedHandIndex = null;
@@ -3427,7 +3657,14 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
   addBattleLog(`使用デッキ：${getDeckDisplayName(deckIndex)}`);
   const fieldEntries = Object.entries(state.battle.fieldEffects ?? {});
   if (fieldEntries.length) addBattleLog(`フィールド効果：${fieldEntries.length}マスに効果が発生しました。`);
-  if (["ふつう", "つよい"].includes(npc.difficulty)) addBattleLog("ロック：0〜1マスに隠しロックマスが発生する可能性があります。");
+  if (["ふつう", "つよい"].includes(npc.difficulty)) {
+    addBattleLog(state.battle.revealLockCells
+      ? "鍵探知機：ロックマスの場所を事前に表示します。"
+      : "ロック：0〜1マスに隠しロックマスが発生する可能性があります。");
+  }
+  if (state.battle.rareChanceMultiplier > 1) {
+    addBattleLog(`奇跡の御守り：レアチャンス率が${getRareChanceRate(npc)}%から${Math.min(100, getRareChanceRate(npc) * state.battle.rareChanceMultiplier)}%になりました。`);
+  }
   if (selectedRules.includes("mirror")) addBattleLog("ミラー：場に出たカードは上下・左右の数字が入れ替わります。");
   if (selectedRules.includes("wild_card")) addBattleLog("ワイルドカード：お互いの手札からランダムで1枚ずつ選ばれ、1辺+2、または1辺A・別の1辺1の変化が発生しました。");
   if (swapInfo) addBattleLog(`スワップ：お互いの手札から1枚を交換しました。対戦後に戻ります。`);
@@ -4102,8 +4339,8 @@ function getVictoryMoneyHtml(battle) {
   return `<p>勝利報酬として${formatMoney(winMoney)}を獲得しました。</p>`;
 }
 
-function rollRewardRule(npc) {
-  const weights = getRewardWeights(npc);
+function rollRewardRule(npc, battle = state.battle) {
+  const weights = getRewardWeights(npc, battle);
   const total = Object.values(weights).reduce((sum, value) => sum + value, 0);
   let roll = Math.random() * total;
 
@@ -4117,7 +4354,7 @@ function rollRewardRule(npc) {
 
 function handleReward() {
   const battle = state.battle;
-  const rule = rollRewardRule(battle.npc);
+  const rule = rollRewardRule(battle.npc, battle);
 
   if (rule === "choose_one") {
     const choices = getChooseRewardCards(battle);
@@ -4173,7 +4410,8 @@ function handleReward() {
       return;
     }
     addOwnedCard(card.id);
-    showRewardResult(card, `レアチャンス ${getRareChanceRate(battle.npc)}% に当選しました。対象：${getRareChanceLabel(battle.npc)}`);
+    const effectiveRate = Math.min(100, getRareChanceRate(battle.npc) * Math.max(1, Number(battle.rareChanceMultiplier ?? 1)));
+    showRewardResult(card, `レアチャンス ${effectiveRate}% に当選しました。対象：${getRareChanceLabel(battle.npc)}`);
     return;
   }
 
