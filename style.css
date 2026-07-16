@@ -2589,8 +2589,8 @@ body.is-battle-screen .battle-screen {
   padding: 0;
   border: 0;
   border-radius: 48% 48% 52% 52%;
-  color: #fff !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,.92);
+  color: #111 !important;
+  text-shadow: 0 1px 1px rgba(255,255,255,.48);
   background:
     radial-gradient(circle at 50% 68%, #ffe457 0 22%, #ff9815 23% 48%, #e73514 49% 72%, #8f120b 73% 100%);
   clip-path: polygon(50% 0%, 64% 25%, 77% 13%, 91% 44%, 83% 73%, 68% 91%, 50% 100%, 31% 91%, 16% 72%, 9% 44%, 24% 24%, 37% 37%);
@@ -2630,4 +2630,4 @@ body.is-battle-screen .battle-screen {
 }
 
 
-/* v0.1.53: 修羅カード枠を 属性色 → オレンジ → 所有者色 に統一 */
+/* v0.1.54: 修羅補正値を黒文字化。カード枠は 属性色 → オレンジ → 所有者色 */

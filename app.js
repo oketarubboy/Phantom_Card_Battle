@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.53";
+const VERSION = "0.1.54";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -895,14 +895,23 @@ function applyShuraEnhancement(card) {
   const changed = {};
   const rarity = Number(card.rarity ?? 0);
 
-  if (rarity <= 2) {
+  if (rarity === 1) {
+    // ★1：ランダムな1辺を+1（上限A）
+    for (const side of sample(CARD_SIDES, 1)) {
+      const before = values[side];
+      values[side] = clamp(before + 1, 1, 10);
+      if (values[side] !== before) changed[side] = true;
+    }
+  } else if (rarity === 2) {
+    // ★2：重複しないランダムな2辺をそれぞれ+1（上限A）
     for (const side of sample(CARD_SIDES, 2)) {
       const before = values[side];
-      values[side] = clamp(before + 2, 1, 10);
+      values[side] = clamp(before + 1, 1, 10);
       if (values[side] !== before) changed[side] = true;
     }
   } else if (rarity === 3) {
-    for (const side of CARD_SIDES) {
+    // ★3：重複しないランダムな3辺をそれぞれ+1（上限A）
+    for (const side of sample(CARD_SIDES, 3)) {
       const before = values[side];
       values[side] = clamp(before + 1, 1, 10);
       if (values[side] !== before) changed[side] = true;
@@ -2663,11 +2672,14 @@ function addValueText(container, text, x, y, textColor = 0xffffff, options = {})
     container.addChild(bg);
   }
 
+  // 修羅強化だけが付いた数値は、炎の明るい背景でも見やすい黒で描画する。
+  // ワイルドカードの色が同じ辺に付いている場合は、従来どおりワイルド色を優先する。
+  const resolvedTextColor = options.shura && textColor === 0xffffff ? 0x111111 : textColor;
   const label = new PIXI.Text(text, {
     fontFamily: "Arial",
     fontSize: 14,
     fontWeight: "bold",
-    fill: textColor
+    fill: resolvedTextColor
   });
   label.anchor.set(0.5);
   label.x = x;
