@@ -1,4 +1,4 @@
-export const NPCS = [
+const BASE_NPCS = [
   {
     "id": "npc_001",
     "name": "見習いハイネ",
@@ -1146,4 +1146,27 @@ export const NPCS = [
       }
     ]
   }
+];
+
+function createShuraNpc(baseNpc, index) {
+  const clone = JSON.parse(JSON.stringify(baseNpc));
+  const number = index + 16;
+  clone.id = `npc_${String(number).padStart(3, "0")}`;
+  clone.name = `<修羅>${baseNpc.name}`;
+  clone.difficulty = "修羅";
+  clone.baseDifficulty = baseNpc.difficulty;
+  clone.baseNpcId = baseNpc.id;
+  clone.baseNpcNumber = index + 1;
+  clone.isShura = true;
+  clone.entryFee = Number(baseNpc.entryFee ?? 0) * 5;
+  clone.winMoney = Number(baseNpc.winMoney ?? 0) * 5;
+  clone.rareChanceRate = Math.min(100, Number(baseNpc.rareChanceRate ?? 0) * 2);
+  delete clone.firstWinRewardCardRef;
+  delete clone.firstWinRewardCardId;
+  return clone;
+}
+
+export const NPCS = [
+  ...BASE_NPCS,
+  ...BASE_NPCS.map((npc, index) => createShuraNpc(npc, index))
 ];
