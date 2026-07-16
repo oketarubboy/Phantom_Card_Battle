@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.49";
+const VERSION = "0.1.50";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -103,6 +103,7 @@ const state = {
   ownedCardView: "vertical",
   battleCardPopup: true,
   selectedRuleIds: [],
+  npcListMode: "normal",
   npcListUi: {
     difficulty: "all",
     winStatus: "all",
@@ -832,7 +833,8 @@ function cloneCardForBattle(card, battleMod = null) {
   return {
     ...card,
     battleValues: cleanValues,
-    wildChanges
+    wildChanges,
+    shuraChanges: card?.shuraChanges ? { ...card.shuraChanges } : undefined
   };
 }
 
@@ -841,7 +843,7 @@ function generateWildCardMods(cards) {
   const index = Math.floor(Math.random() * cards.length);
   const card = cards[index];
   if (!card) return {};
-  const values = Object.fromEntries(CARD_SIDES.map((side) => [side, Number(card?.[side] ?? 0)]));
+  const values = Object.fromEntries(CARD_SIDES.map((side) => [side, getCardRawValue(card, side)]));
   const changes = {};
 
   if (Math.random() < 0.5) {
@@ -879,6 +881,61 @@ function getWildValueColor(card, side) {
   return 0xffffff;
 }
 
+function isShuraNpc(npc) {
+  return Boolean(npc?.isShura || npc?.difficulty === "修羅");
+}
+
+function isShuraEnhancedSide(card, side) {
+  return Boolean(card?.shuraChanges?.[side]);
+}
+
+function applyShuraEnhancement(card) {
+  if (!card) return card;
+  const values = Object.fromEntries(CARD_SIDES.map((side) => [side, getCardRawValue(card, side)]));
+  const changed = {};
+  const rarity = Number(card.rarity ?? 0);
+
+  if (rarity <= 2) {
+    for (const side of sample(CARD_SIDES, 2)) {
+      const before = values[side];
+      values[side] = clamp(before + 2, 1, 10);
+      if (values[side] !== before) changed[side] = true;
+    }
+  } else if (rarity === 3) {
+    for (const side of CARD_SIDES) {
+      const before = values[side];
+      values[side] = clamp(before + 1, 1, 10);
+      if (values[side] !== before) changed[side] = true;
+    }
+  } else if (rarity === 4) {
+    const candidates = CARD_SIDES.filter((side) => values[side] < 9);
+    if (candidates.length) {
+      const side = sample(candidates, 1)[0];
+      values[side] = 9;
+      changed[side] = true;
+    }
+  } else if (rarity >= 5) {
+    const candidates = CARD_SIDES.filter((side) => values[side] < 10);
+    if (candidates.length) {
+      const side = sample(candidates, 1)[0];
+      values[side] = 10;
+      changed[side] = true;
+    }
+  }
+
+  return {
+    ...card,
+    battleValues: values,
+    shuraChanges: changed,
+    isShuraCard: true
+  };
+}
+
+function applyShuraEnhancementsToNpcHand(cards, npc) {
+  if (!isShuraNpc(npc)) return cards;
+  return (cards ?? []).map((card) => applyShuraEnhancement(card));
+}
+
 function setupWildCardForHands(playerCards, npcCards, battle = state.battle) {
   if (!hasRule("wild_card", battle)) {
     return { playerCards, npcCards, playerMods: {}, npcMods: {} };
@@ -909,14 +966,14 @@ function getFieldEffectAt(index, battle = state.battle) {
 }
 
 function createFieldEffectsForBattle(npc) {
-  if (npc?.difficulty !== "つよい") return {};
+  if (!npc || !["つよい", "修羅"].includes(npc.difficulty)) return {};
   const indexes = shuffle(Array.from({ length: 9 }, (_, index) => index)).slice(0, 1 + Math.floor(Math.random() * 3));
   const values = [-2, -1, 1, 2];
   return Object.fromEntries(indexes.map((index) => [index, values[Math.floor(Math.random() * values.length)]]));
 }
 
 function createLockCellsForBattle(npc) {
-  if (!npc || !["ふつう", "つよい"].includes(npc.difficulty)) return {};
+  if (!npc || !["ふつう", "つよい", "修羅"].includes(npc.difficulty)) return {};
   const count = Math.random() < 0.5 ? 0 : 1;
   if (!count) return {};
   const index = Math.floor(Math.random() * 9);
@@ -1019,20 +1076,36 @@ function hasDefeatedNpc(npcNumber) {
 
 function isNpcUnlocked(npc) {
   const number = getNpcNumber(npc);
-  if (number <= 2) return true;
-  if (number >= 3 && number <= 6) return hasDefeatedNpc(2);
-  if (number >= 7 && number <= 10) return [3, 4, 5, 6].every(hasDefeatedNpc);
-  if (number >= 11 && number <= 14) return [7, 8, 9, 10].every(hasDefeatedNpc);
-  if (number === 15) return [11, 12, 13, 14].every(hasDefeatedNpc);
+  if (number <= 15) {
+    if (number <= 2) return true;
+    if (number >= 3 && number <= 6) return hasDefeatedNpc(2);
+    if (number >= 7 && number <= 10) return [3, 4, 5, 6].every(hasDefeatedNpc);
+    if (number >= 11 && number <= 14) return [7, 8, 9, 10].every(hasDefeatedNpc);
+    if (number === 15) return [11, 12, 13, 14].every(hasDefeatedNpc);
+    return false;
+  }
+
+  if (number <= 17) return true;
+  if (number >= 18 && number <= 21) return [16, 17].every(hasDefeatedNpc);
+  if (number >= 22 && number <= 25) return [18, 19, 20, 21].every(hasDefeatedNpc);
+  if (number >= 26 && number <= 29) return [22, 23, 24, 25].every(hasDefeatedNpc);
+  if (number === 30) return [26, 27, 28, 29].every(hasDefeatedNpc);
   return false;
 }
 
 function getNpcUnlockMessage() {
+  if (state.npcListMode === "shura") {
+    if (![16, 17].every(hasDefeatedNpc)) return "修羅NPC16・17に勝利すると修羅NPC18〜21が解放されます。";
+    if (![18, 19, 20, 21].every(hasDefeatedNpc)) return "修羅NPC18〜21全員に勝利すると修羅NPC22〜25が解放されます。";
+    if (![22, 23, 24, 25].every(hasDefeatedNpc)) return "修羅NPC22〜25全員に勝利すると修羅NPC26〜29が解放されます。";
+    if (![26, 27, 28, 29].every(hasDefeatedNpc)) return "修羅NPC26〜29全員に勝利すると修羅NPC30が解放されます。";
+    return "修羅モードのすべての対戦相手が解放されています。";
+  }
   if (!hasDefeatedNpc(2)) return "NPC2に勝利するとNPC3〜6が解放されます。";
   if (![3, 4, 5, 6].every(hasDefeatedNpc)) return "NPC3〜6全員に勝利するとNPC7〜10が解放されます。";
   if (![7, 8, 9, 10].every(hasDefeatedNpc)) return "NPC7〜10全員に勝利するとNPC11〜14が解放されます。";
   if (![11, 12, 13, 14].every(hasDefeatedNpc)) return "NPC11〜14全員に勝利するとNPC15が解放されます。";
-  return "すべての対戦相手が解放されています。";
+  return "通常モードのすべての対戦相手が解放されています。";
 }
 
 function getRareChanceRate(npc) {
@@ -1065,7 +1138,7 @@ function getNpcWinMoney(npc) {
 }
 
 function getRewardWeights(npc, battle = state.battle) {
-  const number = getNpcNumber(npc);
+  const number = Number(npc?.baseNpcNumber ?? getNpcNumber(npc));
   let base;
   if (number >= 1 && number <= 6) base = { random_one: 80, choose_one: 17, rare_chance: 3 };
   else if (number >= 7 && number <= 10) base = { random_one: 80, choose_one: 15, rare_chance: 5 };
@@ -1075,6 +1148,14 @@ function getRewardWeights(npc, battle = state.battle) {
     const rare = Math.min(Math.max(getRareChanceRate(npc), 0), 20);
     base = { random_one: Math.max(0, 20 - rare), choose_one: 80, rare_chance: rare };
   }
+
+  // 修羅は元NPCの配分を基準にしつつ、指定された2倍のレアチャンス率を反映する。
+  const configuredRare = Math.min(100 - base.choose_one, Math.max(0, getRareChanceRate(npc)));
+  base = {
+    random_one: Math.max(0, 100 - base.choose_one - configuredRare),
+    choose_one: base.choose_one,
+    rare_chance: configuredRare
+  };
 
   const multiplier = Math.max(1, Number(battle?.rareChanceMultiplier ?? 1));
   if (multiplier <= 1) return base;
@@ -1331,6 +1412,7 @@ function cardMiniHtml(card, extra = "", options = {}) {
   const showTop = options.showTop !== false;
   const showValues = options.showValues !== false;
   const visualClasses = ["card-visual"];
+  if (card?.isShuraCard) visualClasses.push("shura-card");
   if (options.squareArt) visualClasses.push("square-art");
   if (options.detail) visualClasses.push("card-detail-visual");
 
@@ -1341,10 +1423,10 @@ function cardMiniHtml(card, extra = "", options = {}) {
         <span class="card-stars">${rarityStars(card.rarity)}</span>
       </div>` : ""}
       ${showValues ? `<div class="card-visual-values">
-        <span class="cv cv-up ${getWildChangeClass(card, "up")}">${displayValue(values.up)}</span>
-        <span class="cv cv-right ${getWildChangeClass(card, "right")}">${displayValue(values.right)}</span>
-        <span class="cv cv-down ${getWildChangeClass(card, "down")}">${displayValue(values.down)}</span>
-        <span class="cv cv-left ${getWildChangeClass(card, "left")}">${displayValue(values.left)}</span>
+        <span class="cv cv-up ${getWildChangeClass(card, "up")} ${isShuraEnhancedSide(card, "up") ? "shura-value" : ""}">${displayValue(values.up)}</span>
+        <span class="cv cv-right ${getWildChangeClass(card, "right")} ${isShuraEnhancedSide(card, "right") ? "shura-value" : ""}">${displayValue(values.right)}</span>
+        <span class="cv cv-down ${getWildChangeClass(card, "down")} ${isShuraEnhancedSide(card, "down") ? "shura-value" : ""}">${displayValue(values.down)}</span>
+        <span class="cv cv-left ${getWildChangeClass(card, "left")} ${isShuraEnhancedSide(card, "left") ? "shura-value" : ""}">${displayValue(values.left)}</span>
         ${centerLabel ? `<span class="cv cv-center">${centerLabel}</span>` : ""}
       </div>` : ""}
       ${showName ? `<div class="card-visual-name">${escapeHtml(card.name)}</div>` : ""}
@@ -1456,12 +1538,13 @@ function getNpcAttributeCategory(npc) {
 }
 
 function getNpcDifficultyRank(difficulty) {
-  return { "よわい": 1, "ふつう": 2, "つよい": 3 }[difficulty] ?? 99;
+  return { "よわい": 1, "ふつう": 2, "つよい": 3, "修羅": 4 }[difficulty] ?? 99;
 }
 
 function getFilteredSortedNpcs() {
   const ui = state.npcListUi;
-  const filtered = NPCS.filter((npc) => isNpcUnlocked(npc)).filter((npc) => {
+  const modeNpcs = NPCS.filter((npc) => state.npcListMode === "shura" ? getNpcNumber(npc) >= 16 : getNpcNumber(npc) <= 15);
+  const filtered = modeNpcs.filter((npc) => isNpcUnlocked(npc)).filter((npc) => {
     if (ui.difficulty !== "all" && npc.difficulty !== ui.difficulty) return false;
     const wins = Number(state.save?.npcWins?.[npc.id] ?? 0);
     if (ui.winStatus === "unwon" && wins > 0) return false;
@@ -1500,9 +1583,19 @@ function renderNpcListControls() {
 }
 
 function renderNpcList() {
+  const shuraMode = state.npcListMode === "shura";
+  const modeLabel = $("npcModeLabel");
+  const modeToggle = $("npcModeToggle");
+  if (modeLabel) modeLabel.textContent = shuraMode ? "修羅モード" : "通常モード";
+  if (modeToggle) modeToggle.textContent = shuraMode ? "通常モードに切り替え" : "修羅モードに切り替え";
+
   const panel = document.querySelector(".rule-panel");
   if (panel) {
-    panel.innerHTML = `
+    panel.innerHTML = shuraMode ? `
+      <h3>修羅モード</h3>
+      <p class="muted">修羅NPCは最強思考で行動し、NPCが使用するカードだけがレアリティに応じて強化されます。</p>
+      <p class="muted">追加ルールは元になったNPCの候補・抽選数を引き継ぎます。</p>
+    ` : `
       <h3>追加ルール</h3>
       <p class="muted">よわい：自由に設定可能</p>
       <p class="muted">ふつう：ランダムで追加ルールが1つ適用される</p>
@@ -1511,7 +1604,8 @@ function renderNpcList() {
   }
 
   const list = $("npcList");
-  const hiddenCount = NPCS.filter((npc) => !isNpcUnlocked(npc)).length;
+  const modeNpcs = NPCS.filter((npc) => shuraMode ? getNpcNumber(npc) >= 16 : getNpcNumber(npc) <= 15);
+  const hiddenCount = modeNpcs.filter((npc) => !isNpcUnlocked(npc)).length;
   list.innerHTML = hiddenCount > 0
     ? `<div class="summary">${escapeHtml(getNpcUnlockMessage())}<br>未解放の対戦相手：${hiddenCount}人</div>`
     : "";
@@ -1526,7 +1620,7 @@ function renderNpcList() {
     const poolCards = getNpcCardPool(npc);
     const avgPower = poolCards.reduce((sum, card) => sum + card.power, 0) / Math.max(poolCards.length, 1);
     const maxRarity = poolCards.length ? Math.max(...poolCards.map((card) => card.rarity)) : 0;
-    const difficultyClass = npc.difficulty === "よわい" ? "weak" : npc.difficulty === "ふつう" ? "normal" : "strong";
+    const difficultyClass = npc.difficulty === "よわい" ? "weak" : npc.difficulty === "ふつう" ? "normal" : npc.difficulty === "修羅" ? "shura" : "strong";
     const firstReward = npc.firstWinRewardCardId ? cardById.get(npc.firstWinRewardCardId) : null;
     const wins = Number(state.save.npcWins?.[npc.id] ?? 0);
     const firstRewardStatus = firstReward ? (wins > 0 ? "獲得済み" : "未獲得") : "なし";
@@ -2100,7 +2194,8 @@ function cloneReviewCard(card) {
   return {
     ...card,
     battleValues: card.battleValues ? { ...card.battleValues } : undefined,
-    wildChanges: card.wildChanges ? { ...card.wildChanges } : undefined
+    wildChanges: card.wildChanges ? { ...card.wildChanges } : undefined,
+    shuraChanges: card.shuraChanges ? { ...card.shuraChanges } : undefined
   };
 }
 
@@ -2457,10 +2552,19 @@ function createPixiCard(card, owner, x, y, boardIndex = null) {
 
   const frame = new PIXI.Graphics();
   frame.beginFill(fillColor, 0.96);
-  frame.lineStyle(4, borderColor, 1);
+  frame.lineStyle(card?.isShuraCard ? 5 : 4, card?.isShuraCard ? 0xff5a1f : borderColor, 1);
   frame.drawRoundedRect(0, 0, 116, 116, 16);
   frame.endFill();
   container.addChild(frame);
+
+  if (card?.isShuraCard) {
+    const flameFrame = new PIXI.Graphics();
+    flameFrame.lineStyle(3, 0xffc247, 0.95);
+    flameFrame.drawRoundedRect(4, 4, 108, 108, 14);
+    flameFrame.lineStyle(2, 0xe82d16, 0.72);
+    flameFrame.drawRoundedRect(1, 1, 114, 114, 16);
+    container.addChild(flameFrame);
+  }
 
   const artMask = new PIXI.Graphics();
   artMask.beginFill(0xffffff, 1);
@@ -2508,10 +2612,10 @@ function createPixiCard(card, owner, x, y, boardIndex = null) {
 
 
   const values = getCardValueSet(card, state.battle, state.battle?.board, boardIndex);
-  addValueText(container, displayValue(values.up), 58, 18, getWildValueColor(card, "up"));
-  addValueText(container, displayValue(values.right), 98, 58, getWildValueColor(card, "right"));
-  addValueText(container, displayValue(values.down), 58, 98, getWildValueColor(card, "down"));
-  addValueText(container, displayValue(values.left), 18, 58, getWildValueColor(card, "left"));
+  addValueText(container, displayValue(values.up), 58, 18, getWildValueColor(card, "up"), { shura: isShuraEnhancedSide(card, "up") });
+  addValueText(container, displayValue(values.right), 98, 58, getWildValueColor(card, "right"), { shura: isShuraEnhancedSide(card, "right") });
+  addValueText(container, displayValue(values.down), 58, 98, getWildValueColor(card, "down"), { shura: isShuraEnhancedSide(card, "down") });
+  addValueText(container, displayValue(values.left), 18, 58, getWildValueColor(card, "left"), { shura: isShuraEnhancedSide(card, "left") });
 
   if (isBattleCardPopupEnabled()) {
     container.eventMode = "static";
@@ -2525,13 +2629,26 @@ function createPixiCard(card, owner, x, y, boardIndex = null) {
   return container;
 }
 
-function addValueText(container, text, x, y, textColor = 0xffffff) {
-  const bg = new PIXI.Graphics();
-  bg.beginFill(0x0b1020, 0.82);
-  bg.lineStyle(1, 0xffffff, 0.16);
-  bg.drawRoundedRect(x - 12, y - 10, 24, 20, 7);
-  bg.endFill();
-  container.addChild(bg);
+function addValueText(container, text, x, y, textColor = 0xffffff, options = {}) {
+  if (options.shura) {
+    const outer = new PIXI.Graphics();
+    outer.beginFill(0xe52f16, 0.97);
+    outer.drawPolygon([x, y - 16, x + 8, y - 5, x + 12, y - 10, x + 14, y + 5, x + 8, y + 13, x, y + 17, x - 8, y + 13, x - 14, y + 5, x - 11, y - 8, x - 5, y - 3]);
+    outer.endFill();
+    container.addChild(outer);
+    const inner = new PIXI.Graphics();
+    inner.beginFill(0xffad1f, 0.98);
+    inner.drawPolygon([x, y - 9, x + 6, y, x + 8, y + 7, x, y + 12, x - 8, y + 7, x - 5, y - 2]);
+    inner.endFill();
+    container.addChild(inner);
+  } else {
+    const bg = new PIXI.Graphics();
+    bg.beginFill(0x0b1020, 0.82);
+    bg.lineStyle(1, 0xffffff, 0.16);
+    bg.drawRoundedRect(x - 12, y - 10, 24, 20, 7);
+    bg.endFill();
+    container.addChild(bg);
+  }
 
   const label = new PIXI.Text(text, {
     fontFamily: "Arial",
@@ -2693,9 +2810,10 @@ function rollNpcAdditionalRules(npc) {
   const group1 = getNpcRuleGroup(npc, "ruleGroup1");
   const group2 = getNpcRuleGroup(npc, "ruleGroup2");
   const rolled = [];
-  if (npc.difficulty === "ふつう" && group1.length) {
+  const ruleDifficulty = npc.baseDifficulty ?? npc.difficulty;
+  if (ruleDifficulty === "ふつう" && group1.length) {
     rolled.push(sample(group1, 1)[0]);
-  } else if (npc.difficulty === "つよい") {
+  } else if (ruleDifficulty === "つよい") {
     if (group1.length) rolled.push(sample(group1, 1)[0]);
     if (group2.length) rolled.push(sample(group2, 1)[0]);
   }
@@ -3652,6 +3770,9 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     [playerHandCards[playerIndex], npcHandCards[npcIndex]] = [npcHandCards[npcIndex], playerHandCards[playerIndex]];
   }
 
+  // スワップ後、実際に修羅NPCが使用する5枚だけを強化する。
+  npcHandCards = applyShuraEnhancementsToNpcHand(npcHandCards, npc);
+
   const preBattleForRules = { rules: selectedRules };
   if (selectedRules.includes("wild_card")) {
     const wild = setupWildCardForHands(playerHandCards, npcHandCards, preBattleForRules);
@@ -3704,9 +3825,10 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
   addBattleLog(`勝利報酬：${formatMoney(getNpcWinMoney(npc))}`);
   addBattleLog(`追加ルール：${getRuleSummary(selectedRules)}`);
   addBattleLog(`使用デッキ：${getDeckDisplayName(deckIndex)}`);
+  if (isShuraNpc(npc)) addBattleLog("修羅強化：相手の手札5枚にレアリティ別の数値強化が適用されました。炎表示の数字が強化箇所です。");
   const fieldEntries = Object.entries(state.battle.fieldEffects ?? {});
   if (fieldEntries.length) addBattleLog(`フィールド効果：${fieldEntries.length}マスに効果が発生しました。`);
-  if (["ふつう", "つよい"].includes(npc.difficulty)) {
+  if (["ふつう", "つよい", "修羅"].includes(npc.difficulty)) {
     if (state.battle.revealLockCells) {
       addBattleLog("鍵探知機：ロックマスの場所を事前に表示します。");
     } else if (state.battle.battleItemResult?.lockDetectorReturned) {
@@ -4639,6 +4761,12 @@ function bindEvents() {
       target[key] = event.target.value;
       render();
     });
+  });
+
+  $("npcModeToggle")?.addEventListener("click", () => {
+    state.npcListMode = state.npcListMode === "shura" ? "normal" : "shura";
+    state.npcListUi.difficulty = "all";
+    renderNpcList();
   });
 
   [

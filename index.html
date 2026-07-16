@@ -34,7 +34,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.49</span>
+          <span id="versionLabel">v0.1.50</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -55,12 +55,16 @@
           <h2>対戦相手を選択</h2>
           <p class="muted">対戦相手を選ぶと、追加ルールの設定または抽選画面に進みます。</p>
           <div class="wallet-line">所持金：<strong data-money-display>0銭</strong></div>
+          <div class="npc-mode-switch" aria-label="通常モードと修羅モードの切り替え">
+            <strong id="npcModeLabel">通常モード</strong>
+            <button id="npcModeToggle" type="button" class="danger-mode-button">修羅モードに切り替え</button>
+          </div>
           <div class="rule-panel">
             <h3>追加ルール</h3>
             <p class="muted">よわい相手は自由設定、ふつう/つよい相手は対戦前に自動抽選されます。</p>
           </div>
           <div class="npc-list-controls" aria-label="対戦相手の絞り込みと並び替え">
-            <label>難易度<select id="npcFilterDifficulty"><option value="all">すべて</option><option value="よわい">よわい</option><option value="ふつう">ふつう</option><option value="つよい">つよい</option></select></label>
+            <label>難易度<select id="npcFilterDifficulty"><option value="all">すべて</option><option value="よわい">よわい</option><option value="ふつう">ふつう</option><option value="つよい">つよい</option><option value="修羅">修羅</option></select></label>
             <label>勝利状況<select id="npcFilterWinStatus"><option value="all">すべて</option><option value="unwon">未勝利</option><option value="won">勝利済</option></select></label>
             <label>属性<select id="npcFilterAttribute"><option value="all">すべて</option><option value="mona">もな</option><option value="miu">美雨</option><option value="rinka">凛花</option><option value="momoka">百花</option><option value="other">その他</option></select></label>
             <label>並び替え<select id="npcSortField"><option value="number">番号順</option><option value="name">名前順</option><option value="difficulty">難易度順</option></select></label>

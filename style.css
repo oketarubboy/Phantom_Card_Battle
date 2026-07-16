@@ -2525,3 +2525,83 @@ body.is-battle-screen .battle-screen {
   box-shadow: 0 0 0 2px rgba(246, 200, 95, 0.18) inset;
   font-weight: 700;
 }
+
+
+/* v0.1.50: 修羅モード */
+.npc-mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 92, 45, 0.42);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(86, 12, 8, 0.68), rgba(24, 12, 18, 0.78));
+  box-shadow: inset 0 0 24px rgba(255, 68, 20, 0.08);
+}
+
+.danger-mode-button {
+  border-color: rgba(255, 111, 43, 0.72);
+  background: linear-gradient(135deg, #a81d12, #ff5a1f 55%, #ffb12b);
+  color: #fff7dc;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0,0,0,.65);
+}
+
+.badge.shura {
+  color: #fff3cf;
+  border-color: rgba(255, 133, 47, .76);
+  background: linear-gradient(135deg, rgba(173, 26, 12, .9), rgba(255, 102, 24, .82));
+  box-shadow: 0 0 12px rgba(255, 80, 20, .28);
+}
+
+.card-visual.shura-card {
+  border-radius: 13px;
+  box-shadow:
+    0 0 0 3px rgba(255, 74, 22, .95),
+    0 0 0 6px rgba(255, 177, 35, .55),
+    0 0 18px rgba(255, 60, 15, .7);
+}
+
+.card-visual.shura-card::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: -4px;
+  border-radius: 15px;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 12% 100%, rgba(255,232,70,.9) 0 4%, rgba(255,92,12,.85) 5% 10%, transparent 11%),
+    radial-gradient(ellipse at 35% 100%, rgba(255,220,45,.9) 0 5%, rgba(255,70,12,.82) 6% 13%, transparent 14%),
+    radial-gradient(ellipse at 62% 100%, rgba(255,226,58,.9) 0 4%, rgba(255,78,10,.85) 5% 12%, transparent 13%),
+    radial-gradient(ellipse at 88% 100%, rgba(255,231,77,.9) 0 4%, rgba(255,82,12,.86) 5% 11%, transparent 12%);
+  opacity: .88;
+  filter: drop-shadow(0 0 5px rgba(255,78,16,.72));
+}
+
+.card-visual-values .cv.shura-value {
+  width: 28px;
+  height: 30px;
+  min-width: 28px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 48% 48% 52% 52%;
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,.92);
+  background:
+    radial-gradient(circle at 50% 68%, #ffe457 0 22%, #ff9815 23% 48%, #e73514 49% 72%, #8f120b 73% 100%);
+  clip-path: polygon(50% 0%, 64% 25%, 77% 13%, 91% 44%, 83% 73%, 68% 91%, 50% 100%, 31% 91%, 16% 72%, 9% 44%, 24% 24%, 37% 37%);
+  box-shadow: 0 0 9px rgba(255,82,16,.9);
+}
+
+@media (max-width: 520px) {
+  .npc-mode-switch { align-items: stretch; flex-direction: column; }
+  .npc-mode-switch button { width: 100%; }
+}
+
+/* 修羅強化とワイルドカードが同じ辺に重なった場合も、ワイルドの文字色を維持 */
+.card-visual-values .cv.shura-value.wild-plus2 { color: #ffdf4d !important; }
+.card-visual-values .cv.shura-value.wild-ace { color: #55aaff !important; }
+.card-visual-values .cv.shura-value.wild-one { color: #ff5b5b !important; }
