@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.51";
+const VERSION = "0.1.52";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -1583,9 +1583,16 @@ function renderNpcListControls() {
 }
 
 function renderNpcList() {
+  const shuraModeUnlocked = hasDefeatedNpc(15);
+  if (!shuraModeUnlocked && state.npcListMode === "shura") {
+    state.npcListMode = "normal";
+  }
+
   const shuraMode = state.npcListMode === "shura";
   const modeLabel = $("npcModeLabel");
   const modeToggle = $("npcModeToggle");
+  const modeSwitch = modeToggle?.closest(".npc-mode-switch");
+  if (modeSwitch) modeSwitch.hidden = !shuraModeUnlocked;
   if (modeLabel) modeLabel.textContent = shuraMode ? "修羅モード" : "通常モード";
   if (modeToggle) modeToggle.textContent = shuraMode ? "通常モードに切り替え" : "修羅モードに切り替え";
 
@@ -4764,6 +4771,11 @@ function bindEvents() {
   });
 
   $("npcModeToggle")?.addEventListener("click", () => {
+    if (!hasDefeatedNpc(15)) {
+      state.npcListMode = "normal";
+      renderNpcList();
+      return;
+    }
     state.npcListMode = state.npcListMode === "shura" ? "normal" : "shura";
     state.npcListUi.difficulty = "all";
     renderNpcList();
