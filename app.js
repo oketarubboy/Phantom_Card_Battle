@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.52";
+const VERSION = "0.1.53";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -1413,11 +1413,13 @@ function cardMiniHtml(card, extra = "", options = {}) {
   const showValues = options.showValues !== false;
   const visualClasses = ["card-visual"];
   if (card?.isShuraCard) visualClasses.push("shura-card");
+  if (options.owner === "player" || options.owner === "npc") visualClasses.push(`owner-${options.owner}`);
   if (options.squareArt) visualClasses.push("square-art");
   if (options.detail) visualClasses.push("card-detail-visual");
+  const ownerColor = options.owner === "player" ? "#2b7fe9" : "#e6425c";
 
   return `
-    <div class="${visualClasses.join(" ")}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
+    <div class="${visualClasses.join(" ")}" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};--card-owner-color:${ownerColor};">
       ${cardArtHtml(card)}
       ${showTop ? `<div class="card-visual-top only-stars">
         <span class="card-stars">${rarityStars(card.rarity)}</span>
@@ -2256,13 +2258,14 @@ function finalReviewCardHtml(cell, index, snapshot) {
         showName: false,
         battle: snapshot,
         board: snapshot.board,
-        boardIndex: index
+        boardIndex: index,
+        owner: cell.owner
       })}
     </div>
   `;
 }
 
-function finalReviewHandHtml(entries, snapshot) {
+function finalReviewHandHtml(entries, snapshot, owner) {
   const remaining = (entries ?? []).filter((entry) => !entry.used && entry.card);
   if (!remaining.length) return '<p class="muted final-review-empty">残り手札なし</p>';
   return `
@@ -2271,7 +2274,7 @@ function finalReviewHandHtml(entries, snapshot) {
         const typeMeta = getCardTypeMeta(entry.card);
         return `
           <div class="final-review-hand-card" data-type="${typeMeta.key}" style="--card-type-color:${typeMeta.color};">
-            ${cardMiniHtml(entry.card, "", { squareArt: true, detail: true, showName: false, battle: snapshot })}
+            ${cardMiniHtml(entry.card, "", { squareArt: true, detail: true, showName: false, battle: snapshot, owner })}
           </div>
         `;
       }).join("")}
@@ -2305,14 +2308,14 @@ function finalBoardReviewHtml(snapshot) {
       </div>
       <section class="final-review-hand-section">
         <h3>相手の残り手札</h3>
-        ${finalReviewHandHtml(snapshot.npcHand, snapshot)}
+        ${finalReviewHandHtml(snapshot.npcHand, snapshot, "npc")}
       </section>
       <div class="final-board-grid" aria-label="最終盤面">
         ${boardHtml}
       </div>
       <section class="final-review-hand-section">
         <h3>自分の残り手札</h3>
-        ${finalReviewHandHtml(snapshot.playerHand, snapshot)}
+        ${finalReviewHandHtml(snapshot.playerHand, snapshot, "player")}
       </section>
       <div class="final-review-legend">
         <span class="legend-player">青枠：自分</span>
@@ -2355,7 +2358,7 @@ function getCardDetailHtml(card, options = {}) {
   return `
     <div class="card-detail-popup">
       <div class="card-detail-preview mini-card detail-card-card">
-        ${cardMiniHtml(card, "", { effective, squareArt: true, detail: true })}
+        ${cardMiniHtml(card, "", { effective, squareArt: true, detail: true, owner: options.owner })}
       </div>
       <div class="card-detail-meta">
         <div><strong>No.${escapeHtml(card.no)}</strong></div>
@@ -2559,17 +2562,20 @@ function createPixiCard(card, owner, x, y, boardIndex = null) {
 
   const frame = new PIXI.Graphics();
   frame.beginFill(fillColor, 0.96);
-  frame.lineStyle(card?.isShuraCard ? 5 : 4, card?.isShuraCard ? 0xff5a1f : borderColor, 1);
+  frame.lineStyle(4, borderColor, 1);
   frame.drawRoundedRect(0, 0, 116, 116, 16);
   frame.endFill();
   container.addChild(frame);
 
   if (card?.isShuraCard) {
+    // 修羅カードは、内側から「属性色 → オレンジ → 所有者色」の3層で表示する。
+    // 外側の所有者色（青/赤）は base frame が担当。
     const flameFrame = new PIXI.Graphics();
-    flameFrame.lineStyle(3, 0xffc247, 0.95);
-    flameFrame.drawRoundedRect(4, 4, 108, 108, 14);
-    flameFrame.lineStyle(2, 0xe82d16, 0.72);
-    flameFrame.drawRoundedRect(1, 1, 114, 114, 16);
+    flameFrame.lineStyle(3, 0xff6a1f, 1);
+    flameFrame.drawRoundedRect(3, 3, 110, 110, 14);
+    const typeColor = Number.parseInt(getCardTypeMeta(card).color.replace("#", ""), 16);
+    flameFrame.lineStyle(3, Number.isFinite(typeColor) ? typeColor : 0xa3adbd, 1);
+    flameFrame.drawRoundedRect(7, 7, 102, 102, 12);
     container.addChild(flameFrame);
   }
 
@@ -2629,7 +2635,7 @@ function createPixiCard(card, owner, x, y, boardIndex = null) {
     container.cursor = "pointer";
     container.on("pointertap", (event) => {
       event.stopPropagation();
-      showCardDetailPopup(card, { title: owner === "player" ? "場の自分カード" : "場の相手カード", effective: true });
+      showCardDetailPopup(card, { title: owner === "player" ? "場の自分カード" : "場の相手カード", effective: true, owner });
     });
   }
 
@@ -2688,7 +2694,7 @@ function renderBattleHands() {
     const div = document.createElement("div");
     const isForced = forcedPlayerIndex === index && battle.currentTurn === "player" && !entry.used;
     div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index || isForced ? "selected" : ""} ${isForced ? "forced" : ""}`;
-    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { showName: false, effective: true });
+    div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { showName: false, effective: true, owner: "player" });
     applyCardTypeStyle(div, entry.card);
 
     const canSelect = !entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null;
@@ -2696,12 +2702,13 @@ function renderBattleHands() {
       div.addEventListener("click", () => {
         showCardDetailPopup(entry.card, canSelect ? {
           title: "手札カード",
+          owner: "player",
           onSelect: () => {
             state.selectedHandIndex = state.selectedHandIndex === index ? null : index;
             renderBattleHands();
           },
           selectLabel: state.selectedHandIndex === index ? "選択を解除" : "このカードを選ぶ"
-        } : { title: "手札カード" });
+        } : { title: "手札カード", owner: "player" });
       });
     } else if (canSelect) {
       div.addEventListener("click", () => {
@@ -2720,10 +2727,10 @@ function renderBattleHands() {
     const isForced = getForcedHandIndex("npc") === index && battle.currentTurn === "npc" && !entry.used;
     if (revealNpcHand) {
       div.className = `mini-card opponent-open ${entry.used ? "used" : ""} ${isForced ? "forced" : ""}`;
-      div.innerHTML = cardMiniHtml(entry.card, "", { showName: false, effective: true });
+      div.innerHTML = cardMiniHtml(entry.card, "", { showName: false, effective: true, owner: "npc" });
       applyCardTypeStyle(div, entry.card);
       if (isBattleCardPopupEnabled()) {
-        div.addEventListener("click", () => showCardDetailPopup(entry.card, { title: "相手の手札" }));
+        div.addEventListener("click", () => showCardDetailPopup(entry.card, { title: "相手の手札", owner: "npc" }));
       }
     } else {
       div.className = `card-back ${isForced ? "forced" : ""}`;
