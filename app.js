@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.50";
+const VERSION = "0.1.51";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -4823,6 +4823,28 @@ function bindEvents() {
     state.save.settings.battleCardPopup = event.target.checked;
     save();
   });
+
+  const debugMoneyButton = $("debugMoneyButton");
+  if (debugMoneyButton) {
+    debugMoneyButton.addEventListener("click", () => {
+      const passwordInput = $("debugPassword");
+      const message = $("debugMessage");
+      const password = String(passwordInput?.value ?? "");
+      if (password !== "ps20240626") {
+        if (message) {
+          message.textContent = "パスワードが違います";
+          message.style.color = "var(--danger)";
+        }
+        return;
+      }
+      addMoney(1000000);
+      if (passwordInput) passwordInput.value = "";
+      if (message) {
+        message.textContent = "所持金を1,000,000銭増やしました。";
+        message.style.color = "var(--success, #62d98b)";
+      }
+    });
+  }
 
   $("checkUserName").addEventListener("click", () => checkUserNameAvailability(true));
   $("saveUserName").addEventListener("click", saveUserNameSetting);

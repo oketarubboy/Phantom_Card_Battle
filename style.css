@@ -2605,3 +2605,25 @@ body.is-battle-screen .battle-screen {
 .card-visual-values .cv.shura-value.wild-plus2 { color: #ffdf4d !important; }
 .card-visual-values .cv.shura-value.wild-ace { color: #55aaff !important; }
 .card-visual-values .cv.shura-value.wild-one { color: #ff5b5b !important; }
+
+
+/* v0.1.51 debug command */
+.debug-settings-card {
+  margin-top: 18px;
+}
+.debug-command-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.debug-command-row .search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+@media (max-width: 520px) {
+  .debug-command-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

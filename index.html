@@ -34,7 +34,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.50</span>
+          <span id="versionLabel">v0.1.51</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -318,6 +318,15 @@
             <button id="resetSave" class="danger">初期化</button>
           </div>
           <textarea id="saveText" placeholder="エクスポート/インポート用データ" spellcheck="false"></textarea>
+
+          <div class="settings-card debug-settings-card">
+            <h3>デバッグ</h3>
+            <div class="debug-command-row">
+              <input id="debugPassword" type="password" class="search" placeholder="パスワード" autocomplete="off" />
+              <button id="debugMoneyButton" type="button">デバッグ</button>
+            </div>
+            <div id="debugMessage" class="message" aria-live="polite"></div>
+          </div>
         </div>
       </section>
     </main>
