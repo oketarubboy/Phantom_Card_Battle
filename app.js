@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.54";
+const VERSION = "0.1.55";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -1611,7 +1611,7 @@ function renderNpcList() {
   if (panel) {
     panel.innerHTML = shuraMode ? `
       <h3>修羅モード</h3>
-      <p class="muted">修羅NPCは最強思考で行動し、NPCが使用するカードだけがレアリティに応じて強化されます。</p>
+      <p class="muted">修羅NPCは2手以上先を読む専用AIで行動し、NPCが使用するカードだけがレアリティに応じて強化されます。</p>
       <p class="muted">追加ルールは元になったNPCの候補・抽選数を引き継ぎます。</p>
     ` : `
       <h3>追加ルール</h3>
@@ -4321,6 +4321,10 @@ function chooseNpcMove() {
     return scored[0].move;
   }
 
+  if (battle.npc.difficulty === "修羅") {
+    return chooseShuraMove(moves);
+  }
+
   return chooseStrongMove(moves);
 }
 
@@ -4353,6 +4357,307 @@ function chooseStrongMove(moves) {
   }
 
   return best.move;
+}
+
+
+const SHURA_AI_SEARCH = Object.freeze({
+  playerBeam: 12,
+  npcBeam: 9
+});
+
+function cloneAiSearchHand(hand) {
+  return (hand ?? []).map((entry) => ({ card: entry.card, used: Boolean(entry.used) }));
+}
+
+function markAiSearchHandUsed(hand, handIndex) {
+  return hand.map((entry, index) => index === handIndex ? { ...entry, used: true } : entry);
+}
+
+function legalMovesForAiSearch(hand, board, owner, battle = state.battle) {
+  const emptyIndexes = board
+    .map((cell, index) => cell ? null : index)
+    .filter((index) => index !== null);
+
+  let allowedIndexes = hand
+    .map((entry, index) => entry.used ? null : index)
+    .filter((index) => index !== null);
+
+  // オーダーは将来手でも左から最初の未使用カードに限定する。
+  // カオスは次ターンの抽選結果がまだ分からないため、全候補を調べて
+  // プレイヤー側は最悪ケース、NPC側は最善の返しとして評価する。
+  if (hasRule("order", battle) && allowedIndexes.length) {
+    allowedIndexes = [allowedIndexes[0]];
+  }
+
+  const moves = [];
+  for (const handIndex of allowedIndexes) {
+    const card = hand[handIndex]?.card;
+    if (!card) continue;
+    for (const boardIndex of emptyIndexes) {
+      moves.push({ handIndex, boardIndex, card, owner });
+    }
+  }
+  return moves;
+}
+
+function isCornerCell(index) {
+  return index === 0 || index === 2 || index === 6 || index === 8;
+}
+
+function isCenterCell(index) {
+  return index === 4;
+}
+
+function strategicSideStrength(value, battle = state.battle) {
+  if (hasRule("reverse", battle)) return 11 - value;
+  if (hasRule("ace_killer", battle) && value === 1) return 7.5;
+  return value;
+}
+
+function shuraCellPlacementScore(board, boardIndex, owner, battle = state.battle) {
+  const cell = board[boardIndex];
+  if (!cell) return 0;
+  const sign = owner === "npc" ? 1 : -1;
+  let score = isCornerCell(boardIndex) ? 34 : isCenterCell(boardIndex) ? 13 : 7;
+  if (cell.locked) score += 16;
+
+  const exposed = getNeighbors(boardIndex).filter((neighbor) => !board[neighbor.index]);
+  if (exposed.length) {
+    const strength = exposed.reduce((sum, neighbor) => {
+      const value = getResolvedComparisonValue(cell.card, neighbor.side, battle, board, boardIndex);
+      return sum + strategicSideStrength(value, battle);
+    }, 0) / exposed.length;
+    score += (strength - 5.5) * 3.2;
+  } else {
+    score += 5;
+  }
+  return score * sign;
+}
+
+function shuraBoardShapeScore(board, battle = state.battle) {
+  let score = 0;
+  for (let index = 0; index < board.length; index += 1) {
+    const cell = board[index];
+    if (!cell) continue;
+    score += shuraCellPlacementScore(board, index, cell.owner, battle);
+  }
+  return score;
+}
+
+function aiSearchHandPower(hand, battle = state.battle) {
+  return (hand ?? [])
+    .filter((entry) => !entry.used)
+    .reduce((sum, entry) => sum + getAiCardPower(entry.card, battle), 0);
+}
+
+function shuraReserveScore(npcHand, playerHand, battle = state.battle) {
+  const npcPower = aiSearchHandPower(npcHand, battle);
+  const playerPower = aiSearchHandPower(playerHand, battle);
+  return (npcPower - playerPower) * 1.15;
+}
+
+function shuraConservationBonus(move, hand, battle = state.battle) {
+  const available = (hand ?? []).filter((entry) => !entry.used);
+  if (available.length <= 2) return 0;
+  const powers = available.map((entry) => getAiCardPower(entry.card, battle));
+  const selected = getAiCardPower(move.card, battle);
+  const max = Math.max(...powers);
+  const min = Math.min(...powers);
+  const phaseWeight = Math.min(1.4, (available.length - 2) * 0.38);
+  // 序盤ほど最強カードを温存し、同等の結果なら弱いカードを先に使う。
+  return ((max - selected) * 2.1 + (selected === min ? 4 : 0)) * phaseWeight;
+}
+
+function shuraOpponentCommitmentBonus(card, hand, battle = state.battle) {
+  const available = (hand ?? []).filter((entry) => !entry.used);
+  if (!available.length) return 0;
+  const powers = available.map((entry) => getAiCardPower(entry.card, battle));
+  const selected = getAiCardPower(card, battle);
+  const min = Math.min(...powers);
+  const max = Math.max(...powers);
+  if (max <= min) return 5;
+  // 相手が強いカードを切らないと返せない形を高評価する。
+  return ((selected - min) / (max - min)) * 24;
+}
+
+function shuraFutureSpecialPotential(board, hand, owner, battle = state.battle) {
+  if (!hasRule("same", battle) && !hasRule("plus", battle)) return 0;
+  const moves = legalMovesForAiSearch(hand, board, owner, battle);
+  const scores = [];
+
+  for (const move of moves) {
+    const testBoard = board.slice();
+    testBoard[move.boardIndex] = {
+      card: move.card,
+      owner,
+      locked: isLockCell(move.boardIndex, battle)
+    };
+    const plan = getCapturePlan(testBoard, move.boardIndex, battle, testBoard);
+    let score = 0;
+    if (plan.reasons.includes("セイム")) score += 22;
+    if (plan.reasons.includes("プラス")) score += 22;
+    if (plan.reasons.length) {
+      const enemyTargets = plan.indexes.filter((index) => testBoard[index]?.owner !== owner).length;
+      score += enemyTargets * 7;
+      if (isCornerCell(move.boardIndex)) score += 5;
+    }
+    if (score > 0) scores.push(score);
+  }
+
+  scores.sort((a, b) => b - a);
+  return (scores[0] ?? 0) + (scores[1] ?? 0) * 0.35;
+}
+
+function shuraComboExposure(board, owner, battle = state.battle) {
+  if (!hasRule("combo", battle)) return 0;
+  let risk = 0;
+
+  for (let index = 0; index < board.length; index += 1) {
+    const cell = board[index];
+    if (!cell || cell.owner !== owner || cell.locked) continue;
+    const friendlyLinks = getNeighbors(index).filter((neighbor) => board[neighbor.index]?.owner === owner).length;
+    const exposed = getNeighbors(index).filter((neighbor) => !board[neighbor.index]);
+    if (!friendlyLinks || !exposed.length) continue;
+
+    const weakestExposed = Math.min(...exposed.map((neighbor) => {
+      const value = getResolvedComparisonValue(cell.card, neighbor.side, battle, board, index);
+      return strategicSideStrength(value, battle);
+    }));
+    risk += friendlyLinks * Math.max(0, 7.5 - weakestExposed) * 2.6;
+  }
+  return risk;
+}
+
+function evaluateShuraPosition(board, npcHand, playerHand, battle = state.battle) {
+  const npcRemaining = npcHand.filter((entry) => !entry.used).length;
+  const playerRemaining = playerHand.filter((entry) => !entry.used).length;
+  const boardScore = boardAdvantageForNpc(board, playerRemaining, npcRemaining) * 72;
+  const shapeScore = shuraBoardShapeScore(board, battle);
+  const reserveScore = shuraReserveScore(npcHand, playerHand, battle);
+  const futureNpc = shuraFutureSpecialPotential(board, npcHand, "npc", battle);
+  const futurePlayer = shuraFutureSpecialPotential(board, playerHand, "player", battle);
+  const npcComboRisk = shuraComboExposure(board, "npc", battle);
+  const playerComboRisk = shuraComboExposure(board, "player", battle);
+
+  return boardScore
+    + shapeScore
+    + reserveScore
+    + futureNpc * 1.15
+    - futurePlayer * 1.25
+    - npcComboRisk * 1.35
+    + playerComboRisk * 0.8;
+}
+
+function rankPlayerSearchBranches(branches, battle = state.battle) {
+  return branches.sort((a, b) => {
+    const aThreat = a.sim.captured * 50 + a.sim.comboCaptured * 74
+      + (isCornerCell(a.move.boardIndex) ? 22 : 0)
+      + (a.sim.captureReasons.length ? 18 : 0)
+      - boardAdvantageForNpc(a.sim.board, a.playerRemaining, a.npcRemaining) * 18;
+    const bThreat = b.sim.captured * 50 + b.sim.comboCaptured * 74
+      + (isCornerCell(b.move.boardIndex) ? 22 : 0)
+      + (b.sim.captureReasons.length ? 18 : 0)
+      - boardAdvantageForNpc(b.sim.board, b.playerRemaining, b.npcRemaining) * 18;
+    return bThreat - aThreat;
+  });
+}
+
+function rankNpcSearchBranches(branches, battle = state.battle) {
+  return branches.sort((a, b) => {
+    const aValue = a.sim.captured * 48 + a.sim.comboCaptured * 68
+      + (isCornerCell(a.move.boardIndex) ? 28 : 0)
+      + safetyScore(a.sim.board, a.move.boardIndex, "npc")
+      + shuraConservationBonus(a.move, a.handBefore, battle);
+    const bValue = b.sim.captured * 48 + b.sim.comboCaptured * 68
+      + (isCornerCell(b.move.boardIndex) ? 28 : 0)
+      + safetyScore(b.sim.board, b.move.boardIndex, "npc")
+      + shuraConservationBonus(b.move, b.handBefore, battle);
+    return bValue - aValue;
+  });
+}
+
+function chooseShuraMove(moves) {
+  const battle = state.battle;
+  const initialNpcHand = cloneAiSearchHand(battle.npcHand);
+  const initialPlayerHand = cloneAiSearchHand(battle.playerHand);
+  let best = null;
+
+  // 3プライ探索：修羅の現在手 → プレイヤーの最善応手 → 修羅の次の最善手。
+  // 盤面が小さいため全初手を評価し、応手以降は危険度の高い候補へ絞る。
+  for (const move of moves) {
+    const firstSim = simulateMove(battle.board, move.card, "npc", move.boardIndex);
+    const npcAfterFirst = markAiSearchHandUsed(initialNpcHand, move.handIndex);
+    const playerAfterFirst = initialPlayerHand;
+    const playerMoves = legalMovesForAiSearch(playerAfterFirst, firstSim.board, "player", battle);
+
+    let minimaxScore;
+    if (!playerMoves.length) {
+      minimaxScore = evaluateShuraPosition(firstSim.board, npcAfterFirst, playerAfterFirst, battle);
+    } else {
+      const playerBranches = playerMoves.map((playerMove) => {
+        const sim = simulateMove(firstSim.board, playerMove.card, "player", playerMove.boardIndex, firstSim.typeBoosts);
+        return {
+          move: playerMove,
+          sim,
+          playerRemaining: playerAfterFirst.filter((entry, index) => !entry.used && index !== playerMove.handIndex).length,
+          npcRemaining: npcAfterFirst.filter((entry) => !entry.used).length
+        };
+      });
+
+      const dangerousResponses = rankPlayerSearchBranches(playerBranches, battle)
+        .slice(0, SHURA_AI_SEARCH.playerBeam);
+      minimaxScore = Number.POSITIVE_INFINITY;
+
+      for (const response of dangerousResponses) {
+        const playerAfterResponse = markAiSearchHandUsed(playerAfterFirst, response.move.handIndex);
+        const npcFollowMoves = legalMovesForAiSearch(npcAfterFirst, response.sim.board, "npc", battle);
+        const commitmentBonus = shuraOpponentCommitmentBonus(response.move.card, playerAfterFirst, battle);
+        let bestFollowScore;
+
+        if (!npcFollowMoves.length) {
+          bestFollowScore = evaluateShuraPosition(response.sim.board, npcAfterFirst, playerAfterResponse, battle);
+        } else {
+          const npcBranches = npcFollowMoves.map((followMove) => ({
+            move: followMove,
+            handBefore: npcAfterFirst,
+            sim: simulateMove(response.sim.board, followMove.card, "npc", followMove.boardIndex, response.sim.typeBoosts)
+          }));
+          const followCandidates = rankNpcSearchBranches(npcBranches, battle)
+            .slice(0, SHURA_AI_SEARCH.npcBeam);
+          bestFollowScore = Number.NEGATIVE_INFINITY;
+
+          for (const follow of followCandidates) {
+            const npcAfterFollow = markAiSearchHandUsed(npcAfterFirst, follow.move.handIndex);
+            let leafScore = evaluateShuraPosition(follow.sim.board, npcAfterFollow, playerAfterResponse, battle);
+            leafScore += follow.sim.captured * 20 + follow.sim.comboCaptured * 32;
+            leafScore += shuraConservationBonus(follow.move, npcAfterFirst, battle);
+            if (isCornerCell(follow.move.boardIndex)) leafScore += 16;
+            bestFollowScore = Math.max(bestFollowScore, leafScore);
+          }
+        }
+
+        // コンボでの大量反転は通常の枚数差以上に危険として扱う。
+        const responseScore = bestFollowScore
+          + commitmentBonus
+          - response.sim.captured * 10
+          - response.sim.comboCaptured * 46;
+        minimaxScore = Math.min(minimaxScore, responseScore);
+      }
+    }
+
+    let score = minimaxScore
+      + firstSim.captured * 24
+      + firstSim.comboCaptured * 38
+      + shuraConservationBonus(move, initialNpcHand, battle);
+    if (isCornerCell(move.boardIndex)) score += 32;
+    if (isCenterCell(move.boardIndex)) score += 8;
+    if (firstSim.captureReasons.includes("セイム")) score += 10;
+    if (firstSim.captureReasons.includes("プラス")) score += 10;
+
+    if (!best || score > best.score) best = { move, score };
+  }
+
+  return best?.move ?? moves[0];
 }
 
 function boardAdvantageForNpc(board, playerRemaining, npcRemaining) {
@@ -4389,7 +4694,14 @@ function simulateMove(board, card, owner, boardIndex, typeBoostsOverride = null)
   }
 
   const comboCaptured = getComboCaptures(copy, capturedIndexes, owner, simBattle, copy);
-  return { board: copy, captured: capturedIndexes.length + comboCaptured.length, typeBoosts: simBattle.typeBoosts };
+  return {
+    board: copy,
+    captured: capturedIndexes.length + comboCaptured.length,
+    directCaptured: capturedIndexes.length,
+    comboCaptured: comboCaptured.length,
+    captureReasons: [...(plan.reasons ?? [])],
+    typeBoosts: simBattle.typeBoosts
+  };
 }
 
 function checkBattleEnd() {
