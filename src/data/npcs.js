@@ -957,8 +957,6 @@ const BASE_NPCS = [
     "winMoney": 200000,
     "rareChanceLabel": "必ず★5",
     "ruleGroup1": [
-      "order",
-      "chaos",
       "ace_killer",
       "type_ascend",
       "type_descend",
@@ -969,6 +967,8 @@ const BASE_NPCS = [
       "little_3"
     ],
     "ruleGroup2": [
+      "order",
+      "chaos",
       "combo"
     ],
     "rareChanceRarities": [
