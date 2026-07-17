@@ -2631,3 +2631,139 @@ body.is-battle-screen .battle-screen {
 
 
 /* v0.1.54: 修羅補正値を黒文字化。カード枠は 属性色 → オレンジ → 所有者色 */
+
+
+/* v0.1.56: 怪異覚醒 / 怪異の残滓 */
+.enhancement-panel {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.enhancement-summary {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0 14px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 214, 107, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 214, 107, 0.08);
+}
+.enhancement-menu {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.enhancement-menu button {
+  flex: 1 1 0;
+}
+.enhancement-menu button.active {
+  box-shadow: 0 0 0 2px rgba(255, 214, 107, 0.45) inset, 0 0 20px rgba(255, 174, 48, 0.18);
+}
+.enhancement-section.hidden { display: none !important; }
+.enhancement-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
+  gap: 18px;
+}
+.enhancement-card-list {
+  display: grid;
+  gap: 10px;
+  max-height: 70vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+.enhancement-card-entry {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+.enhancement-card-entry.selected {
+  border-color: #ffd45c;
+  box-shadow: 0 0 0 2px rgba(255, 212, 92, 0.25) inset;
+}
+.enhancement-card-thumb .mini-card,
+.residue-card-thumb .mini-card {
+  width: 68px;
+  min-height: 94px;
+  padding: 3px;
+  cursor: default;
+}
+.enhancement-card-thumb .card-visual,
+.residue-card-thumb .card-visual { min-height: 94px; }
+.awakening-stage-label,
+.gold-text { color: #ffd45c; font-weight: 900; }
+.awakening-detail {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.035);
+}
+.awakening-detail-card {
+  width: min(250px, 100%);
+  min-height: 250px;
+  margin: 0 auto 14px;
+  padding: 8px;
+}
+.awakening-side-buttons,
+.awakening-actions,
+.residue-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.awakening-side-buttons button { flex: 1 1 92px; }
+.awakening-requirements {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 214, 107, 0.08);
+  border: 1px solid rgba(255, 214, 107, 0.25);
+}
+.residue-card-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.residue-card-row {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.035);
+}
+.residue-card-info { min-width: 0; }
+.residue-card-info strong { word-break: break-word; }
+.card-values .awakening-value,
+.card-visual-values .cv.awakening-value {
+  color: #ffd45c !important;
+  font-weight: 1000;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.95), 0 0 8px rgba(255, 180, 35, 0.85);
+  z-index: 8;
+}
+.card-visual-values .cv.awakening-value.wild-plus2 { color: #ffdf4d !important; }
+.card-visual-values .cv.awakening-value.wild-ace { color: #55aaff !important; }
+.card-visual-values .cv.awakening-value.wild-one { color: #ff5b5b !important; }
+.awakening-detail-lines {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  line-height: 1.7;
+}
+@media (max-width: 760px) {
+  .enhancement-layout { grid-template-columns: 1fr; }
+  .enhancement-card-list { max-height: 44vh; }
+  .residue-card-row { grid-template-columns: 64px 1fr; }
+  .residue-card-row > button { grid-column: 1 / -1; width: 100%; }
+  .residue-bulk-actions button { flex: 1 1 100%; }
+}

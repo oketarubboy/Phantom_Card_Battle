@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.55";
+const VERSION = "0.1.56";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -113,6 +113,8 @@ const state = {
   },
   deckFilter: { rarity: "all", attribute: "all" },
   collectionFilter: { rarity: "all", attribute: "all", sortField: "number", sortOrder: "asc" },
+  enhancementView: "awakening",
+  selectedAwakeningCardId: null,
   shopStock: [],
   shopInitialized: false,
   pendingNpcItems: {
@@ -153,6 +155,7 @@ const screens = {
   onlineBattle: $("screen-online-battle"),
   battle: $("screen-battle"),
   deck: $("screen-deck"),
+  cardEnhance: $("screen-card-enhance"),
   shop: $("screen-shop"),
   collection: $("screen-collection"),
   rankings: $("screen-rankings"),
@@ -210,6 +213,14 @@ const SHOP_ITEMS = [
   }
 ];
 const SHOP_ITEM_BY_ID = new Map(SHOP_ITEMS.map((item) => [item.id, item]));
+const AWAKENING_STAGE_SETTINGS = [
+  { stage: 1, name: "壱ノ怪", copies: 1, residue: 100 },
+  { stage: 2, name: "弐ノ怪", copies: 2, residue: 200 },
+  { stage: 3, name: "参ノ怪", copies: 3, residue: 300 }
+];
+const AWAKENING_STAGE_BY_NUMBER = new Map(AWAKENING_STAGE_SETTINGS.map((item) => [item.stage, item]));
+const RESIDUE_VALUE_BY_RARITY = { 1: 1, 2: 5, 3: 20 };
+
 const SHOP_GRADE_SETTINGS = [
   { grade: 1, required: 0, refreshFee: 100, stock: { 1: 7, 2: 2, 3: 1 } },
   { grade: 2, required: 1000, refreshFee: 200, stock: { 1: 4, 2: 3, 3: 3 } },
@@ -878,6 +889,7 @@ function getWildValueColor(card, side) {
   if (change === "plus2") return 0xffdf4d;
   if (change === "ace") return 0x55aaff;
   if (change === "one") return 0xff5b5b;
+  if (isAwakeningEnhancedSide(card, side)) return 0xffd45c;
   return 0xffffff;
 }
 
@@ -1200,6 +1212,7 @@ function showScreen(name) {
 
   if (name === "onlineBattle") renderOnlineBattleScreen();
   if (name === "deck") renderDeckScreen();
+  if (name === "cardEnhance") renderCardEnhanceScreen();
   if (name === "shop") enterShop();
   if (name === "collection") renderCollectionScreen();
   if (name === "rankings") renderRankingScreen();
@@ -1232,6 +1245,8 @@ function createInitialSave() {
     money: 100,
     totalEarnedMoney: 0,
     shopPurchaseTotal: 0,
+    kaikiResidue: 0,
+    awakenings: {},
     items: {
       lock_detector: 0,
       miracle_charm: 0
@@ -1288,10 +1303,331 @@ function normalizeSave(save) {
     const count = Math.floor(Number(normalized.items[item.id] ?? 0));
     normalized.items[item.id] = Math.min(item.maxOwned, Math.max(0, Number.isFinite(count) ? count : 0));
   }
+  normalized.kaikiResidue = Math.max(0, Math.floor(Number(normalized.kaikiResidue ?? 0) || 0));
+  normalized.awakenings = normalizeAwakeningSave(normalized.awakenings);
   normalized.activeDeckIndex = Number.isInteger(normalized.activeDeckIndex) ? Math.min(Math.max(normalized.activeDeckIndex, 0), NORMAL_DECK_COUNT - 1) : 0;
   normalized.selectedDeckIndex = Number.isInteger(normalized.selectedDeckIndex) ? Math.min(Math.max(normalized.selectedDeckIndex, 0), TOTAL_DECK_COUNT - 1) : 0;
 
   return normalized;
+}
+
+
+function normalizeAwakeningSave(source) {
+  const normalized = {};
+  if (!source || typeof source !== "object") return normalized;
+  for (const [cardId, value] of Object.entries(source)) {
+    const card = cardById.get(cardId);
+    if (!card || Number(card.rarity) < 4) continue;
+    const stage = clamp(Math.floor(Number(value?.stage ?? 0) || 0), 0, 3);
+    const boosts = Object.fromEntries(CARD_SIDES.map((side) => [side, 0]));
+    let remaining = stage;
+    for (const side of CARD_SIDES) {
+      if (remaining <= 0) break;
+      const maxForSide = Math.max(0, 10 - Number(card[side] ?? 0));
+      const requested = Math.max(0, Math.floor(Number(value?.boosts?.[side] ?? 0) || 0));
+      const accepted = Math.min(requested, maxForSide, remaining);
+      boosts[side] = accepted;
+      remaining -= accepted;
+    }
+    if (stage > 0) normalized[cardId] = { stage, boosts };
+  }
+  return normalized;
+}
+
+function getAwakeningRecord(cardId) {
+  const card = cardById.get(cardId);
+  const source = state.save?.awakenings?.[cardId];
+  const stage = clamp(Math.floor(Number(source?.stage ?? 0) || 0), 0, 3);
+  const boosts = Object.fromEntries(CARD_SIDES.map((side) => {
+    const maxForSide = Math.max(0, 10 - Number(card?.[side] ?? 0));
+    return [side, Math.min(maxForSide, Math.max(0, Math.floor(Number(source?.boosts?.[side] ?? 0) || 0)))];
+  }));
+  return { stage, boosts };
+}
+
+function getAwakeningStageName(stage) {
+  return AWAKENING_STAGE_BY_NUMBER.get(Number(stage))?.name ?? "未覚醒";
+}
+
+function getAwakeningAllocatedPoints(cardId) {
+  const record = getAwakeningRecord(cardId);
+  return CARD_SIDES.reduce((sum, side) => sum + Number(record.boosts[side] ?? 0), 0);
+}
+
+function getAwakeningUnspentPoints(cardId) {
+  const record = getAwakeningRecord(cardId);
+  return Math.max(0, Number(record.stage) - getAwakeningAllocatedPoints(cardId));
+}
+
+function isAwakeningEnhancedSide(card, side) {
+  return Number(card?.awakeningChanges?.[side] ?? 0) > 0;
+}
+
+function getAwakeningChangeClass(card, side) {
+  return isAwakeningEnhancedSide(card, side) ? "awakening-value" : "";
+}
+
+function applyAwakeningToCard(card) {
+  if (!card || Number(card.rarity) < 4) return card;
+  const record = getAwakeningRecord(card.id);
+  if (record.stage <= 0) return card;
+  const originalValues = Object.fromEntries(CARD_SIDES.map((side) => [side, Number(card[side] ?? 0)]));
+  const values = Object.fromEntries(CARD_SIDES.map((side) => [side, clamp(originalValues[side] + Number(record.boosts[side] ?? 0), 1, 10)]));
+  const changes = Object.fromEntries(CARD_SIDES.filter((side) => Number(record.boosts[side] ?? 0) > 0).map((side) => [side, Number(record.boosts[side])]));
+  return {
+    ...card,
+    battleValues: values,
+    awakeningChanges: changes,
+    awakeningStage: record.stage,
+    awakeningOriginalValues: originalValues,
+    isAwakenedCard: true
+  };
+}
+
+function getMaxDeckCopies(cardId) {
+  return Math.max(0, ...(state.save?.decks ?? []).map((deck) => Array.isArray(deck) ? countInDeck(deck, cardId) : 0));
+}
+
+function getProtectedOwnedCount(cardId) {
+  return Math.max(1, getMaxDeckCopies(cardId));
+}
+
+function getConvertibleDuplicateCount(cardId) {
+  const card = cardById.get(cardId);
+  if (!card || Number(card.rarity) > 3) return 0;
+  return Math.max(0, getOwnedCount(cardId) - getProtectedOwnedCount(cardId));
+}
+
+function getAwakeningMaterialCopies(cardId) {
+  const card = cardById.get(cardId);
+  if (!card || Number(card.rarity) < 4) return 0;
+  return Math.max(0, getOwnedCount(cardId) - getProtectedOwnedCount(cardId));
+}
+
+function setEnhancementView(view) {
+  state.enhancementView = view === "residue" ? "residue" : "awakening";
+  renderCardEnhanceScreen();
+}
+
+function enhancementCardValuesHtml(card, original = false) {
+  const values = original
+    ? Object.fromEntries(CARD_SIDES.map((side) => [side, Number(card?.awakeningOriginalValues?.[side] ?? cardById.get(card.id)?.[side] ?? card[side] ?? 0)]))
+    : Object.fromEntries(CARD_SIDES.map((side) => [side, getCardRawValue(card, side)]));
+  return `上${displayValue(values.up)} / 右${displayValue(values.right)} / 下${displayValue(values.down)} / 左${displayValue(values.left)}`;
+}
+
+function renderCardEnhanceScreen() {
+  const residue = Math.max(0, Number(state.save?.kaikiResidue ?? 0));
+  if ($("kaikiResidueCount")) $("kaikiResidueCount").textContent = residue.toLocaleString("ja-JP");
+  const awakeningActive = state.enhancementView !== "residue";
+  $("awakeningSection")?.classList.toggle("hidden", !awakeningActive);
+  $("residueSection")?.classList.toggle("hidden", awakeningActive);
+  $("showAwakeningMenu")?.classList.toggle("active", awakeningActive);
+  $("showAwakeningMenu")?.classList.toggle("ghost", !awakeningActive);
+  $("showResidueMenu")?.classList.toggle("active", !awakeningActive);
+  $("showResidueMenu")?.classList.toggle("ghost", awakeningActive);
+  if (awakeningActive) renderAwakeningMenu();
+  else renderResidueMenu();
+}
+
+function renderAwakeningMenu() {
+  const list = $("awakeningCardList");
+  const detail = $("awakeningDetail");
+  if (!list || !detail) return;
+  const cards = CARDS.filter((card) => Number(card.rarity) >= 4 && getOwnedCount(card.id) > 0)
+    .sort((a, b) => Number(b.rarity) - Number(a.rarity) || Number(a.no) - Number(b.no));
+  if (!cards.length) {
+    list.innerHTML = `<p class="muted">覚醒できる★4・★5カードを所持していません。</p>`;
+    detail.innerHTML = `<p class="muted">カードを入手するとここに表示されます。</p>`;
+    state.selectedAwakeningCardId = null;
+    return;
+  }
+  if (!cards.some((card) => card.id === state.selectedAwakeningCardId)) state.selectedAwakeningCardId = cards[0].id;
+  list.innerHTML = "";
+  for (const baseCard of cards) {
+    const card = applyAwakeningToCard(baseCard);
+    const record = getAwakeningRecord(baseCard.id);
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `enhancement-card-entry ${baseCard.id === state.selectedAwakeningCardId ? "selected" : ""}`;
+    row.innerHTML = `
+      <div class="enhancement-card-thumb">${cardMiniHtml(card, "", { squareArt: true, showName: false })}</div>
+      <div><strong>${escapeHtml(baseCard.name)}</strong><br><small>No.${escapeHtml(baseCard.no)} / ${rarityStars(baseCard.rarity)} / 所持 ${getOwnedCount(baseCard.id)}</small><br><span class="awakening-stage-label">${getAwakeningStageName(record.stage)}</span></div>
+    `;
+    row.addEventListener("click", () => {
+      state.selectedAwakeningCardId = baseCard.id;
+      renderAwakeningMenu();
+    });
+    list.appendChild(row);
+  }
+  renderAwakeningDetail(state.selectedAwakeningCardId);
+}
+
+function renderAwakeningDetail(cardId) {
+  const detail = $("awakeningDetail");
+  const baseCard = cardById.get(cardId);
+  if (!detail || !baseCard) return;
+  const card = applyAwakeningToCard(baseCard);
+  const record = getAwakeningRecord(cardId);
+  const unspent = getAwakeningUnspentPoints(cardId);
+  const next = AWAKENING_STAGE_BY_NUMBER.get(record.stage + 1);
+  const duplicateCopies = getAwakeningMaterialCopies(cardId);
+  const residue = Number(state.save.kaikiResidue ?? 0);
+  const canAwaken = next && duplicateCopies >= next.copies && residue >= next.residue;
+  const allocated = getAwakeningAllocatedPoints(cardId);
+  detail.className = "awakening-detail";
+  detail.innerHTML = `
+    <div class="awakening-detail-card mini-card">${cardMiniHtml(card, "", { squareArt: true, detail: true })}</div>
+    <h3>${escapeHtml(baseCard.name)}</h3>
+    <p><strong>覚醒段階：</strong>${getAwakeningStageName(record.stage)}</p>
+    <p><strong>元の数値：</strong>${enhancementCardValuesHtml(card, true)}</p>
+    <p><strong>覚醒後：</strong><span class="gold-text">${enhancementCardValuesHtml(card, false)}</span></p>
+    <p><strong>割り振り済み：</strong>${allocated} / ${record.stage}　<strong>割り振り可能：</strong>${unspent}</p>
+    <div class="awakening-side-buttons">
+      ${CARD_SIDES.map((side) => {
+        const labels = { up: "上", right: "右", down: "下", left: "左" };
+        const current = getCardRawValue(card, side);
+        return `<button type="button" data-awakening-side="${side}" ${unspent <= 0 || current >= 10 ? "disabled" : ""}>${labels[side]} +1</button>`;
+      }).join("")}
+    </div>
+    <p class="muted">同じ辺を複数回強化できます。割り振り可能な数値は残したままでも構いません。上限はAです。</p>
+    <div class="awakening-actions">
+      ${next ? `<button id="performAwakening" type="button" ${canAwaken ? "" : "disabled"}>${next.name}へ覚醒</button>` : `<button type="button" disabled>参ノ怪まで覚醒済み</button>`}
+      <button id="rerollAwakening" type="button" class="ghost" ${record.stage > 0 && allocated > 0 && residue >= 100 ? "" : "disabled"}>数値を振り直す（残滓100）</button>
+    </div>
+    ${next ? `<div class="awakening-requirements"><strong>${next.name}の必要条件</strong><br>同一カード ${next.copies}枚（使用可能 ${duplicateCopies}枚）<br>怪異の残滓 ${next.residue}（所持 ${residue.toLocaleString("ja-JP")}）</div>` : ""}
+  `;
+  detail.querySelectorAll("[data-awakening-side]").forEach((button) => {
+    button.addEventListener("click", () => allocateAwakeningPoint(cardId, button.dataset.awakeningSide));
+  });
+  detail.querySelector("#performAwakening")?.addEventListener("click", () => confirmAwakening(cardId));
+  detail.querySelector("#rerollAwakening")?.addEventListener("click", () => confirmAwakeningReroll(cardId));
+}
+
+function allocateAwakeningPoint(cardId, side) {
+  if (!CARD_SIDES.includes(side)) return;
+  const card = cardById.get(cardId);
+  const record = getAwakeningRecord(cardId);
+  if (!card || getAwakeningUnspentPoints(cardId) <= 0) return;
+  const current = Number(card[side] ?? 0) + Number(record.boosts[side] ?? 0);
+  if (current >= 10) return;
+  record.boosts[side] = Number(record.boosts[side] ?? 0) + 1;
+  state.save.awakenings[cardId] = record;
+  save();
+  renderCardEnhanceScreen();
+}
+
+function confirmAwakening(cardId) {
+  const card = cardById.get(cardId);
+  const record = getAwakeningRecord(cardId);
+  const next = AWAKENING_STAGE_BY_NUMBER.get(record.stage + 1);
+  if (!card || !next) return;
+  const available = getAwakeningMaterialCopies(cardId);
+  const residue = Number(state.save.kaikiResidue ?? 0);
+  if (available < next.copies || residue < next.residue) {
+    showModal("怪異覚醒", `<p>覚醒素材が足りません。</p><p>同一カード：${available}/${next.copies}枚<br>怪異の残滓：${residue}/${next.residue}</p>`, [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+  showModal("怪異覚醒", `<p>「${escapeHtml(card.name)}」を<strong>${next.name}</strong>へ覚醒します。</p><p>同一カード${next.copies}枚と怪異の残滓${next.residue}を消費します。</p>`, [
+    {
+      label: "覚醒する",
+      onClick: () => {
+        state.save.ownedCards[cardId] = getOwnedCount(cardId) - next.copies;
+        state.save.kaikiResidue = residue - next.residue;
+        state.save.awakenings[cardId] = { stage: next.stage, boosts: { ...record.boosts } };
+        save();
+        closeModal();
+        renderCardEnhanceScreen();
+      }
+    },
+    { label: "キャンセル", className: "ghost", onClick: closeModal }
+  ]);
+}
+
+function confirmAwakeningReroll(cardId) {
+  const card = cardById.get(cardId);
+  const record = getAwakeningRecord(cardId);
+  if (!card || record.stage <= 0) return;
+  if (Number(state.save.kaikiResidue ?? 0) < 100) {
+    showModal("数値の振り直し", "<p>怪異の残滓が足りません。</p>", [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+  showModal("数値の振り直し", `<p>怪異の残滓を100消費し、「${escapeHtml(card.name)}」の数値割り振りをすべて解除します。</p><p>解除された${record.stage}ポイントは、再び好きな辺へ割り振れます。</p>`, [
+    {
+      label: "振り直す",
+      onClick: () => {
+        state.save.kaikiResidue = Number(state.save.kaikiResidue ?? 0) - 100;
+        state.save.awakenings[cardId] = { stage: record.stage, boosts: Object.fromEntries(CARD_SIDES.map((side) => [side, 0])) };
+        save();
+        closeModal();
+        renderCardEnhanceScreen();
+      }
+    },
+    { label: "キャンセル", className: "ghost", onClick: closeModal }
+  ]);
+}
+
+function buildResidueConversion(maxRarity, singleCardId = null) {
+  const entries = [];
+  for (const card of CARDS) {
+    if (Number(card.rarity) > Number(maxRarity) || Number(card.rarity) > 3) continue;
+    if (singleCardId && card.id !== singleCardId) continue;
+    const count = singleCardId ? Math.min(1, getConvertibleDuplicateCount(card.id)) : getConvertibleDuplicateCount(card.id);
+    if (count <= 0) continue;
+    const unit = Number(RESIDUE_VALUE_BY_RARITY[card.rarity] ?? 0);
+    entries.push({ card, count, points: count * unit });
+  }
+  return entries;
+}
+
+function confirmResidueConversion(entries) {
+  const valid = (entries ?? []).filter((entry) => entry.count > 0 && getConvertibleDuplicateCount(entry.card.id) >= entry.count);
+  const totalCards = valid.reduce((sum, entry) => sum + entry.count, 0);
+  const totalPoints = valid.reduce((sum, entry) => sum + entry.points, 0);
+  if (!totalCards) {
+    showModal("怪異の残滓", "<p>素材化できる重複カードがありません。</p>", [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+  showModal("怪異の残滓化", `<p><strong>${totalCards}枚のカードを怪異の残滓にします。獲得できる怪異の残滓は${totalPoints}です。</strong></p>`, [
+    {
+      label: "決定",
+      onClick: () => {
+        for (const entry of valid) state.save.ownedCards[entry.card.id] = getOwnedCount(entry.card.id) - entry.count;
+        state.save.kaikiResidue = Number(state.save.kaikiResidue ?? 0) + totalPoints;
+        save();
+        closeModal();
+        renderCardEnhanceScreen();
+        const message = $("residueMessage");
+        if (message) message.textContent = `${totalCards}枚を素材化し、怪異の残滓${totalPoints}を獲得しました。`;
+      }
+    },
+    { label: "キャンセル", className: "ghost", onClick: closeModal }
+  ]);
+}
+
+function renderResidueMenu() {
+  const list = $("residueCardList");
+  if (!list) return;
+  const cards = CARDS.filter((card) => Number(card.rarity) <= 3 && getConvertibleDuplicateCount(card.id) > 0)
+    .sort((a, b) => Number(a.rarity) - Number(b.rarity) || Number(a.no) - Number(b.no));
+  list.innerHTML = "";
+  if (!cards.length) {
+    list.innerHTML = `<p class="muted">怪異の残滓にできる重複カードはありません。</p>`;
+    return;
+  }
+  for (const card of cards) {
+    const available = getConvertibleDuplicateCount(card.id);
+    const unit = RESIDUE_VALUE_BY_RARITY[card.rarity];
+    const row = document.createElement("div");
+    row.className = "residue-card-row";
+    row.innerHTML = `
+      <div class="residue-card-thumb">${cardMiniHtml(card, "", { squareArt: true, showName: false })}</div>
+      <div class="residue-card-info"><strong>${escapeHtml(card.name)}</strong><br><small>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)} / 素材化可能 ${available}</small><br><span>1枚につき怪異の残滓 ${unit}</span></div>
+      <button type="button">1枚を残滓化</button>
+    `;
+    row.querySelector("button").addEventListener("click", () => confirmResidueConversion(buildResidueConversion(card.rarity, card.id)));
+    list.appendChild(row);
+  }
 }
 
 function loadSave() {
@@ -1394,13 +1730,13 @@ function canAddToDeck(deck, cardId, options = {}) {
 }
 
 function cardValuesHtml(card, center = "", values = null) {
-  const displayValues = values ?? { up: card.up, right: card.right, down: card.down, left: card.left };
+  const displayValues = values ?? Object.fromEntries(CARD_SIDES.map((side) => [side, getCardRawValue(card, side)]));
   return `
     <div class="card-values">
-      <span class="v-up">${displayValue(displayValues.up)}</span>
-      <span class="v-right">${displayValue(displayValues.right)}</span>
-      <span class="v-down">${displayValue(displayValues.down)}</span>
-      <span class="v-left">${displayValue(displayValues.left)}</span>
+      <span class="v-up ${getAwakeningChangeClass(card, "up")}">${displayValue(displayValues.up)}</span>
+      <span class="v-right ${getAwakeningChangeClass(card, "right")}">${displayValue(displayValues.right)}</span>
+      <span class="v-down ${getAwakeningChangeClass(card, "down")}">${displayValue(displayValues.down)}</span>
+      <span class="v-left ${getAwakeningChangeClass(card, "left")}">${displayValue(displayValues.left)}</span>
       <span class="v-center">${center}</span>
     </div>
   `;
@@ -1414,7 +1750,7 @@ function cardMiniHtml(card, extra = "", options = {}) {
         options.board ?? null,
         Number.isInteger(options.boardIndex) ? options.boardIndex : null
       )
-    : { up: card.up, right: card.right, down: card.down, left: card.left });
+    : Object.fromEntries(CARD_SIDES.map((side) => [side, getCardRawValue(card, side)])));
   const typeMeta = getCardTypeMeta(card);
   const centerLabel = extra ? escapeHtml(extra) : "";
   const showName = options.showName !== false;
@@ -1434,10 +1770,10 @@ function cardMiniHtml(card, extra = "", options = {}) {
         <span class="card-stars">${rarityStars(card.rarity)}</span>
       </div>` : ""}
       ${showValues ? `<div class="card-visual-values">
-        <span class="cv cv-up ${getWildChangeClass(card, "up")} ${isShuraEnhancedSide(card, "up") ? "shura-value" : ""}">${displayValue(values.up)}</span>
-        <span class="cv cv-right ${getWildChangeClass(card, "right")} ${isShuraEnhancedSide(card, "right") ? "shura-value" : ""}">${displayValue(values.right)}</span>
-        <span class="cv cv-down ${getWildChangeClass(card, "down")} ${isShuraEnhancedSide(card, "down") ? "shura-value" : ""}">${displayValue(values.down)}</span>
-        <span class="cv cv-left ${getWildChangeClass(card, "left")} ${isShuraEnhancedSide(card, "left") ? "shura-value" : ""}">${displayValue(values.left)}</span>
+        <span class="cv cv-up ${getWildChangeClass(card, "up")} ${getAwakeningChangeClass(card, "up")} ${isShuraEnhancedSide(card, "up") ? "shura-value" : ""}">${displayValue(values.up)}</span>
+        <span class="cv cv-right ${getWildChangeClass(card, "right")} ${getAwakeningChangeClass(card, "right")} ${isShuraEnhancedSide(card, "right") ? "shura-value" : ""}">${displayValue(values.right)}</span>
+        <span class="cv cv-down ${getWildChangeClass(card, "down")} ${getAwakeningChangeClass(card, "down")} ${isShuraEnhancedSide(card, "down") ? "shura-value" : ""}">${displayValue(values.down)}</span>
+        <span class="cv cv-left ${getWildChangeClass(card, "left")} ${getAwakeningChangeClass(card, "left")} ${isShuraEnhancedSide(card, "left") ? "shura-value" : ""}">${displayValue(values.left)}</span>
         ${centerLabel ? `<span class="cv cv-center">${centerLabel}</span>` : ""}
       </div>` : ""}
       ${showName ? `<div class="card-visual-name">${escapeHtml(card.name)}</div>` : ""}
@@ -1928,7 +2264,8 @@ function renderCurrentDeck() {
     if (!cardId) {
       row.innerHTML = `<div>空きスロット ${i + 1}</div>`;
     } else {
-      const card = cardById.get(cardId);
+      const baseCard = cardById.get(cardId);
+      const card = applyAwakeningToCard(baseCard);
       row.innerHTML = `
         <div class="deck-card-info">
           <div class="deck-card-art">${cardArtHtml(card)}</div>
@@ -2000,7 +2337,8 @@ function renderOwnedCardList() {
     .filter((card) => matchesCardAttributeFilter(card, state.deckFilter.attribute))
     .sort(compareOwnedCards);
 
-  for (const card of owned) {
+  for (const baseCard of owned) {
+    const card = applyAwakeningToCard(baseCard);
     const row = document.createElement("div");
     row.className = "owned-row";
     applyCardTypeStyle(row, card);
@@ -2050,7 +2388,8 @@ function renderCollectionScreen() {
     .filter((card) => matchesCardAttributeFilter(card, state.collectionFilter.attribute))
     .sort(compareCollectionCards);
 
-  for (const card of cards) {
+  for (const baseCard of cards) {
+    const card = state.save.discoveredCards[baseCard.id] ? applyAwakeningToCard(baseCard) : baseCard;
     const owned = getOwnedCount(card.id);
     const unlocked = state.save.discoveredCards[card.id];
     const div = document.createElement("div");
@@ -2213,7 +2552,9 @@ function cloneReviewCard(card) {
     ...card,
     battleValues: card.battleValues ? { ...card.battleValues } : undefined,
     wildChanges: card.wildChanges ? { ...card.wildChanges } : undefined,
-    shuraChanges: card.shuraChanges ? { ...card.shuraChanges } : undefined
+    shuraChanges: card.shuraChanges ? { ...card.shuraChanges } : undefined,
+    awakeningChanges: card.awakeningChanges ? { ...card.awakeningChanges } : undefined,
+    awakeningOriginalValues: card.awakeningOriginalValues ? { ...card.awakeningOriginalValues } : undefined
   };
 }
 
@@ -2372,7 +2713,8 @@ function getCardDetailHtml(card, options = {}) {
       <div class="card-detail-meta">
         <div><strong>No.${escapeHtml(card.no)}</strong></div>
         <div>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)}</div>
-        <div>総合力 ${card.power}</div>
+        <div>総合力 ${CARD_SIDES.reduce((sum, side) => sum + getCardRawValue(card, side), 0)}</div>
+        ${card?.isAwakenedCard ? `<div class="awakening-detail-lines"><strong>${getAwakeningStageName(card.awakeningStage)}</strong><br>元の数値：${enhancementCardValuesHtml(card, true)}<br><span class="gold-text">覚醒後：${enhancementCardValuesHtml(card, false)}</span></div>` : ""}
       </div>
     </div>
   `;
@@ -3778,7 +4120,8 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     ? { ...state.pendingNpcItems }
     : { npcId: npc.id, lockDetectorUsed: false, miracleCharmUsed: false };
 
-  const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean);
+  // 怪異覚醒はNPC対戦だけで有効。オンライン対戦は常に元の数値を使用する。
+  const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean).map((card) => applyAwakeningToCard(card));
   const npcDeck = buildNpcHand(npc, selectedRules);
   let playerHandCards = [...playerBattleDeck];
   let npcHandCards = [...npcDeck];
@@ -5066,11 +5409,18 @@ function bindEvents() {
   $("onlineRoomCode").addEventListener("input", (event) => { event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8); });
   $("goDeck").addEventListener("click", () => showScreen("deck"));
   $("goShop").addEventListener("click", () => showScreen("shop"));
+  $("goCardEnhance").addEventListener("click", () => showScreen("cardEnhance"));
   $("goCollection").addEventListener("click", () => showScreen("collection"));
   $("goRankings").addEventListener("click", () => showScreen("rankings"));
   $("goRules").addEventListener("click", () => showScreen("rules"));
   $("goSettings").addEventListener("click", () => showScreen("settings"));
   $("updateButton").addEventListener("click", forceUpdate);
+
+  $("showAwakeningMenu")?.addEventListener("click", () => setEnhancementView("awakening"));
+  $("showResidueMenu")?.addEventListener("click", () => setEnhancementView("residue"));
+  $("convertAllStar1")?.addEventListener("click", () => confirmResidueConversion(buildResidueConversion(1)));
+  $("convertAllStar2")?.addEventListener("click", () => confirmResidueConversion(buildResidueConversion(2)));
+  $("convertAllStar3")?.addEventListener("click", () => confirmResidueConversion(buildResidueConversion(3)));
 
   $("cardSearch").addEventListener("input", renderOwnedCardList);
   $("ownedViewVertical").addEventListener("click", () => setOwnedCardView("vertical"));

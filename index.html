@@ -26,6 +26,7 @@
             <button id="goBattle">対戦</button>
             <button id="goDeck">デッキ</button>
             <button id="goShop">ショップ</button>
+            <button id="goCardEnhance">カード強化</button>
             <button id="goCollection">図鑑</button>
             <button id="goRankings">ランキング</button>
             <button id="goRules">ルール説明</button>
@@ -34,7 +35,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.55</span>
+          <span id="versionLabel">v0.1.56</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -127,6 +128,43 @@
         </div>
       </section>
 
+
+      <section id="screen-card-enhance" class="screen">
+        <div class="panel enhancement-panel">
+          <h2>カード強化</h2>
+          <div class="enhancement-summary">怪異の残滓：<strong id="kaikiResidueCount">0</strong></div>
+          <p class="muted">怪異覚醒の強化値はNPC対戦でのみ有効です。オンライン対戦・ランダムマッチでは元の数値を使用します。</p>
+          <div class="enhancement-menu" role="tablist" aria-label="カード強化メニュー">
+            <button id="showAwakeningMenu" type="button" class="active">怪異覚醒</button>
+            <button id="showResidueMenu" type="button" class="ghost">怪異の残滓</button>
+          </div>
+
+          <section id="awakeningSection" class="enhancement-section">
+            <p class="muted">★4・★5カードを、同一カードと怪異の残滓を使って参ノ怪まで覚醒できます。覚醒で得た数値は後から割り振れます。</p>
+            <div class="enhancement-layout">
+              <div>
+                <h3>覚醒するカード</h3>
+                <div id="awakeningCardList" class="enhancement-card-list"></div>
+              </div>
+              <div>
+                <h3>怪異覚醒</h3>
+                <div id="awakeningDetail" class="awakening-detail muted">カードを選択してください。</div>
+              </div>
+            </div>
+          </section>
+
+          <section id="residueSection" class="enhancement-section hidden">
+            <p class="muted">★3以下の重複カードを怪異の残滓へ変換します。各カードは最低1枚、またはデッキで必要な枚数を残します。</p>
+            <div class="residue-bulk-actions">
+              <button id="convertAllStar1" type="button">★1の重複カードをすべて怪異の残滓化</button>
+              <button id="convertAllStar2" type="button">★2以下の重複カードをすべて怪異の残滓化</button>
+              <button id="convertAllStar3" type="button">★3以下の重複カードをすべて怪異の残滓化</button>
+            </div>
+            <div id="residueMessage" class="message"></div>
+            <div id="residueCardList" class="residue-card-list"></div>
+          </section>
+        </div>
+      </section>
 
       <section id="screen-shop" class="screen">
         <div class="panel">
