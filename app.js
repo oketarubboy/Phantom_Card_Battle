@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.57";
+const VERSION = "0.1.58";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -115,6 +115,7 @@ const state = {
   collectionFilter: { rarity: "all", attribute: "all", sortField: "number", sortOrder: "asc" },
   enhancementView: "awakening",
   selectedAwakeningCardId: null,
+  pendingKaijutsuUnlocks: [],
   shopStock: [],
   shopInitialized: false,
   pendingNpcItems: {
@@ -230,6 +231,54 @@ function getAwakeningResidueCost(card, stageSetting) {
   return Number(rarityCosts?.[Number(stageSetting.stage)] ?? 0);
 }
 const RESIDUE_VALUE_BY_RARITY = { 1: 1, 2: 5, 3: 20 };
+
+
+const KAIJUTSU_SKILLS = [
+  {
+    id: "none",
+    name: "なし",
+    unlockRate: 0,
+    description: "怪異術を装備しません。"
+  },
+  {
+    id: "curse_boost",
+    name: "呪力強化",
+    unlockRate: 20,
+    description: "次に出すカードの選んだ1辺を、その対戦中だけ+1します。"
+  },
+  {
+    id: "right_rebirth",
+    name: "右方転生",
+    unlockRate: 30,
+    description: "次に出すカードを右へ90度回転させて配置します。"
+  },
+  {
+    id: "left_rebirth",
+    name: "左方転生",
+    unlockRate: 30,
+    description: "次に出すカードを左へ90度回転させて配置します。"
+  },
+  {
+    id: "field_purge",
+    name: "地縛祓い",
+    unlockRate: 70,
+    description: "空いているマスの-2・-1・+1・+2のフィールド効果を1つ無効化します。ロックマスとカード配置済みマスには使えません。"
+  },
+  {
+    id: "blood_contract",
+    name: "血の契約",
+    unlockRate: 80,
+    description: "次に出すカードの選んだ1辺を+2し、別のランダムな1辺を-2します。"
+  },
+  {
+    id: "ominous_number",
+    name: "忌み数",
+    unlockRate: 85,
+    description: "次に出すカードの最小の1辺をAにし、別の最大の1辺を1にします。同値の辺はランダムで選ばれます。"
+  }
+];
+const KAIJUTSU_BY_ID = new Map(KAIJUTSU_SKILLS.map((skill) => [skill.id, skill]));
+const NEXT_CARD_KAIJUTSU_IDS = new Set(["curse_boost", "right_rebirth", "left_rebirth", "blood_contract", "ominous_number"]);
 
 const SHOP_GRADE_SETTINGS = [
   { grade: 1, required: 0, refreshFee: 100, stock: { 1: 7, 2: 2, 3: 1 } },
@@ -377,6 +426,43 @@ function getDiscoveredCount() {
 
 function getCollectionRate() {
   return Math.floor((getDiscoveredCount() / Math.max(CARDS.length, 1)) * 10000) / 100;
+}
+
+
+function getCollectionRateForSave(saveData) {
+  const discovered = CARDS.filter((card) => saveData?.discoveredCards?.[card.id]).length;
+  return Math.floor((discovered / Math.max(CARDS.length, 1)) * 10000) / 100;
+}
+
+function unlockKaijutsuForSave(saveData) {
+  if (!saveData || typeof saveData !== "object") return [];
+  if (!saveData.unlockedKaijutsu || typeof saveData.unlockedKaijutsu !== "object") {
+    saveData.unlockedKaijutsu = {};
+  }
+  const rate = getCollectionRateForSave(saveData);
+  const newlyUnlocked = [];
+  for (const skill of KAIJUTSU_SKILLS) {
+    if (skill.id === "none") continue;
+    if (rate >= Number(skill.unlockRate) && !saveData.unlockedKaijutsu[skill.id]) {
+      saveData.unlockedKaijutsu[skill.id] = true;
+      newlyUnlocked.push(skill.id);
+    }
+  }
+  return newlyUnlocked;
+}
+
+function isKaijutsuUnlocked(skillId, saveData = state.save) {
+  if (!skillId || skillId === "none") return true;
+  return Boolean(saveData?.unlockedKaijutsu?.[skillId]);
+}
+
+function getDeckKaijutsuId(deckIndex) {
+  const id = String(state.save?.deckKaijutsu?.[deckIndex] ?? "none");
+  return KAIJUTSU_BY_ID.has(id) && isKaijutsuUnlocked(id) ? id : "none";
+}
+
+function getKaijutsuSkill(skillId) {
+  return KAIJUTSU_BY_ID.get(skillId) ?? KAIJUTSU_BY_ID.get("none");
 }
 
 function safeUserNameKey(name) {
@@ -894,11 +980,17 @@ function getWildChangeClass(card, side) {
   return "";
 }
 
+
+function getKaijutsuChangeClass(card, side) {
+  return card?.kaijutsuChanges?.[side] ? "kaijutsu-value" : "";
+}
+
 function getWildValueColor(card, side) {
   const change = card?.wildChanges?.[side];
   if (change === "plus2") return 0xffdf4d;
   if (change === "ace") return 0x55aaff;
   if (change === "one") return 0xff5b5b;
+  if (card?.kaijutsuChanges?.[side]) return 0xd9a7ff;
   if (isAwakeningEnhancedSide(card, side)) return 0xffd45c;
   return 0xffffff;
 }
@@ -981,6 +1073,72 @@ function setupWildCardForHands(playerCards, npcCards, battle = state.battle) {
   };
 }
 
+
+function applyKaijutsuToCard(card, skillId, options = {}) {
+  if (!card || !NEXT_CARD_KAIJUTSU_IDS.has(skillId)) return card;
+  const values = Object.fromEntries(CARD_SIDES.map((side) => [side, getCardRawValue(card, side)]));
+  const changes = {};
+  let rotation = null;
+  let summary = "";
+  const sideLabels = { up: "上", right: "右", down: "下", left: "左" };
+
+  if (skillId === "curse_boost") {
+    const side = CARD_SIDES.includes(options.side) ? options.side : "up";
+    const before = values[side];
+    values[side] = clamp(before + 1, 1, 10);
+    changes[side] = true;
+    summary = `${sideLabels[side]}${displayValue(before)}→${displayValue(values[side])}`;
+  } else if (skillId === "right_rebirth") {
+    rotation = "right";
+    summary = "右へ90度回転";
+  } else if (skillId === "left_rebirth") {
+    rotation = "left";
+    summary = "左へ90度回転";
+  } else if (skillId === "blood_contract") {
+    const plusSide = CARD_SIDES.includes(options.side) ? options.side : "up";
+    const minusSide = sample(CARD_SIDES.filter((side) => side !== plusSide), 1)[0];
+    const plusBefore = values[plusSide];
+    const minusBefore = values[minusSide];
+    values[plusSide] = clamp(plusBefore + 2, 1, 10);
+    values[minusSide] = clamp(minusBefore - 2, 1, 10);
+    changes[plusSide] = true;
+    changes[minusSide] = true;
+    summary = `${sideLabels[plusSide]}${displayValue(plusBefore)}→${displayValue(values[plusSide])} / ${sideLabels[minusSide]}${displayValue(minusBefore)}→${displayValue(values[minusSide])}`;
+  } else if (skillId === "ominous_number") {
+    const minValue = Math.min(...CARD_SIDES.map((side) => values[side]));
+    const minSide = sample(CARD_SIDES.filter((side) => values[side] === minValue), 1)[0];
+    const remainingSides = CARD_SIDES.filter((side) => side !== minSide);
+    const maxValue = Math.max(...remainingSides.map((side) => values[side]));
+    const maxSide = sample(remainingSides.filter((side) => values[side] === maxValue), 1)[0];
+    const minBefore = values[minSide];
+    const maxBefore = values[maxSide];
+    values[minSide] = 10;
+    values[maxSide] = 1;
+    changes[minSide] = true;
+    changes[maxSide] = true;
+    summary = `${sideLabels[minSide]}${displayValue(minBefore)}→A / ${sideLabels[maxSide]}${displayValue(maxBefore)}→1`;
+  }
+
+  return {
+    ...card,
+    battleValues: values,
+    kaijutsuSkillId: skillId,
+    kaijutsuChanges: changes,
+    skillRotation: rotation,
+    kaijutsuSummary: summary
+  };
+}
+
+function getRotationSourceSide(side, rotation) {
+  if (rotation === "right") {
+    return { up: "left", right: "up", down: "right", left: "down" }[side] ?? side;
+  }
+  if (rotation === "left") {
+    return { up: "right", right: "down", down: "left", left: "up" }[side] ?? side;
+  }
+  return side;
+}
+
 function getMirrorSide(side, battle = state.battle, boardIndex = null) {
   if (!Number.isInteger(boardIndex) || !hasRule("mirror", battle)) return side;
   if (side === "up") return "down";
@@ -1033,7 +1191,8 @@ function getTypeRuleLevel(card, battle = state.battle, board = null, boardIndex 
 }
 
 function getEffectiveCardValue(card, side, battle = state.battle, board = null, boardIndex = null) {
-  const baseSide = getMirrorSide(side, battle, boardIndex);
+  const rotatedSide = getRotationSourceSide(side, card?.skillRotation);
+  const baseSide = getMirrorSide(rotatedSide, battle, boardIndex);
   let value = getCardRawValue(card, baseSide);
 
   // フィールド効果は、実際に場に置かれているカードだけに適用する。
@@ -1257,6 +1416,8 @@ function createInitialSave() {
     shopPurchaseTotal: 0,
     kaikiResidue: 0,
     awakenings: {},
+    unlockedKaijutsu: {},
+    deckKaijutsu: Array.from({ length: TOTAL_DECK_COUNT }, () => "none"),
     items: {
       lock_detector: 0,
       miracle_charm: 0
@@ -1315,6 +1476,12 @@ function normalizeSave(save) {
   }
   normalized.kaikiResidue = Math.max(0, Math.floor(Number(normalized.kaikiResidue ?? 0) || 0));
   normalized.awakenings = normalizeAwakeningSave(normalized.awakenings);
+  normalized.unlockedKaijutsu = { ...(save?.unlockedKaijutsu ?? {}) };
+  unlockKaijutsuForSave(normalized);
+  normalized.deckKaijutsu = Array.from({ length: TOTAL_DECK_COUNT }, (_, index) => {
+    const skillId = String(save?.deckKaijutsu?.[index] ?? "none");
+    return KAIJUTSU_BY_ID.has(skillId) && (skillId === "none" || normalized.unlockedKaijutsu[skillId]) ? skillId : "none";
+  });
   normalized.activeDeckIndex = Number.isInteger(normalized.activeDeckIndex) ? Math.min(Math.max(normalized.activeDeckIndex, 0), NORMAL_DECK_COUNT - 1) : 0;
   normalized.selectedDeckIndex = Number.isInteger(normalized.selectedDeckIndex) ? Math.min(Math.max(normalized.selectedDeckIndex, 0), TOTAL_DECK_COUNT - 1) : 0;
 
@@ -1537,10 +1704,10 @@ function confirmAwakening(cardId) {
   const available = getAwakeningMaterialCopies(cardId);
   const residue = Number(state.save.kaikiResidue ?? 0);
   if (available < next.copies || residue < nextResidue) {
-    showModal("怪異覚醒", `<p>覚醒素材が足りません。</p><p>同一カード：${available}/${next.copies}枚<br>怪異の残滓：${residue}/${nextResidue}</p>`, [{ label: "閉じる", onClick: closeModal }]);
+    showModal("怪忌蝶覚醒", `<p>覚醒素材が足りません。</p><p>同一カード：${available}/${next.copies}枚<br>怪異の残滓：${residue}/${nextResidue}</p>`, [{ label: "閉じる", onClick: closeModal }]);
     return;
   }
-  showModal("怪異覚醒", `<p>「${escapeHtml(card.name)}」を<strong>${next.name}</strong>へ覚醒します。</p><p>同一カード${next.copies}枚と怪異の残滓${nextResidue}を消費します。</p>`, [
+  showModal("怪忌蝶覚醒", `<p>「${escapeHtml(card.name)}」を<strong>${next.name}</strong>へ覚醒します。</p><p>同一カード${next.copies}枚と怪異の残滓${nextResidue}を消費します。</p>`, [
     {
       label: "覚醒する",
       onClick: () => {
@@ -1689,6 +1856,8 @@ function spendMoney(amount) {
 function addOwnedCard(cardId, count = 1) {
   state.save.ownedCards[cardId] = (state.save.ownedCards[cardId] ?? 0) + count;
   state.save.discoveredCards[cardId] = true;
+  const newlyUnlocked = unlockKaijutsuForSave(state.save);
+  if (newlyUnlocked.length) state.pendingKaijutsuUnlocks.push(...newlyUnlocked);
   save();
 }
 
@@ -1745,10 +1914,10 @@ function cardValuesHtml(card, center = "", values = null) {
   const displayValues = values ?? Object.fromEntries(CARD_SIDES.map((side) => [side, getCardRawValue(card, side)]));
   return `
     <div class="card-values">
-      <span class="v-up ${getAwakeningChangeClass(card, "up")}">${displayValue(displayValues.up)}</span>
-      <span class="v-right ${getAwakeningChangeClass(card, "right")}">${displayValue(displayValues.right)}</span>
-      <span class="v-down ${getAwakeningChangeClass(card, "down")}">${displayValue(displayValues.down)}</span>
-      <span class="v-left ${getAwakeningChangeClass(card, "left")}">${displayValue(displayValues.left)}</span>
+      <span class="v-up ${getAwakeningChangeClass(card, "up")} ${getKaijutsuChangeClass(card, "up")}">${displayValue(displayValues.up)}</span>
+      <span class="v-right ${getAwakeningChangeClass(card, "right")} ${getKaijutsuChangeClass(card, "right")}">${displayValue(displayValues.right)}</span>
+      <span class="v-down ${getAwakeningChangeClass(card, "down")} ${getKaijutsuChangeClass(card, "down")}">${displayValue(displayValues.down)}</span>
+      <span class="v-left ${getAwakeningChangeClass(card, "left")} ${getKaijutsuChangeClass(card, "left")}">${displayValue(displayValues.left)}</span>
       <span class="v-center">${center}</span>
     </div>
   `;
@@ -1782,10 +1951,10 @@ function cardMiniHtml(card, extra = "", options = {}) {
         <span class="card-stars">${rarityStars(card.rarity)}</span>
       </div>` : ""}
       ${showValues ? `<div class="card-visual-values">
-        <span class="cv cv-up ${getWildChangeClass(card, "up")} ${getAwakeningChangeClass(card, "up")} ${isShuraEnhancedSide(card, "up") ? "shura-value" : ""}">${displayValue(values.up)}</span>
-        <span class="cv cv-right ${getWildChangeClass(card, "right")} ${getAwakeningChangeClass(card, "right")} ${isShuraEnhancedSide(card, "right") ? "shura-value" : ""}">${displayValue(values.right)}</span>
-        <span class="cv cv-down ${getWildChangeClass(card, "down")} ${getAwakeningChangeClass(card, "down")} ${isShuraEnhancedSide(card, "down") ? "shura-value" : ""}">${displayValue(values.down)}</span>
-        <span class="cv cv-left ${getWildChangeClass(card, "left")} ${getAwakeningChangeClass(card, "left")} ${isShuraEnhancedSide(card, "left") ? "shura-value" : ""}">${displayValue(values.left)}</span>
+        <span class="cv cv-up ${getWildChangeClass(card, "up")} ${getAwakeningChangeClass(card, "up")} ${getKaijutsuChangeClass(card, "up")} ${isShuraEnhancedSide(card, "up") ? "shura-value" : ""}">${displayValue(values.up)}</span>
+        <span class="cv cv-right ${getWildChangeClass(card, "right")} ${getAwakeningChangeClass(card, "right")} ${getKaijutsuChangeClass(card, "right")} ${isShuraEnhancedSide(card, "right") ? "shura-value" : ""}">${displayValue(values.right)}</span>
+        <span class="cv cv-down ${getWildChangeClass(card, "down")} ${getAwakeningChangeClass(card, "down")} ${getKaijutsuChangeClass(card, "down")} ${isShuraEnhancedSide(card, "down") ? "shura-value" : ""}">${displayValue(values.down)}</span>
+        <span class="cv cv-left ${getWildChangeClass(card, "left")} ${getAwakeningChangeClass(card, "left")} ${getKaijutsuChangeClass(card, "left")} ${isShuraEnhancedSide(card, "left") ? "shura-value" : ""}">${displayValue(values.left)}</span>
         ${centerLabel ? `<span class="cv cv-center">${centerLabel}</span>` : ""}
       </div>` : ""}
       ${showName ? `<div class="card-visual-name">${escapeHtml(card.name)}</div>` : ""}
@@ -2248,11 +2417,35 @@ function renderDeckTabsOnly() {
   }
 }
 
+
+function renderDeckKaijutsuSetting() {
+  const select = $("deckKaijutsuSelect");
+  const info = $("deckKaijutsuInfo");
+  if (!select || !info) return;
+
+  const newlyUnlocked = unlockKaijutsuForSave(state.save);
+  if (newlyUnlocked.length) save();
+  const equippedId = getDeckKaijutsuId(state.selectedDeckIndex);
+  const rate = getCollectionRate();
+
+  select.innerHTML = KAIJUTSU_SKILLS.map((skill) => {
+    const unlocked = isKaijutsuUnlocked(skill.id);
+    const suffix = unlocked || skill.id === "none" ? "" : `（図鑑${skill.unlockRate}%で取得）`;
+    return `<option value="${skill.id}" ${unlocked ? "" : "disabled"}>${escapeHtml(skill.name)}${suffix}</option>`;
+  }).join("");
+  select.value = equippedId;
+
+  const equipped = getKaijutsuSkill(equippedId);
+  const unlockedCount = KAIJUTSU_SKILLS.filter((skill) => skill.id !== "none" && isKaijutsuUnlocked(skill.id)).length;
+  info.innerHTML = `<strong>${escapeHtml(equipped.name)}</strong>：${escapeHtml(equipped.description)}<br><small>図鑑コンプリート率 ${rate.toFixed(2)}% / 取得済み ${unlockedCount}/${KAIJUTSU_SKILLS.length - 1}。一度取得した怪異術は、カード追加でコンプ率が下がっても失われません。</small>`;
+}
+
 function renderDeckScreen() {
   renderDeckTabsOnly();
 
   const deckNameInput = $("deckNameInput");
   if (deckNameInput) deckNameInput.value = getDeckDisplayName(state.selectedDeckIndex);
+  renderDeckKaijutsuSetting();
 
   normalizeDeckSort();
   $("deckSortField").value = state.deckSort.field;
@@ -2566,7 +2759,11 @@ function cloneReviewCard(card) {
     wildChanges: card.wildChanges ? { ...card.wildChanges } : undefined,
     shuraChanges: card.shuraChanges ? { ...card.shuraChanges } : undefined,
     awakeningChanges: card.awakeningChanges ? { ...card.awakeningChanges } : undefined,
-    awakeningOriginalValues: card.awakeningOriginalValues ? { ...card.awakeningOriginalValues } : undefined
+    awakeningOriginalValues: card.awakeningOriginalValues ? { ...card.awakeningOriginalValues } : undefined,
+    kaijutsuChanges: card.kaijutsuChanges ? { ...card.kaijutsuChanges } : undefined,
+    kaijutsuSkillId: card.kaijutsuSkillId,
+    skillRotation: card.skillRotation,
+    kaijutsuSummary: card.kaijutsuSummary
   };
 }
 
@@ -2727,6 +2924,7 @@ function getCardDetailHtml(card, options = {}) {
         <div>${rarityStars(card.rarity)} / 所持 ${getOwnedCount(card.id)}</div>
         <div>総合力 ${CARD_SIDES.reduce((sum, side) => sum + getCardRawValue(card, side), 0)}</div>
         ${card?.isAwakenedCard ? `<div class="awakening-detail-lines"><strong>${getAwakeningStageName(card.awakeningStage)}</strong><br>元の数値：${enhancementCardValuesHtml(card, true)}<br><span class="gold-text">覚醒後：${enhancementCardValuesHtml(card, false)}</span></div>` : ""}
+        ${card?.kaijutsuSkillId ? `<div class="kaijutsu-detail-lines"><strong>怪異術：${escapeHtml(getKaijutsuSkill(card.kaijutsuSkillId).name)}</strong><br>${escapeHtml(card.kaijutsuSummary ?? "数値・向き変更適用中")}</div>` : ""}
       </div>
     </div>
   `;
@@ -2848,6 +3046,15 @@ function renderBoard() {
     cell.cursor = "pointer";
     cell.on("pointertap", () => handleBoardClick(index));
     boardLayer.addChild(cell);
+
+    const selectingFieldPurge = state.battle?.kaijutsu?.targetMode === "field_purge";
+    const purgeEligible = selectingFieldPurge && getFieldEffectAt(index, state.battle) !== 0 && !state.battle?.board[index] && !isLockCell(index, state.battle);
+    if (purgeEligible) {
+      const targetFrame = new PIXI.Graphics();
+      targetFrame.lineStyle(5, 0xd9a7ff, 0.95);
+      targetFrame.drawRoundedRect(pos.x + 4, pos.y + 4, cellSize - 8, cellSize - 8, 16);
+      boardLayer.addChild(targetFrame);
+    }
 
     const fieldValue = getFieldEffectAt(index, state.battle);
     if (fieldValue) {
@@ -3049,21 +3256,185 @@ function addBattleLog(message) {
   log.prepend(row);
 }
 
+
+function isKaijutsuAvailableInBattle(battle = state.battle) {
+  return Boolean(battle && !["online", "onlineNpc"].includes(battle.mode));
+}
+
+function getBattleKaijutsuState(battle = state.battle) {
+  return battle?.kaijutsu ?? null;
+}
+
+function getKaijutsuTargetHandIndex(battle = state.battle) {
+  const target = battle?.kaijutsu?.targetHandIndex;
+  return Number.isInteger(target) && target >= 0 ? target : null;
+}
+
+function getSelectedHandIndexForKaijutsu() {
+  const battle = state.battle;
+  if (!battle) return null;
+  const forced = getForcedHandIndex("player");
+  if (forced !== null) return forced;
+  return Number.isInteger(state.selectedHandIndex) ? state.selectedHandIndex : null;
+}
+
+function renderKaijutsuControl() {
+  const button = $("useKaijutsuButton");
+  const status = $("kaijutsuStatus");
+  if (!button || !status) return;
+  const battle = state.battle;
+  const skillState = getBattleKaijutsuState(battle);
+
+  if (!battle || !isKaijutsuAvailableInBattle(battle)) {
+    button.textContent = "怪異術：使用不可";
+    button.disabled = true;
+    status.textContent = battle ? "オンライン対戦では怪異術を使用できません。" : "";
+    return;
+  }
+
+  const skill = getKaijutsuSkill(skillState?.id ?? "none");
+  if (!skillState || skill.id === "none") {
+    button.textContent = "怪異術：未設定";
+    button.disabled = true;
+    status.textContent = "デッキ画面で怪異術を設定できます。";
+    return;
+  }
+
+  if (skillState.targetMode === "field_purge") {
+    button.textContent = `${skill.name}：対象選択をキャンセル`;
+    button.disabled = false;
+    status.textContent = "無効化する空きマスのフィールド効果を選んでください。";
+    return;
+  }
+
+  if (skillState.used) {
+    button.textContent = `怪異術：${skill.name}（使用済み）`;
+    button.disabled = true;
+    status.textContent = skillState.pending ? "次に出すカードへ適用済みです。" : "この対戦では使用済みです。";
+    return;
+  }
+
+  const usableTurn = battle.currentTurn === "player" && !battle.locked && !battle.finished;
+  button.textContent = `怪異術：${skill.name}`;
+  button.disabled = !usableTurn;
+  status.textContent = usableTurn ? skill.description : "自分のターンで、カードを置く前に使用できます。";
+}
+
+function armNextCardKaijutsu(skillId, options = {}) {
+  const battle = state.battle;
+  const skillState = getBattleKaijutsuState(battle);
+  const handIndex = getSelectedHandIndexForKaijutsu();
+  if (!battle || !skillState || handIndex === null) {
+    showModal("怪異術", "<p>先に、次に場へ出す手札を1枚選択してください。</p>", [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+  const entry = battle.playerHand?.[handIndex];
+  if (!entry || entry.used) return;
+  entry.card = applyKaijutsuToCard(entry.card, skillId, options);
+  skillState.used = true;
+  skillState.pending = true;
+  skillState.targetHandIndex = handIndex;
+  state.selectedHandIndex = handIndex;
+  const skill = getKaijutsuSkill(skillId);
+  addBattleLog(`怪異術「${skill.name}」を発動：${entry.card.kaijutsuSummary || skill.description}`);
+  closeModal();
+  renderBattleAll();
+}
+
+function beginFieldPurgeKaijutsu() {
+  const battle = state.battle;
+  const skillState = getBattleKaijutsuState(battle);
+  if (!battle || !skillState) return;
+  const candidates = Array.from({ length: 9 }, (_, index) => index).filter((index) => {
+    return getFieldEffectAt(index, battle) !== 0 && !battle.board[index] && !isLockCell(index, battle);
+  });
+  if (!candidates.length) {
+    showModal("地縛祓い", "<p>無効化できるフィールド効果がありません。</p><p>ロックマス、または既にカードが置かれたマスは対象にできません。</p>", [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+  skillState.targetMode = "field_purge";
+  addBattleLog("怪異術「地縛祓い」：無効化するフィールド効果のマスを選択してください。");
+  renderBattleAll();
+}
+
+function resolveFieldPurgeKaijutsu(index) {
+  const battle = state.battle;
+  const skillState = getBattleKaijutsuState(battle);
+  if (!battle || skillState?.targetMode !== "field_purge") return false;
+  const value = getFieldEffectAt(index, battle);
+  if (!value || battle.board[index] || isLockCell(index, battle)) {
+    addBattleLog("地縛祓い：そのマスは無効化できません。");
+    return true;
+  }
+  delete battle.fieldEffects[index];
+  delete battle.fieldEffects[String(index)];
+  skillState.targetMode = null;
+  skillState.used = true;
+  addBattleLog(`怪異術「地縛祓い」：マス${index + 1}の${value > 0 ? "+" : ""}${value}効果を無効化しました。`);
+  renderBattleAll();
+  return true;
+}
+
+function activateKaijutsu() {
+  const battle = state.battle;
+  const skillState = getBattleKaijutsuState(battle);
+  if (!battle || !skillState || !isKaijutsuAvailableInBattle(battle)) return;
+  if (skillState.targetMode === "field_purge") {
+    skillState.targetMode = null;
+    addBattleLog("地縛祓いの対象選択をキャンセルしました。");
+    renderBattleAll();
+    return;
+  }
+  if (skillState.used || battle.currentTurn !== "player" || battle.locked || battle.finished) return;
+  const skill = getKaijutsuSkill(skillState.id);
+  if (skill.id === "none") return;
+
+  if (skill.id === "field_purge") {
+    beginFieldPurgeKaijutsu();
+    return;
+  }
+
+  const handIndex = getSelectedHandIndexForKaijutsu();
+  if (handIndex === null) {
+    showModal("怪異術", "<p>先に、次に場へ出す手札を1枚選択してください。</p>", [{ label: "閉じる", onClick: closeModal }]);
+    return;
+  }
+
+  const sideLabels = { up: "上", right: "右", down: "下", left: "左" };
+  if (skill.id === "curse_boost" || skill.id === "blood_contract") {
+    const suffix = skill.id === "curse_boost" ? "+1する辺" : "+2する辺";
+    const actions = CARD_SIDES.map((side) => ({
+      label: `${sideLabels[side]}を選択`,
+      onClick: () => armNextCardKaijutsu(skill.id, { side })
+    }));
+    actions.push({ label: "キャンセル", className: "ghost", onClick: closeModal });
+    showModal(skill.name, `<p>${escapeHtml(skill.description)}</p><p><strong>${suffix}を選んでください。</strong></p>`, actions);
+    return;
+  }
+
+  showModal(skill.name, `<p>${escapeHtml(skill.description)}</p><p>選択中のカードに適用します。</p>`, [
+    { label: "使用する", onClick: () => armNextCardKaijutsu(skill.id) },
+    { label: "キャンセル", className: "ghost", onClick: closeModal }
+  ]);
+}
+
 function renderBattleHands() {
   const battle = state.battle;
   if (!battle) return;
 
   const forcedPlayerIndex = getForcedHandIndex("player");
+  const skillTargetIndex = getKaijutsuTargetHandIndex(battle);
   const playerHand = $("playerHand");
   playerHand.innerHTML = "";
   battle.playerHand.forEach((entry, index) => {
     const div = document.createElement("div");
     const isForced = forcedPlayerIndex === index && battle.currentTurn === "player" && !entry.used;
-    div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index || isForced ? "selected" : ""} ${isForced ? "forced" : ""}`;
+    const isSkillTarget = skillTargetIndex === index && !entry.used;
+    div.className = `mini-card ${entry.used ? "used" : ""} ${state.selectedHandIndex === index || isForced || isSkillTarget ? "selected" : ""} ${isForced ? "forced" : ""} ${isSkillTarget ? "kaijutsu-target" : ""}`;
     div.innerHTML = cardMiniHtml(entry.card, isForced ? "指定" : "", { showName: false, effective: true, owner: "player" });
     applyCardTypeStyle(div, entry.card);
 
-    const canSelect = !entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null;
+    const canSelect = !entry.used && battle.currentTurn === "player" && !battle.locked && forcedPlayerIndex === null && (skillTargetIndex === null || skillTargetIndex === index);
     if (isBattleCardPopupEnabled()) {
       div.addEventListener("click", () => {
         showCardDetailPopup(entry.card, canSelect ? {
@@ -3113,6 +3484,7 @@ function renderBattleHands() {
     : battle.currentTurn === "coin"
       ? "現在のターン：コイントス中"
       : `現在のターン：${battle.currentTurn === "player" ? "プレイヤー" : "相手"}`;
+  renderKaijutsuControl();
 }
 
 function renderBattleAll() {
@@ -4132,7 +4504,7 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     ? { ...state.pendingNpcItems }
     : { npcId: npc.id, lockDetectorUsed: false, miracleCharmUsed: false };
 
-  // 怪異覚醒はNPC対戦だけで有効。オンライン対戦は常に元の数値を使用する。
+  // 怪忌蝶覚醒はNPC対戦だけで有効。オンライン対戦は常に元の数値を使用する。
   const playerBattleDeck = deck.map((id) => cardById.get(id)).filter(Boolean).map((card) => applyAwakeningToCard(card));
   const npcDeck = buildNpcHand(npc, selectedRules);
   let playerHandCards = [...playerBattleDeck];
@@ -4188,7 +4560,14 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
     battleItemResult: finalizedItems,
     entryFee,
     winMoney: getNpcWinMoney(npc),
-    swapInfo
+    swapInfo,
+    kaijutsu: {
+      id: getDeckKaijutsuId(deckIndex),
+      used: false,
+      pending: false,
+      targetHandIndex: null,
+      targetMode: null
+    }
   };
   state.pendingNpcItems = {
     npcId: null,
@@ -4206,6 +4585,8 @@ async function startBattle(npcId, selectedRules = null, options = {}) {
   addBattleLog(`勝利報酬：${formatMoney(getNpcWinMoney(npc))}`);
   addBattleLog(`追加ルール：${getRuleSummary(selectedRules)}`);
   addBattleLog(`使用デッキ：${getDeckDisplayName(deckIndex)}`);
+  const equippedKaijutsu = getKaijutsuSkill(state.battle.kaijutsu.id);
+  addBattleLog(`怪異術：${equippedKaijutsu.id === "none" ? "未設定" : equippedKaijutsu.name}`);
   if (isShuraNpc(npc)) addBattleLog("修羅強化：相手の手札5枚にレアリティ別の数値強化が適用されました。炎表示の数字が強化箇所です。");
   const fieldEntries = Object.entries(state.battle.fieldEffects ?? {});
   if (fieldEntries.length) addBattleLog(`フィールド効果：${fieldEntries.length}マスに効果が発生しました。`);
@@ -4326,10 +4707,12 @@ async function handleBoardClick(index) {
     return;
   }
   if (!battle || battle.locked || battle.finished || battle.currentTurn !== "player") return;
+  if (resolveFieldPurgeKaijutsu(index)) return;
   if (battle.board[index]) return;
 
   const forcedIndex = getForcedHandIndex("player");
-  const handIndex = forcedIndex !== null ? forcedIndex : state.selectedHandIndex;
+  const skillTargetIndex = getKaijutsuTargetHandIndex(battle);
+  const handIndex = skillTargetIndex !== null ? skillTargetIndex : forcedIndex !== null ? forcedIndex : state.selectedHandIndex;
   if (handIndex === null) {
     addBattleLog("手札を1枚選択してください。");
     return;
@@ -4357,6 +4740,10 @@ async function playCard(owner, handIndex, boardIndex) {
   const hand = owner === "player" ? battle.playerHand : battle.npcHand;
   const entry = hand[handIndex];
   entry.used = true;
+  if (owner === "player" && battle.kaijutsu?.pending && battle.kaijutsu.targetHandIndex === handIndex) {
+    battle.kaijutsu.pending = false;
+    battle.kaijutsu.targetHandIndex = null;
+  }
   const lockedByField = isLockCell(boardIndex, battle);
   battle.board[boardIndex] = { card: entry.card, owner, locked: lockedByField };
   if (lockedByField) {
@@ -5488,6 +5875,16 @@ function bindEvents() {
       renderNpcList();
     });
   });
+
+  $("deckKaijutsuSelect")?.addEventListener("change", (event) => {
+    const skillId = String(event.target.value ?? "none");
+    if (!KAIJUTSU_BY_ID.has(skillId) || !isKaijutsuUnlocked(skillId)) return;
+    state.save.deckKaijutsu[state.selectedDeckIndex] = skillId;
+    save();
+    renderDeckKaijutsuSetting();
+  });
+
+  $("useKaijutsuButton")?.addEventListener("click", activateKaijutsu);
 
   $("deckNameInput").addEventListener("input", (event) => {
     const name = event.target.value.trim() || getDeckDefaultName(state.selectedDeckIndex);

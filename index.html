@@ -35,7 +35,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.57</span>
+          <span id="versionLabel">v0.1.58</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -103,6 +103,10 @@
               <div>
                 <div id="battleNpcName" class="battle-title">NPC</div>
                 <div id="turnLabel" class="turn-label">現在のターン：プレイヤー</div>
+                <div class="kaijutsu-battle-control">
+                  <button id="useKaijutsuButton" type="button" class="small-button kaijutsu-button" disabled>怪異術：未設定</button>
+                  <small id="kaijutsuStatus" class="kaijutsu-status"></small>
+                </div>
               </div>
               <div id="scoreLabel" class="score-label">自分 5 - 5 相手</div>
             </div>
@@ -133,9 +137,9 @@
         <div class="panel enhancement-panel">
           <h2>カード強化</h2>
           <div class="enhancement-summary">怪異の残滓：<strong id="kaikiResidueCount">0</strong></div>
-          <p class="muted">怪異覚醒の強化値はNPC対戦でのみ有効です。オンライン対戦・ランダムマッチでは元の数値を使用します。</p>
+          <p class="muted">怪忌蝶覚醒の強化値はNPC対戦でのみ有効です。オンライン対戦・ランダムマッチでは元の数値を使用します。</p>
           <div class="enhancement-menu" role="tablist" aria-label="カード強化メニュー">
-            <button id="showAwakeningMenu" type="button" class="active">怪異覚醒</button>
+            <button id="showAwakeningMenu" type="button" class="active">怪忌蝶覚醒</button>
             <button id="showResidueMenu" type="button" class="ghost">怪異の残滓</button>
           </div>
 
@@ -147,7 +151,7 @@
                 <div id="awakeningCardList" class="enhancement-card-list"></div>
               </div>
               <div>
-                <h3>怪異覚醒</h3>
+                <h3>怪忌蝶覚醒</h3>
                 <div id="awakeningDetail" class="awakening-detail muted">カードを選択してください。</div>
               </div>
             </div>
@@ -209,6 +213,11 @@
                 <span>デッキ名</span>
                 <input id="deckNameInput" class="deck-name-input" maxlength="20" placeholder="デッキ名" />
               </label>
+              <div class="deck-kaijutsu-setting">
+                <label for="deckKaijutsuSelect"><strong>怪異術</strong></label>
+                <select id="deckKaijutsuSelect" class="sort-select" aria-label="このデッキに設定する怪異術"></select>
+                <div id="deckKaijutsuInfo" class="muted"></div>
+              </div>
               <div id="currentDeck" class="deck-list"></div>
               <div class="deck-actions">
                 <button id="setActiveDeck">このデッキを使用</button>
@@ -303,14 +312,47 @@
             <div><strong>スワップ</strong><p>開始前にお互いの手札からランダムに1枚ずつ交換します。対戦後は元に戻ります。</p></div>
             <div><strong>リバース</strong><p>数字の強さが逆になります。Aが最弱、1が最強になります。エースキラーとは同時に選べません。</p></div>
             <div><strong>エースキラー</strong><p>1だけがAに勝てます。ただし1は2〜9には勝てません。</p></div>
-            <div><strong>タイプアセンド</strong><p>場に同じ属性のカードが2枚以上ある時、その属性の場のカードだけが強化されます。2枚なら+1、3枚なら+2です。手札のカードと無属性カードは影響を受けません。上限はAです。</p></div>
-            <div><strong>タイプディセンド</strong><p>場に同じ属性のカードが2枚以上ある時、その属性の場のカードだけが弱体化されます。2枚なら-1、3枚なら-2です。手札のカードと無属性カードは影響を受けません。1より小さくなりません。</p></div>
+            <div><strong>タイプアセンド</strong><p>場に同じ属性のカードが2枚以上ある時、その属性の場のカードだけが強化されます。2枚なら+1、3枚なら+2です。手札と無属性は影響を受けません。</p></div>
+            <div><strong>タイプディセンド</strong><p>場に同じ属性のカードが2枚以上ある時、その属性の場のカードだけが弱体化されます。2枚なら-1、3枚なら-2です。手札と無属性は影響を受けません。</p></div>
             <div><strong>ミラー</strong><p>カードを場に出した瞬間、上下と左右の数字が入れ替わります。手札にある間は通常の数値です。</p></div>
-            <div><strong>ワイルドカード</strong><p>対戦開始時に、各プレイヤーの手札からランダムで1枚だけ選ばれます。選ばれたカードは「上下左右のどれか1辺が+2される」または「どれか1辺がAになり、別の1辺が1になる」のどちらかに変化します。</p></div>
-            <div><strong>リトル★ / リトル★★ / リトル★★★</strong><p>指定された★数までのカードだけで対戦します。対応する★デッキを使用し、他の追加ルールも適用されます。</p></div>
-            <div><strong>プラス</strong><p>隣接する辺の合計値が2辺以上同じになった場合、その対象カードをひっくり返します。</p></div>
+            <div><strong>ワイルドカード</strong><p>対戦開始時、各プレイヤーの手札からランダムな1枚が「1辺+2」または「1辺A・別の1辺1」に変化します。</p></div>
+            <div><strong>リトル★ / リトル★★ / リトル★★★</strong><p>指定された★数までのカードで対戦します。対応する専用デッキを使用し、他の追加ルールも併用されます。</p></div>
+            <div><strong>プラス</strong><p>隣接する辺の合計値が2辺以上同じ場合、その対象カードをひっくり返します。</p></div>
             <div><strong>セイム</strong><p>隣接する2辺以上の数字が同じ場合、その対象カードをひっくり返します。</p></div>
-            <div><strong>コンボ</strong><p>プラスやセイムなどでひっくり返したカードから、さらに通常比較で連鎖してひっくり返します。</p></div>
+            <div><strong>コンボ</strong><p>プラスやセイムなどでひっくり返したカードを起点に、通常比較・セイム・プラスがさらに連鎖します。</p></div>
+          </div>
+
+          <h3>フィールド効果</h3>
+          <div class="rules-grid">
+            <div><strong>数値フィールド</strong><p>難易度つよい・修羅では、ランダムな1〜3マスに-2・-1・+1・+2が発生します。そのマスに置いたカードの4辺すべてへ加算・減算されます。</p></div>
+            <div><strong>ロック</strong><p>難易度ふつう以上では0〜1マスが隠しロックマスになります。置くまで場所は分からず、ロックされたカードは以後ひっくり返りません。</p></div>
+            <div><strong>処理順</strong><p>カード本来の数値→怪忌蝶覚醒→修羅強化→ワイルドカード→怪異術→ミラー・回転→フィールド効果→タイプ補正→1〜Aへ補正→通常比較・セイム・プラス・コンボの順です。</p></div>
+          </div>
+
+          <h3>怪異術</h3>
+          <p>図鑑コンプリート率で取得し、デッキごとに1つ設定できます。NPC対戦中、自分のターンにカードを置く前に1回だけ使用できます。敵NPCは使用せず、オンライン対戦・ランダムマッチでは無効です。一度取得した怪異術は、カード追加でコンプ率が下がっても失われません。</p>
+          <div class="rules-grid">
+            <div><strong>呪力強化（20%）</strong><p>次に出すカードの選んだ1辺を、その対戦中だけ+1します。</p></div>
+            <div><strong>右方転生（30%）</strong><p>次に出すカードを右へ90度回転して配置します。上→右→下→左→上の順に移動します。</p></div>
+            <div><strong>左方転生（30%）</strong><p>次に出すカードを左へ90度回転して配置します。上→左→下→右→上の順に移動します。</p></div>
+            <div><strong>地縛祓い（70%）</strong><p>空いているマスの-2・-1・+1・+2を1つ無効化します。ロックマスとカード配置済みマスには使えません。</p></div>
+            <div><strong>血の契約（80%）</strong><p>次に出すカードの選んだ1辺を+2し、別のランダムな1辺を-2します。</p></div>
+            <div><strong>忌み数（85%）</strong><p>次に出すカードの最小の1辺をAにし、別の最大の1辺を1にします。同値の候補はランダムです。</p></div>
+          </div>
+
+          <h3>カード強化と修羅モード</h3>
+          <div class="rules-grid">
+            <div><strong>怪忌蝶覚醒</strong><p>★4・★5の重複カードと怪異の残滓を消費し、参ノ怪まで覚醒できます。覚醒ごとに好きな1辺へ+1を割り振れます。オンライン対戦では無効です。</p></div>
+            <div><strong>怪異の残滓</strong><p>★3以下の重複カードを素材化して獲得します。★1は1、★2は5、★3は20の残滓になります。</p></div>
+            <div><strong>修羅モード</strong><p>NPC15への初勝利後に解放されます。修羅NPCのカードはレアリティ別に強化され、専用AIで2手以上先まで読みます。</p></div>
+            <div><strong>圧勝ボーナス</strong><p>プレイヤーの最終スコアが8または9で勝利すると、レアチャンスが確定します。</p></div>
+          </div>
+
+          <h3>対戦前アイテムと挑戦料</h3>
+          <div class="rules-grid">
+            <div><strong>鍵探知機</strong><p>追加ルール決定時にONにするとロックマスを事前表示します。ロックマスがない対戦では消費されません。</p></div>
+            <div><strong>奇跡の御守り</strong><p>追加ルール決定時にONにすると、その対戦のレアチャンス率が2倍になります。</p></div>
+            <div><strong>挑戦料と再抽選</strong><p>挑戦料は追加ルール確定時に支払います。ふつう以上では挑戦料の半額で追加ルールを再抽選できます。敗北・棄権時は返金されません。</p></div>
           </div>
         </div>
       </section>

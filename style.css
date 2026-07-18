@@ -2767,3 +2767,83 @@ body.is-battle-screen .battle-screen {
   .residue-card-row > button { grid-column: 1 / -1; width: 100%; }
   .residue-bulk-actions button { flex: 1 1 100%; }
 }
+
+
+/* v0.1.58 怪異術 */
+.deck-kaijutsu-setting {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(217, 167, 255, 0.35);
+  border-radius: 12px;
+  background: rgba(75, 38, 95, 0.18);
+}
+
+.deck-kaijutsu-setting select {
+  width: 100%;
+}
+
+.deck-kaijutsu-setting .muted {
+  line-height: 1.55;
+}
+
+.kaijutsu-battle-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.kaijutsu-button {
+  border-color: rgba(217, 167, 255, 0.7);
+  background: rgba(102, 44, 128, 0.62);
+}
+
+.kaijutsu-button:not(:disabled):hover {
+  background: rgba(131, 57, 163, 0.8);
+}
+
+.kaijutsu-status {
+  display: block;
+  max-width: 330px;
+  color: var(--muted);
+}
+
+.mini-card.kaijutsu-target {
+  box-shadow: 0 0 0 3px rgba(217, 167, 255, 0.95) inset;
+}
+
+.card-values .kaijutsu-value,
+.card-visual-values .cv.kaijutsu-value {
+  color: #d9a7ff;
+  text-shadow: 0 0 5px rgba(95, 33, 126, 0.9);
+}
+
+.card-visual-values .cv.kaijutsu-value.wild-plus2 { color: #ffdf4d !important; }
+.card-visual-values .cv.kaijutsu-value.wild-ace { color: #55aaff !important; }
+.card-visual-values .cv.kaijutsu-value.wild-one { color: #ff5b5b !important; }
+
+.kaijutsu-detail-lines {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid rgba(217, 167, 255, 0.35);
+  border-radius: 8px;
+  color: #e8ccff;
+  background: rgba(70, 28, 90, 0.22);
+}
+
+@media (max-width: 720px) {
+  .kaijutsu-battle-control {
+    max-width: 100%;
+  }
+  .kaijutsu-status {
+    width: 100%;
+    font-size: 10px;
+  }
+  .kaijutsu-button {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+}
