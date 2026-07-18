@@ -2769,7 +2769,7 @@ body.is-battle-screen .battle-screen {
 }
 
 
-/* v0.1.58 怪異術 */
+/* v0.1.59 怪異術 */
 .deck-kaijutsu-setting {
   display: grid;
   gap: 8px;
@@ -2846,4 +2846,11 @@ body.is-battle-screen .battle-screen {
     font-size: 11px;
     padding: 5px 8px;
   }
+}
+
+
+/* v0.1.59 怪異術ボタンを自分の手札とログの間へ移動 */
+.kaijutsu-battle-control-below-hand {
+  margin-top: 10px;
+  margin-bottom: 0;
 }

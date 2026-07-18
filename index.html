@@ -35,7 +35,7 @@
         </div>
 
         <div class="version-box">
-          <span id="versionLabel">v0.1.58</span>
+          <span id="versionLabel">v0.1.59</span>
           <button id="updateButton">最新版に更新</button>
         </div>
       </section>
@@ -103,10 +103,6 @@
               <div>
                 <div id="battleNpcName" class="battle-title">NPC</div>
                 <div id="turnLabel" class="turn-label">現在のターン：プレイヤー</div>
-                <div class="kaijutsu-battle-control">
-                  <button id="useKaijutsuButton" type="button" class="small-button kaijutsu-button" disabled>怪異術：未設定</button>
-                  <small id="kaijutsuStatus" class="kaijutsu-status"></small>
-                </div>
               </div>
               <div id="scoreLabel" class="score-label">自分 5 - 5 相手</div>
             </div>
@@ -121,6 +117,11 @@
             <div class="player-area">
               <div class="area-label">自分の手札</div>
               <div id="playerHand" class="hand player-hand"></div>
+            </div>
+
+            <div class="kaijutsu-battle-control kaijutsu-battle-control-below-hand">
+              <button id="useKaijutsuButton" type="button" class="small-button kaijutsu-button" disabled>怪異術：未設定</button>
+              <small id="kaijutsuStatus" class="kaijutsu-status"></small>
             </div>
           </div>
 
