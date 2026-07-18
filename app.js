@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.56";
+const VERSION = "0.1.57";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -214,11 +214,21 @@ const SHOP_ITEMS = [
 ];
 const SHOP_ITEM_BY_ID = new Map(SHOP_ITEMS.map((item) => [item.id, item]));
 const AWAKENING_STAGE_SETTINGS = [
-  { stage: 1, name: "壱ノ怪", copies: 1, residue: 100 },
-  { stage: 2, name: "弐ノ怪", copies: 2, residue: 200 },
-  { stage: 3, name: "参ノ怪", copies: 3, residue: 300 }
+  { stage: 1, name: "壱ノ怪", copies: 1 },
+  { stage: 2, name: "弐ノ怪", copies: 2 },
+  { stage: 3, name: "参ノ怪", copies: 3 }
 ];
 const AWAKENING_STAGE_BY_NUMBER = new Map(AWAKENING_STAGE_SETTINGS.map((item) => [item.stage, item]));
+const AWAKENING_RESIDUE_COST_BY_RARITY = {
+  4: { 1: 50, 2: 100, 3: 150 },
+  5: { 1: 100, 2: 200, 3: 300 }
+};
+
+function getAwakeningResidueCost(card, stageSetting) {
+  if (!card || !stageSetting) return 0;
+  const rarityCosts = AWAKENING_RESIDUE_COST_BY_RARITY[Number(card.rarity)];
+  return Number(rarityCosts?.[Number(stageSetting.stage)] ?? 0);
+}
 const RESIDUE_VALUE_BY_RARITY = { 1: 1, 2: 5, 3: 20 };
 
 const SHOP_GRADE_SETTINGS = [
@@ -1471,9 +1481,10 @@ function renderAwakeningDetail(cardId) {
   const record = getAwakeningRecord(cardId);
   const unspent = getAwakeningUnspentPoints(cardId);
   const next = AWAKENING_STAGE_BY_NUMBER.get(record.stage + 1);
+  const nextResidue = getAwakeningResidueCost(baseCard, next);
   const duplicateCopies = getAwakeningMaterialCopies(cardId);
   const residue = Number(state.save.kaikiResidue ?? 0);
-  const canAwaken = next && duplicateCopies >= next.copies && residue >= next.residue;
+  const canAwaken = next && duplicateCopies >= next.copies && residue >= nextResidue;
   const allocated = getAwakeningAllocatedPoints(cardId);
   detail.className = "awakening-detail";
   detail.innerHTML = `
@@ -1495,7 +1506,7 @@ function renderAwakeningDetail(cardId) {
       ${next ? `<button id="performAwakening" type="button" ${canAwaken ? "" : "disabled"}>${next.name}へ覚醒</button>` : `<button type="button" disabled>参ノ怪まで覚醒済み</button>`}
       <button id="rerollAwakening" type="button" class="ghost" ${record.stage > 0 && allocated > 0 && residue >= 100 ? "" : "disabled"}>数値を振り直す（残滓100）</button>
     </div>
-    ${next ? `<div class="awakening-requirements"><strong>${next.name}の必要条件</strong><br>同一カード ${next.copies}枚（使用可能 ${duplicateCopies}枚）<br>怪異の残滓 ${next.residue}（所持 ${residue.toLocaleString("ja-JP")}）</div>` : ""}
+    ${next ? `<div class="awakening-requirements"><strong>${next.name}の必要条件</strong><br>同一カード ${next.copies}枚（使用可能 ${duplicateCopies}枚）<br>怪異の残滓 ${nextResidue}（所持 ${residue.toLocaleString("ja-JP")}）</div>` : ""}
   `;
   detail.querySelectorAll("[data-awakening-side]").forEach((button) => {
     button.addEventListener("click", () => allocateAwakeningPoint(cardId, button.dataset.awakeningSide));
@@ -1522,18 +1533,19 @@ function confirmAwakening(cardId) {
   const record = getAwakeningRecord(cardId);
   const next = AWAKENING_STAGE_BY_NUMBER.get(record.stage + 1);
   if (!card || !next) return;
+  const nextResidue = getAwakeningResidueCost(card, next);
   const available = getAwakeningMaterialCopies(cardId);
   const residue = Number(state.save.kaikiResidue ?? 0);
-  if (available < next.copies || residue < next.residue) {
-    showModal("怪異覚醒", `<p>覚醒素材が足りません。</p><p>同一カード：${available}/${next.copies}枚<br>怪異の残滓：${residue}/${next.residue}</p>`, [{ label: "閉じる", onClick: closeModal }]);
+  if (available < next.copies || residue < nextResidue) {
+    showModal("怪異覚醒", `<p>覚醒素材が足りません。</p><p>同一カード：${available}/${next.copies}枚<br>怪異の残滓：${residue}/${nextResidue}</p>`, [{ label: "閉じる", onClick: closeModal }]);
     return;
   }
-  showModal("怪異覚醒", `<p>「${escapeHtml(card.name)}」を<strong>${next.name}</strong>へ覚醒します。</p><p>同一カード${next.copies}枚と怪異の残滓${next.residue}を消費します。</p>`, [
+  showModal("怪異覚醒", `<p>「${escapeHtml(card.name)}」を<strong>${next.name}</strong>へ覚醒します。</p><p>同一カード${next.copies}枚と怪異の残滓${nextResidue}を消費します。</p>`, [
     {
       label: "覚醒する",
       onClick: () => {
         state.save.ownedCards[cardId] = getOwnedCount(cardId) - next.copies;
-        state.save.kaikiResidue = residue - next.residue;
+        state.save.kaikiResidue = residue - nextResidue;
         state.save.awakenings[cardId] = { stage: next.stage, boosts: { ...record.boosts } };
         save();
         closeModal();
