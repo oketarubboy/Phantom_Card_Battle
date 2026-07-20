@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.60";
+const VERSION = "0.1.58";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -2582,33 +2582,7 @@ function renderCollectionScreen() {
   if ($("collectionSortField")) $("collectionSortField").value = state.collectionFilter.sortField;
   if ($("collectionSortOrder")) $("collectionSortOrder").value = state.collectionFilter.sortOrder;
   const obtained = CARDS.filter((card) => state.save.discoveredCards[card.id]).length;
-  const progressRows = [
-    { label: "全体", rarity: null },
-    ...[1, 2, 3, 4, 5].map((rarity) => ({ label: `★${rarity}`, rarity }))
-  ].map(({ label, rarity }) => {
-    const targetCards = rarity == null
-      ? CARDS
-      : CARDS.filter((card) => Number(card.rarity) === rarity);
-    const discovered = rarity == null
-      ? obtained
-      : targetCards.filter((card) => state.save.discoveredCards[card.id]).length;
-    const total = targetCards.length;
-    const rate = total > 0 ? (discovered / total) * 100 : 0;
-    return { label, discovered, total, rate };
-  });
-
-  $("collectionSummary").classList.add("collection-progress-summary");
-  $("collectionSummary").innerHTML = `
-    <div class="collection-progress-title">図鑑コンプリート率</div>
-    <div class="collection-progress-grid">
-      ${progressRows.map((row, index) => `
-        <div class="collection-progress-item ${index === 0 ? "is-total" : ""}">
-          <span>${row.label}</span>
-          <strong>${row.discovered}/${row.total}（${row.rate.toFixed(2)}%）</strong>
-        </div>
-      `).join("")}
-    </div>
-  `;
+  $("collectionSummary").textContent = `取得済み：${obtained} / ${CARDS.length} 枚`;
 
   const grid = $("collectionGrid");
   grid.innerHTML = "";
