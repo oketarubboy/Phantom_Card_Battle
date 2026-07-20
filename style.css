@@ -2854,3 +2854,60 @@ body.is-battle-screen .battle-screen {
   margin-top: 10px;
   margin-bottom: 0;
 }
+
+
+/* v0.1.60 図鑑コンプリート率 */
+.collection-progress-summary {
+  color: var(--text);
+}
+
+.collection-progress-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.collection-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.collection-progress-item {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  text-align: center;
+}
+
+.collection-progress-item.is-total {
+  grid-column: 1 / -1;
+  padding: 11px 12px;
+}
+
+.collection-progress-item span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin-bottom: 3px;
+}
+
+.collection-progress-item strong {
+  display: block;
+  white-space: nowrap;
+}
+
+.collection-progress-item.is-total strong {
+  font-size: 1.08rem;
+}
+
+@media (max-width: 720px) {
+  .collection-progress-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .collection-progress-item.is-total {
+    grid-column: 1 / -1;
+  }
+}
