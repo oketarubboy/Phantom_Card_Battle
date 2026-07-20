@@ -2911,3 +2911,53 @@ body.is-battle-screen .battle-screen {
     grid-column: 1 / -1;
   }
 }
+
+
+/* v0.1.61 ★別コンプリート率の開閉 */
+.collection-progress-total-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.collection-progress-total-row .collection-progress-item.is-total {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.collection-progress-total-row .collection-progress-item.is-total span {
+  margin-bottom: 0;
+}
+
+.collection-progress-toggle {
+  flex: 0 0 auto;
+  min-width: 104px;
+  padding-inline: 12px;
+}
+
+.collection-rarity-progress {
+  margin-top: 8px;
+}
+
+.collection-rarity-progress.is-hidden {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .collection-progress-total-row .collection-progress-item.is-total {
+    display: block;
+  }
+
+  .collection-progress-total-row .collection-progress-item.is-total span {
+    margin-bottom: 3px;
+  }
+
+  .collection-progress-toggle {
+    min-width: 92px;
+    padding-inline: 8px;
+  }
+}

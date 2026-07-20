@@ -1,7 +1,7 @@
 import { CARDS } from "./src/data/cards.js";
 import { NPCS } from "./src/data/npcs.js";
 
-const VERSION = "0.1.60";
+const VERSION = "0.1.61";
 const SAVE_KEY = "phantom_card_battle_save_v5_182_rules_npc15";
 
 const cardById = new Map(CARDS.map((card) => [card.id, card]));
@@ -113,6 +113,7 @@ const state = {
   },
   deckFilter: { rarity: "all", attribute: "all" },
   collectionFilter: { rarity: "all", attribute: "all", sortField: "number", sortOrder: "asc" },
+  collectionRarityProgressOpen: false,
   enhancementView: "awakening",
   selectedAwakeningCardId: null,
   pendingKaijutsuUnlocks: [],
@@ -2597,18 +2598,45 @@ function renderCollectionScreen() {
     return { label, discovered, total, rate };
   });
 
+  const totalProgress = progressRows[0];
+  const rarityProgressRows = progressRows.slice(1);
   $("collectionSummary").classList.add("collection-progress-summary");
   $("collectionSummary").innerHTML = `
     <div class="collection-progress-title">図鑑コンプリート率</div>
-    <div class="collection-progress-grid">
-      ${progressRows.map((row, index) => `
-        <div class="collection-progress-item ${index === 0 ? "is-total" : ""}">
+    <div class="collection-progress-total-row">
+      <div class="collection-progress-item is-total">
+        <span>全体</span>
+        <strong>${totalProgress.discovered}/${totalProgress.total}（${totalProgress.rate.toFixed(2)}%）</strong>
+      </div>
+      <button
+        id="collectionRarityProgressToggle"
+        class="secondary collection-progress-toggle"
+        type="button"
+        aria-expanded="${state.collectionRarityProgressOpen ? "true" : "false"}"
+        aria-controls="collectionRarityProgressDetails"
+      >${state.collectionRarityProgressOpen ? "★別を閉じる" : "★別を見る"}</button>
+    </div>
+    <div
+      id="collectionRarityProgressDetails"
+      class="collection-progress-grid collection-rarity-progress ${state.collectionRarityProgressOpen ? "" : "is-hidden"}"
+    >
+      ${rarityProgressRows.map((row) => `
+        <div class="collection-progress-item">
           <span>${row.label}</span>
           <strong>${row.discovered}/${row.total}（${row.rate.toFixed(2)}%）</strong>
         </div>
       `).join("")}
     </div>
   `;
+
+  const rarityProgressToggle = $("collectionRarityProgressToggle");
+  rarityProgressToggle?.addEventListener("click", () => {
+    state.collectionRarityProgressOpen = !state.collectionRarityProgressOpen;
+    const details = $("collectionRarityProgressDetails");
+    details?.classList.toggle("is-hidden", !state.collectionRarityProgressOpen);
+    rarityProgressToggle.setAttribute("aria-expanded", state.collectionRarityProgressOpen ? "true" : "false");
+    rarityProgressToggle.textContent = state.collectionRarityProgressOpen ? "★別を閉じる" : "★別を見る";
+  });
 
   const grid = $("collectionGrid");
   grid.innerHTML = "";
